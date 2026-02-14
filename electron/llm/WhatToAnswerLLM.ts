@@ -1,0 +1,74 @@
+import { LLMHelper } from "../LLMHelper";
+import { UNIVERSAL_WHAT_TO_ANSWER_PROMPT, injectUserContext } from "./prompts";
+import { TemporalContext } from "./TemporalContextBuilder";
+import { IntentResult } from "./IntentClassifier";
+import { ContextDocumentManager } from "../services/ContextDocumentManager";
+
+export class WhatToAnswerLLM {
+    private llmHelper: LLMHelper;
+
+    constructor(llmHelper: LLMHelper) {
+        this.llmHelper = llmHelper;
+    }
+
+    // Deprecated non-streaming method (redirect to streaming or implement if needed)
+    async generate(cleanedTranscript: string): Promise<string> {
+        // Simple wrapper around stream
+        const stream = this.generateStream(cleanedTranscript);
+        let full = "";
+        for await (const chunk of stream) full += chunk;
+        return full;
+    }
+
+    async *generateStream(
+        cleanedTranscript: string,
+        temporalContext?: TemporalContext,
+        intentResult?: IntentResult,
+        imagePath?: string
+    ): AsyncGenerator<string> {
+        try {
+            // Build a rich message context
+            // Note: We can't easily inject the complex temporal/intent logic into universal prompt *variables* 
+            // but we can prepend it to the message.
+
+            let contextParts: string[] = [];
+
+            if (intentResult) {
+                contextParts.push(`<intent_and_shape>
+DETECTED INTENT: ${intentResult.intent}
+ANSWER SHAPE: ${intentResult.answerShape}
+</intent_and_shape>`);
+            }
+
+            if (temporalContext && temporalContext.hasRecentResponses) {
+                // ... simplify temporal context injection for universal prompt ...
+                // Just dump it in context if possible
+                const history = temporalContext.previousResponses.map((r, i) => `${i + 1}. "${r}"`).join('\n');
+                contextParts.push(`PREVIOUS RESPONSES (Avoid Repetition):\n${history}`);
+            }
+
+            const extraContext = contextParts.join('\n\n');
+            const fullMessage = extraContext
+                ? `${extraContext}\n\nCONVERSATION:\n${cleanedTranscript}`
+                : cleanedTranscript;
+
+            // Get user context (resume/JD)
+            const contextManager = ContextDocumentManager.getInstance();
+            const resumeText = contextManager.getResumeText();
+            const jdText = contextManager.getJDText();
+
+            // Inject into prompt
+            const prompt = injectUserContext(UNIVERSAL_WHAT_TO_ANSWER_PROMPT, resumeText, jdText);
+
+            // Use Universal Prompt
+            // Note: WhatToAnswer has a very specific prompt. 
+            // We should use UNIVERSAL_WHAT_TO_ANSWER_PROMPT as override
+
+            yield* this.llmHelper.streamChat(fullMessage, imagePath, undefined, prompt);
+
+        } catch (error) {
+            console.error("[WhatToAnswerLLM] Stream failed:", error);
+            yield "Could you repeat that? I want to make sure I address your question properly.";
+        }
+    }
+}
