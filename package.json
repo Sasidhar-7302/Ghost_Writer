@@ -20,10 +20,10 @@
     "lint": "eslint . --max-warnings 1000 || true",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "test": "npm run test:accuracy && npm run test:e2e && npm run test:system-audio && npm run test:electron",
-    "test:accuracy": "node test_accuracy.js",
-    "test:e2e": "node test_e2e.js",
-    "test:system-audio": "node test_system_audio.js",
-    "test:electron": "node test-electron.js"
+    "test:accuracy": "node tests/test_accuracy.js",
+    "test:e2e": "node tests/test_e2e.js",
+    "test:system-audio": "node tests/test_system_audio.js",
+    "test:electron": "node tests/test-electron.js"
   },
   "build": {
     "appId": "com.electron.ghost-writer",
