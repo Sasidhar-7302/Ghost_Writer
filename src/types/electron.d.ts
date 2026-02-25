@@ -78,6 +78,11 @@ export interface ElectronAPI {
   getWhisperStatus: () => Promise<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string }>
   setupWhisper: () => Promise<boolean>
 
+  // Audio Test
+  startAudioTest: (deviceId?: string) => Promise<void>
+  onAudioLevel: (callback: (level: number) => void) => () => void
+  stopAudioTest: () => Promise<void>
+
   // Intelligence Mode IPC
   generateAssist: () => Promise<{ insight: string | null }>
   generateWhatToSay: (question?: string, imagePath?: string) => Promise<{ answer: string | null; question?: string; error?: string }>

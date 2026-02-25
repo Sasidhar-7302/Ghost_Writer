@@ -1,6 +1,6 @@
 {
   "name": "ghost-writer",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "./dist-electron/main.js",
   "description": "Ghost Writer is a meeting notes app that uses AI to generate notes from your meetings.",
   "scripts": {
