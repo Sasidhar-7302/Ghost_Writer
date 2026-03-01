@@ -8,9 +8,10 @@ import evinProfile from './icon.ico';
 interface AboutSectionProps { }
 
 export const AboutSection: React.FC<AboutSectionProps> = () => {
+    const [copied, setCopied] = useState(false);
+
     const handleOpenLink = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
         e.preventDefault();
-        // Use backend shell.openExternal to ensure it opens in default browser
         if (window.electronAPI?.invoke) {
             window.electronAPI.invoke('open-external', url);
         } else {
@@ -18,224 +19,134 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
         }
     };
 
+    const handleCopyEmail = () => {
+        navigator.clipboard.writeText("yepurisasi@gmail.com");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     return (
-        <div className="space-y-6 animated fadeIn pb-10">
-            {/* Header */}
-            <div>
-                <h3 className="text-lg font-bold text-text-primary mb-1">About Ghost Writer</h3>
-                <p className="text-sm text-text-secondary">Designed to be invisible, intelligent, and trusted.</p>
+        <div className="space-y-8 animated fadeIn pb-10 max-w-2xl mx-auto">
+            {/* 1. Production Header */}
+            <div className="flex flex-col items-center transition-all duration-700 pt-4">
+                <div className="w-20 h-20 mb-6 group cursor-default flex items-center justify-center">
+                    <img src={evinProfile} alt="Ghost Writer Logo" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]" />
+                </div>
+                <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-2">Ghost Writer v2.0.0</h1>
+                <div className="flex items-center gap-2 mb-6">
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black text-[9px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+                        <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+                        Production Stable
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/5 text-text-tertiary text-[9px] font-bold border border-white/5 uppercase tracking-widest">
+                        v2.0.0.5192
+                    </span>
+                </div>
+                <p className="text-center text-text-secondary text-sm leading-relaxed max-w-md">
+                    The invisible intelligent layer for modern professionals. Designed for privacy, speed, and deep contextual awareness.
+                </p>
             </div>
 
-            {/* Architecture Section */}
-            <div>
-                <h4 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 px-1">How Ghost Writer Works</h4>
-                <div className="bg-bg-item-surface rounded-xl border border-border-subtle overflow-hidden">
-                    <div className="p-5 border-b border-border-subtle bg-bg-card/50">
-                        <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
-                                <Cpu size={20} />
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-bold text-text-primary mb-1">Hybrid Intelligence</h5>
-                                <p className="text-xs text-text-secondary leading-relaxed">
-                                    Ghost Writer routes queries between <span className="text-text-primary font-medium">Groq</span> for near-instant responses and <span className="text-text-primary font-medium">Google Gemini</span> for complex reasoning. Audio is processed via Google Speech-to-Text for enterprise-grade accuracy.
-                                </p>
-                            </div>
-                        </div>
+            {/* 2. Core Pillars (Grid) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-2xl p-6 hover:bg-white/5 hover:border-white/10 transition-all duration-500 group">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-text-tertiary mb-4 border border-white/5 shadow-sm group-hover:text-text-primary group-hover:bg-white/10 transition-all">
+                        <Shield size={20} />
                     </div>
-
-                    <div className="p-5 bg-bg-card/50">
-                        <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 shrink-0">
-                                <Database size={20} />
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-bold text-text-primary mb-1">Context Awareness (RAG)</h5>
-                                <p className="text-xs text-text-secondary leading-relaxed">
-                                    A local vector memory system allows Ghost Writer to recall details from your past interactions. Context retrieval happens securely on-device where possible to minimize latency.
-                                </p>
-                            </div>
-                        </div>
+                    <h3 className="text-xs font-black text-text-primary uppercase tracking-widest mb-2">Privacy Core</h3>
+                    <p className="text-[11px] text-text-tertiary leading-relaxed font-medium">
+                        Zero-persistence transient memory. Your data never leaves your secure local environment.
+                    </p>
+                </div>
+                <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-2xl p-6 hover:bg-white/5 hover:border-white/10 transition-all duration-500 group">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-text-tertiary mb-4 border border-white/5 shadow-sm group-hover:text-text-primary group-hover:bg-white/10 transition-all">
+                        <Cpu size={20} />
                     </div>
+                    <h3 className="text-xs font-black text-text-primary uppercase tracking-widest mb-2">Hybrid Compute</h3>
+                    <p className="text-[11px] text-text-tertiary leading-relaxed font-medium">
+                        Optimized routing across local Whisper and high-performance cloud intelligence.
+                    </p>
                 </div>
             </div>
 
-            {/* Privacy Section */}
-            <div>
-                <h4 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 px-1">Privacy & Data</h4>
-                <div className="bg-bg-item-surface rounded-xl border border-border-subtle p-5 space-y-4">
-                    <div className="flex items-start gap-3">
-                        <Shield size={16} className="text-green-400 mt-0.5" />
-                        <div>
-                            <h5 className="text-sm font-medium text-text-primary">Controlled Data Flow</h5>
-                            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                                Audio and text are transmitted only to processed endpoints (Google Cloud, Groq) and are not stored permanently by Ghost Writer's servers.
+            {/* 3. Community & Developer */}
+            <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl border border-border-subtle rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-border-subtle">
+                    <div className="flex items-start gap-5">
+                        <div className="w-14 h-14 rounded-full bg-[var(--bg-glass)] backdrop-blur-md border border-border-subtle flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
+                            <img src={evinProfile} alt="Sasidhar Yepuri" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                                <div>
+                                    <h4 className="text-sm font-bold text-text-primary">Sasidhar Yepuri</h4>
+                                    <p className="text-[10px] text-text-tertiary">Founder & Lead Architect</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={(e) => handleOpenLink(e as any, "https://github.com/Sasidhar-7302")} className="text-text-tertiary hover:text-text-primary transition-colors"><Github size={16} /></button>
+                                    <button onClick={(e) => handleOpenLink(e as any, "https://www.linkedin.com/in/sasidharyepuri")} className="text-text-tertiary hover:text-text-primary transition-colors"><Linkedin size={16} /></button>
+                                </div>
+                            </div>
+                            <p className="text-xs text-text-secondary leading-relaxed">
+                                Building the future of human-AI collaboration. Ghost Writer is open-source and community driven.
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-start gap-3">
-                        <MicOff size={16} className="text-red-500 mt-0.5" />
-                        <div>
-                            <h5 className="text-sm font-medium text-text-primary">No Recording</h5>
-                            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                                Ghost Writer listens only when active. It does not record video, take arbitrary screenshots without command, or perform background surveillance.
-                            </p>
-                        </div>
-                    </div>
                 </div>
-            </div>
 
-
-
-
-
-            {/* Community Section */}
-            <div>
-                <h4 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 px-1">Community</h4>
-                <div className="space-y-4">
-                    {/* 1. Founder Profile */}
-                    <div className="bg-bg-item-surface rounded-xl p-5">
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-full bg-bg-elevated border border-border-subtle flex items-center justify-center overflow-hidden shrink-0">
-                                    <img src={evinProfile} alt="Sasidhar Yepuri" className="w-full h-full object-cover" />
-                                </div>
-                                <div className="pt-0.5">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h5 className="text-sm font-bold text-text-primary">Sasidhar Yepuri</h5>
-                                        <span className="text-[10px] font-medium px-1.5 py-[1px] rounded-full bg-yellow-400/10 text-yellow-200 border border-yellow-400/5">Creator</span>
-                                    </div>
-                                    <p className="text-xs text-text-secondary leading-relaxed max-w-lg">
-                                        I build software that stays out of the way.
-                                        <br />
-                                        <span className="font-bold text-text-primary">Ghost Writer</span> is made to feel fast, quiet, and respectful of your privacy.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 pl-[60px]">
-                                <a
-                                    href="https://github.com/Sasidhar-7302"
-                                    onClick={(e) => handleOpenLink(e, "https://github.com/Sasidhar-7302")}
-                                    className="text-text-tertiary hover:text-text-primary transition-colors"
-                                    title="GitHub"
-                                >
-                                    <Github size={18} />
-                                </a>
-                                <a
-                                    href="https://x.com/isashisayz"
-                                    onClick={(e) => handleOpenLink(e, "https://x.com/isashisayz")}
-                                    className="text-text-tertiary hover:text-text-primary transition-colors"
-                                    title="Twitter"
-                                >
-                                    <Twitter size={18} />
-                                </a>
-                                <a
-                                    href="https://www.linkedin.com/in/sasidharyepuri"
-                                    onClick={(e) => handleOpenLink(e, "https://www.linkedin.com/in/sasidharyepuri")}
-                                    className="text-text-tertiary hover:text-text-primary transition-colors"
-                                    title="LinkedIn"
-                                >
-                                    <Linkedin size={18} />
-                                </a>
-                                <a
-                                    href="https://www.instagram.com/sasidharyepuri/"
-                                    onClick={(e) => handleOpenLink(e, "https://www.instagram.com/sasidharyepuri/")}
-                                    className="text-text-tertiary hover:text-text-primary transition-colors"
-                                    title="Instagram"
-                                >
-                                    <Instagram size={18} />
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 2. Star & Report */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <a
-                            href="https://github.com/Sasidhar-7302/Ghost_Writer"
-                            onClick={(e) => handleOpenLink(e, "https://github.com/Sasidhar-7302/Ghost_Writer")}
-                            className="bg-bg-item-surface border border-border-subtle rounded-xl p-5 transition-all group flex items-center gap-4 cursor-pointer h-full hover:bg-white/10"
-                        >
-                            <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-500 shrink-0 group-hover:scale-110 transition-transform">
-                                <Star size={20} className="transition-all group-hover:fill-current" />
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-bold text-text-primary">Star on GitHub</h5>
-                                <p className="text-xs text-text-secondary mt-0.5">Love Ghost Writer? Support us by starring the repo.</p>
-                            </div>
-                        </a>
-
-                        <a
-                            href="https://github.com/Sasidhar-7302/Ghost_Writer/issues"
-                            onClick={(e) => handleOpenLink(e, "https://github.com/Sasidhar-7302/Ghost_Writer/issues")}
-                            className="bg-bg-item-surface border border-border-subtle rounded-xl p-5 transition-all group flex items-center gap-4 cursor-pointer h-full hover:bg-white/10"
-                        >
-                            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 transition-transform">
-                                <Bug size={20} />
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-bold text-text-primary">Report an Issue</h5>
-                                <p className="text-xs text-text-secondary mt-0.5">Found a bug? Let us know so we can fix it.</p>
-                            </div>
-                        </a>
-                    </div>
-
-                    {/* 3. Get in Touch */}
-                    <div className="bg-bg-item-surface rounded-xl border border-border-subtle p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-sm shadow-blue-500/5">
-                                <Mail size={18} className="opacity-80" />
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-bold text-text-primary">Get in Touch</h5>
-                                <p className="text-xs text-text-secondary mt-0.5">Open for professional collaborations and job offers.</p>
-                            </div>
-                        </div>
-                        <a
-                            href="mailto:yepurisashidhar@gmail.com"
-                            onClick={(e) => handleOpenLink(e, "mailto:yepurisashidhar@gmail.com")}
-                            className="whitespace-nowrap px-4 py-2 bg-text-primary hover:bg-white/90 text-bg-main text-xs font-bold rounded-lg transition-all shadow hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2"
-                        >
-                            <Mail size={14} />
-                            Contact Me
-                        </a>
-                    </div>
-
-                    {/* 4. Support */}
-                    <div className="bg-bg-item-surface rounded-xl border border-border-subtle p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center text-pink-500 shadow-sm shadow-pink-500/5">
-                                <Heart size={18} fill="currentColor" className="opacity-80" />
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-bold text-text-primary">Support Development</h5>
-                                <p className="text-xs text-text-secondary mt-0.5">Ghost Writer is independent open-source software.</p>
-                            </div>
-                        </div>
-                        <a
-                            href="https://buymeacoffee.com/sasidharyepuri"
-                            onClick={(e) => handleOpenLink(e, "https://buymeacoffee.com/sasidharyepuri")}
-                            className="whitespace-nowrap px-4 py-2 bg-text-primary hover:bg-white/90 text-bg-main text-xs font-bold rounded-lg transition-all shadow hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-                        >
-                            Support Project
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            {/* Credits */}
-            <div className="pt-4 border-t border-border-subtle">
-                <div>
-                    <h4 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-3">Core Technology</h4>
-                    <div className="flex flex-wrap gap-2">
-                        {['Groq', 'Google Gemini', 'Google Speech-to-Text', 'Electron', 'React', 'Rust', 'Cpal'].map(tech => (
-                            <span key={tech} className="px-2.5 py-1 rounded-md bg-bg-input border border-border-subtle text-[11px] font-medium text-text-secondary">
-                                {tech}
+                <div className="grid grid-cols-2 divide-x divide-border-subtle">
+                    <button
+                        onClick={(e) => handleOpenLink(e as any, "https://github.com/Sasidhar-7302/Ghost_Writer")}
+                        className="p-4 flex flex-col items-center justify-center gap-2 hover:bg-accent-primary/5 transition-colors group"
+                    >
+                        <Star size={16} className="text-yellow-500 group-hover:fill-current" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary group-hover:text-text-primary">Star Repo</span>
+                    </button>
+                    <button
+                        onClick={handleCopyEmail}
+                        className="p-4 flex flex-col items-center justify-center gap-2 hover:bg-accent-primary/5 transition-all active:scale-95 group cursor-pointer"
+                        title="Click to copy email"
+                    >
+                        <Mail size={16} className={`transition-colors duration-300 ${copied ? 'text-emerald-400' : 'text-text-primary'}`} />
+                        <div className="flex flex-col items-center">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary group-hover:text-text-primary transition-colors">
+                                {copied ? 'Copied!' : 'Contact'}
                             </span>
-                        ))}
-                    </div>
+                            <span className="text-[10px] text-text-primary font-medium">{copied ? 'yepurisasi@gmail.com' : 'yepurisasi@gmail.com'}</span>
+                        </div>
+                    </button>
                 </div>
             </div>
-        </div >
+
+            {/* 4. Support & Contributions */}
+            <div className="bg-white/5 backdrop-blur-3xl border border-white/5 rounded-2xl p-6 flex items-center justify-between shadow-2xl relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-text-tertiary border border-white/10">
+                        <Heart size={20} />
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-black text-text-primary uppercase tracking-widest">Founder Support</h4>
+                        <p className="text-[10px] text-text-tertiary mt-1 max-w-[200px] font-medium">Empower independent development through direct contributions.</p>
+                    </div>
+                </div>
+                <button
+                    onClick={(e) => handleOpenLink(e as any, "https://paypal.me/sasidhar7302")}
+                    className="px-6 py-2.5 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/90 transition-all shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)] active:scale-95 relative z-10"
+                >
+                    Back Project
+                </button>
+            </div>
+
+            {/* 5. Production Footer */}
+            <div className="flex flex-col items-center gap-4 pt-6 opacity-60">
+                <div className="flex items-center gap-6">
+                    <button className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors">Privacy Policy</button>
+                    <button className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors">Terms of Service</button>
+                    <button className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors">Legal</button>
+                </div>
+                <p className="text-[9px] font-medium tracking-tight text-text-tertiary">© {new Date().getFullYear()} Ghost Writer. All rights reserved.</p>
+            </div>
+        </div>
     );
 };

@@ -43,7 +43,30 @@ interface Meeting {
         answer?: string;
         items?: string[];
     }>;
+    screenshots?: string[];
 }
+
+const ScreenshotPreview = ({ path }: { path: string }) => {
+    const [preview, setPreview] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (window.electronAPI?.getImagePreview) {
+            window.electronAPI.getImagePreview(path).then(setPreview).catch(console.error);
+        }
+    }, [path]);
+
+    if (!preview) return <div className="aspect-video bg-bg-tertiary animate-pulse rounded-lg border border-border-subtle" />;
+
+    return (
+        <div className="block relative group overflow-hidden rounded-lg border border-border-subtle shadow-sm hover:border-black/10 dark:hover:border-white/10 transition-colors">
+            <img src={preview} alt="Meeting capture" className="w-full object-cover aspect-video group-hover:scale-105 transition-transform duration-300" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 backdrop-blur-sm pointer-events-none">
+                <Search size={24} className="text-white" />
+            </div>
+            <a href={preview} download={`screenshot-${path.split(/[\\/]/).pop()?.replace('.png', '') || 'capture'}.png`} className="absolute inset-0 z-10" />
+        </div>
+    );
+};
 
 interface MeetingDetailsProps {
     meeting: Meeting;
@@ -54,7 +77,7 @@ interface MeetingDetailsProps {
 const MeetingDetails: React.FC<MeetingDetailsProps> = ({ meeting: initialMeeting }) => {
     // We need local state for the meeting object to reflect optimistic updates
     const [meeting, setMeeting] = useState<Meeting>(initialMeeting);
-    const [activeTab, setActiveTab] = useState<'summary' | 'transcript' | 'usage'>('summary');
+    const [activeTab, setActiveTab] = useState<'summary' | 'transcript' | 'usage' | 'screenshots'>('summary');
     const [query, setQuery] = useState('');
     const [isCopied, setIsCopied] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -171,7 +194,7 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
 
 
     return (
-        <div className="h-full w-full flex flex-col bg-bg-secondary dark:bg-[#0C0C0C] text-text-secondary font-sans overflow-hidden">
+        <div className="h-full w-full flex flex-col bg-bg-main text-text-secondary font-sans overflow-hidden">
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto custom-scrollbar">
                 <motion.div
@@ -205,25 +228,25 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                     {/* Tabs */}
                     {/* Designing Tabs to match reference 1:1 (Dark Pill Container) */}
                     <div className="flex items-center justify-between mb-8">
-                        <div className="bg-[#E5E5EA] dark:bg-[#121214] p-1 rounded-xl inline-flex items-center gap-0.5 border border-black/[0.04] dark:border-white/[0.08]">
-                            {['summary', 'transcript', 'usage'].map((tab) => (
+                        <div className="bg-white/5 p-1.5 rounded-2xl inline-flex items-center gap-1 border border-white/5 backdrop-blur-3xl">
+                            {['summary', 'transcript', 'usage', 'screenshots'].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab as any)}
                                     className={`
-                                        relative px-3 py-1 text-[13px] font-medium rounded-lg transition-all duration-200 z-10
-                                        ${activeTab === tab ? 'text-black dark:text-[#E9E9E9]' : 'text-text-tertiary hover:text-text-secondary dark:text-[#888889] dark:hover:text-[#B0B0B1]'}
+                                        relative px-5 py-2 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-500 z-10
+                                        ${activeTab === tab ? 'text-black' : 'text-text-tertiary hover:text-text-primary'}
                                     `}
                                 >
                                     {activeTab === tab && (
                                         <motion.div
                                             layoutId="activeTabBackground"
-                                            className="absolute inset-0 bg-white dark:bg-[#3A3A3C] rounded-lg -z-10 shadow-sm"
+                                            className="absolute inset-0 bg-white rounded-xl -z-10 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)]"
                                             initial={false}
-                                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 40 }}
                                         />
                                     )}
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    {tab}
                                 </button>
                             ))}
                         </div>
@@ -330,7 +353,7 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                                         <ul className="space-y-3">
                                             {meeting.detailedSummary.keyPoints.map((item, i) => (
                                                 <li key={i} className="flex items-start gap-3 group">
-                                                    <div className="mt-2 w-1.5 h-1.5 rounded-full bg-text-secondary group-hover:bg-purple-500 transition-colors shrink-0" />
+                                                    <div className="mt-2 w-1.5 h-1.5 rounded-full bg-white animate-pulse shadow-[0_0_8px_white] shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
                                                     <div className="flex-1">
                                                         <EditableTextBlock
                                                             initialValue={item}
@@ -395,7 +418,7 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                                         {/* User Question */}
                                         {interaction.question && (
                                             <div className="flex justify-end">
-                                                <div className="bg-accent-primary text-white px-5 py-2.5 rounded-2xl rounded-tr-sm max-w-[80%] text-[15px] font-medium leading-relaxed shadow-sm">
+                                                <div className="bg-white text-black px-5 py-2.5 rounded-2xl rounded-tr-sm max-w-[80%] text-[14px] font-bold leading-relaxed shadow-[0_10px_30px_-10px_rgba(255,255,255,0.2)]">
                                                     {interaction.question}
                                                 </div>
                                             </div>
@@ -404,12 +427,17 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                                         {/* AI Answer */}
                                         {interaction.answer && (
                                             <div className="flex items-start gap-4">
-                                                <div className="mt-1 w-6 h-6 rounded-full bg-bg-input flex items-center justify-center border border-border-subtle shrink-0">
-                                                    <img src={GhostWriterLogo} alt="AI" className="w-4 h-4 opacity-50 grayscale object-contain" />
+                                                <div className="mt-1 w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
+                                                    <img src={GhostWriterLogo} alt="AI" className="w-5 h-5 object-contain" />
                                                 </div>
-                                                <div>
-                                                    <div className="text-[11px] text-text-tertiary mb-1.5 font-medium">{formatTime(interaction.timestamp)}</div>
-                                                    <p className="text-text-secondary text-[15px] leading-relaxed whitespace-pre-wrap">{interaction.answer}</p>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1.5">
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-primary">Ghost Writer</span>
+                                                        <span className="text-[10px] text-text-tertiary font-medium uppercase tracking-widest opacity-60">{formatTime(interaction.timestamp)}</span>
+                                                    </div>
+                                                    <div className="bg-white/[0.03] border border-white/5 rounded-2xl rounded-tl-sm p-5 text-text-secondary text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                        {interaction.answer}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
@@ -418,28 +446,42 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                                 {!meeting.usage?.length && <p className="text-text-tertiary">No usage history.</p>}
                             </motion.section>
                         )}
+
+                        {activeTab === 'screenshots' && (
+                            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 pb-10">
+                                {meeting.screenshots && meeting.screenshots.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {meeting.screenshots.map((path, i) => (
+                                            <ScreenshotPreview key={i} path={path} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-text-tertiary">No screenshots taken during this session.</p>
+                                )}
+                            </motion.section>
+                        )}
                     </div>
                 </motion.div>
             </main>
 
             {/* Floating Footer (Ask Bar) */}
-            <div className={`absolute bottom-0 left-0 right-0 p-6 flex justify-center pointer-events-none ${isChatOpen ? 'z-50' : 'z-20'}`}>
-                <div className="w-full max-w-[440px] relative group pointer-events-auto">
+            <div className={`absolute bottom-0 left-0 right-0 p-8 flex justify-center pointer-events-none ${isChatOpen ? 'z-50' : 'z-20'}`}>
+                <div className="w-full max-w-[480px] relative group pointer-events-auto">
                     {/* Dark Glass Effect Input (Matching Reference) */}
                     <input
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleInputKeyDown}
-                        placeholder="Ask about this meeting..."
-                        className="w-full pl-5 pr-12 py-3 bg-transparent backdrop-blur-[24px] backdrop-saturate-[140%] shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 dark:border-white/10 rounded-full text-sm text-text-primary placeholder-text-tertiary/70 focus:outline-none transition-shadow duration-200"
+                        placeholder="Contextual query regarding this session..."
+                        className="w-full pl-8 pr-16 py-5 bg-white/[0.03] backdrop-blur-3xl border border-white/10 rounded-2xl text-[14px] text-white placeholder-text-tertiary/40 focus:outline-none focus:border-white/30 transition-all duration-500 shadow-2xl font-medium"
                     />
                     <button
                         onClick={handleSubmitQuestion}
-                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all duration-200 border border-white/5 ${query.trim() ? 'bg-text-primary text-bg-primary hover:scale-105' : 'bg-bg-item-active text-text-primary hover:bg-bg-item-hover'
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all duration-500 border border-white/10 ${query.trim() ? 'bg-white text-black shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:scale-105' : 'bg-white/5 text-text-tertiary hover:bg-white/10'
                             }`}
                     >
-                        <ArrowUp size={16} className="transform rotate-45" />
+                        <ArrowUp size={18} />
                     </button>
                 </div>
             </div>

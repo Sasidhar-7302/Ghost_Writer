@@ -24,6 +24,8 @@ function makeApiKeySetter(
       const llmHelper = appState.processingHelper.getLLMHelper();
       llmSetter(llmHelper, apiKey);
 
+      // Auto-switch to best model if currently on a weak fallback
+      llmHelper.setModel(llmHelper.getBestAvailableModel());
       appState.getIntelligenceManager().initializeLLMs();
 
       return { success: true };
@@ -274,6 +276,102 @@ export function registerCredentialHandlers(appState: AppState): void {
       return { success: true, path: filePath };
     } catch (error: any) {
       console.error("Error selecting service account:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ==========================================
+  // Customizable Prompts
+  // ==========================================
+
+  ipcMain.handle("get-custom-prompts", async () => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      const cm = CredentialsManager.getInstance();
+      return {
+        interviewPrompt: cm.getInterviewPrompt() || null,
+        meetingPrompt: cm.getMeetingPrompt() || null
+      };
+    } catch (error: any) {
+      console.error("Error getting custom prompts:", error);
+      return { interviewPrompt: null, meetingPrompt: null };
+    }
+  });
+
+  ipcMain.handle("set-custom-prompt", async (_, type: 'interview' | 'meeting', prompt: string) => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      const cm = CredentialsManager.getInstance();
+      if (type === 'interview') {
+        cm.setInterviewPrompt(prompt);
+      } else {
+        cm.setMeetingPrompt(prompt);
+      }
+      return { success: true };
+    } catch (error: any) {
+      console.error(`Error setting custom ${type} prompt:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("get-default-prompts", async () => {
+    try {
+      const {
+        UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
+        UNIVERSAL_ANSWER_PROMPT
+      } = require('../llm/prompts');
+      return {
+        interviewPrompt: UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
+        meetingPrompt: UNIVERSAL_ANSWER_PROMPT
+      };
+    } catch (error: any) {
+      console.error("Error getting default prompts:", error);
+      return { interviewPrompt: "", meetingPrompt: "" };
+    }
+  });
+
+  ipcMain.handle("get-meeting-mode", async () => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      return CredentialsManager.getInstance().getIsMeetingMode();
+    } catch (error: any) {
+      console.error("Error getting meeting mode:", error);
+      return false;
+    }
+  });
+
+  ipcMain.handle("set-meeting-mode", async (_, isMeeting: boolean) => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      CredentialsManager.getInstance().setIsMeetingMode(isMeeting);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting meeting mode:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ==========================================
+  // Security
+  // ==========================================
+
+  ipcMain.handle("get-air-gap-mode", async () => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      return CredentialsManager.getInstance().getAirGapMode();
+    } catch (error: any) {
+      console.error("Error getting air gap mode:", error);
+      return false;
+    }
+  });
+
+  ipcMain.handle("set-air-gap-mode", async (_, enabled: boolean) => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      CredentialsManager.getInstance().setAirGapMode(enabled);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting air gap mode:", error);
       return { success: false, error: error.message };
     }
   });

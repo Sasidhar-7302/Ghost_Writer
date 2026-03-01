@@ -6,6 +6,9 @@
 import { app, safeStorage } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger';
+
+const log = logger.createChild('CredentialsManager');
 
 const CREDENTIALS_PATH = path.join(app.getPath('userData'), 'credentials.enc');
 
@@ -38,10 +41,16 @@ export interface StoredCredentials {
     // Context documents
     resumePath?: string;
     jobDescriptionText?: string;
+    // Customizable Prompts
+    interviewPrompt?: string;
+    meetingPrompt?: string;
+    isMeetingMode?: boolean;
     // Local Whisper Manual Paths
     localWhisperBinaryPath?: string;
     localWhisperModelPath?: string;
     localWhisperModel?: string;
+    // Security
+    airGapMode?: boolean;
 }
 
 export class CredentialsManager {
@@ -65,7 +74,7 @@ export class CredentialsManager {
      */
     public init(): void {
         this.loadCredentials();
-        console.log('[CredentialsManager] Initialized');
+        log.info('Initialized');
     }
 
     // =========================================================================
@@ -102,6 +111,14 @@ export class CredentialsManager {
 
     public getJobDescriptionText(): string | undefined {
         return this.credentials.jobDescriptionText;
+    }
+
+    public getInterviewPrompt(): string | undefined {
+        return this.credentials.interviewPrompt;
+    }
+
+    public getMeetingPrompt(): string | undefined {
+        return this.credentials.meetingPrompt;
     }
 
     public getGoogleServiceAccountPath(): string | undefined {
@@ -160,6 +177,14 @@ export class CredentialsManager {
         return this.credentials.localWhisperModelPath;
     }
 
+    public getIsMeetingMode(): boolean {
+        return !!this.credentials.isMeetingMode;
+    }
+
+    public getAirGapMode(): boolean {
+        return !!this.credentials.airGapMode;
+    }
+
     public getAllCredentials(): StoredCredentials {
         return { ...this.credentials };
     }
@@ -214,6 +239,24 @@ export class CredentialsManager {
         this.credentials.jobDescriptionText = text;
         this.saveCredentials();
         console.log('[CredentialsManager] Job Description updated');
+    }
+
+    public setInterviewPrompt(prompt: string): void {
+        this.credentials.interviewPrompt = prompt;
+        this.saveCredentials();
+        console.log('[CredentialsManager] Interview Prompt updated');
+    }
+
+    public setMeetingPrompt(prompt: string): void {
+        this.credentials.meetingPrompt = prompt;
+        this.saveCredentials();
+        console.log('[CredentialsManager] Meeting Prompt updated');
+    }
+
+    public setIsMeetingMode(isMeeting: boolean): void {
+        this.credentials.isMeetingMode = isMeeting;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Meeting Mode set to: ${isMeeting}`);
     }
 
     public clearResume(): void {
@@ -316,6 +359,12 @@ export class CredentialsManager {
         console.log(`[CredentialsManager] Local Whisper Model set to: ${model}`);
     }
 
+    public setAirGapMode(enabled: boolean): void {
+        this.credentials.airGapMode = enabled;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Air-Gap Mode set to: ${enabled}`);
+    }
+
     public saveCustomProvider(provider: CustomProvider): void {
         if (!this.credentials.customProviders) {
             this.credentials.customProviders = [];
@@ -346,14 +395,10 @@ export class CredentialsManager {
         console.log('[CredentialsManager] All credentials cleared');
     }
 
-    // =========================================================================
-    // Storage (Encrypted)
-    // =========================================================================
-
     private saveCredentials(): void {
         try {
             if (!safeStorage.isEncryptionAvailable()) {
-                console.warn('[CredentialsManager] Encryption not available, falling back to plaintext');
+                log.warn('Encryption not available, falling back to plaintext');
                 // Fallback: save as plaintext (less secure, but functional)
                 fs.writeFileSync(CREDENTIALS_PATH + '.json', JSON.stringify(this.credentials));
                 return;
@@ -363,7 +408,7 @@ export class CredentialsManager {
             const encrypted = safeStorage.encryptString(data);
             fs.writeFileSync(CREDENTIALS_PATH, encrypted);
         } catch (error) {
-            console.error('[CredentialsManager] Failed to save credentials:', error);
+            log.error('Failed to save credentials', error);
         }
     }
 
@@ -372,14 +417,14 @@ export class CredentialsManager {
             // Try encrypted file first
             if (fs.existsSync(CREDENTIALS_PATH)) {
                 if (!safeStorage.isEncryptionAvailable()) {
-                    console.warn('[CredentialsManager] Encryption not available for load');
+                    log.warn('Encryption not available for load');
                     return;
                 }
 
                 const encrypted = fs.readFileSync(CREDENTIALS_PATH);
                 const decrypted = safeStorage.decryptString(encrypted);
                 this.credentials = JSON.parse(decrypted);
-                console.log('[CredentialsManager] Loaded encrypted credentials');
+                log.info('Loaded encrypted credentials');
                 return;
             }
 
@@ -388,13 +433,13 @@ export class CredentialsManager {
             if (fs.existsSync(plaintextPath)) {
                 const data = fs.readFileSync(plaintextPath, 'utf-8');
                 this.credentials = JSON.parse(data);
-                console.log('[CredentialsManager] Loaded plaintext credentials');
+                log.info('Loaded plaintext credentials');
                 return;
             }
 
-            console.log('[CredentialsManager] No stored credentials found');
+            log.info('No stored credentials found');
         } catch (error) {
-            console.error('[CredentialsManager] Failed to load credentials:', error);
+            log.error('Failed to load credentials', error);
             this.credentials = {};
         }
     }

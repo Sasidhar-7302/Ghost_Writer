@@ -250,7 +250,7 @@ export const AIProvidersSettings: React.FC = () => {
                 <div className="space-y-4">
 
                     {/* Gemini */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
                             Gemini API Key
                             {hasStoredKey.gemini && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
@@ -290,7 +290,7 @@ export const AIProvidersSettings: React.FC = () => {
                     </div>
 
                     {/* Groq */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
                             Groq API Key
                             {hasStoredKey.groq && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
@@ -330,7 +330,7 @@ export const AIProvidersSettings: React.FC = () => {
                     </div>
 
                     {/* OpenAI */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
                             OpenAI API Key
                             {hasStoredKey.openai && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
@@ -370,7 +370,7 @@ export const AIProvidersSettings: React.FC = () => {
                     </div>
 
                     {/* Claude */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
                             Claude API Key
                             {hasStoredKey.claude && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
@@ -410,7 +410,7 @@ export const AIProvidersSettings: React.FC = () => {
                     </div>
 
                     {/* NVIDIA NIM */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
                             NVIDIA NIM API Key
                             {hasStoredKey.nvidia && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
@@ -451,7 +451,7 @@ export const AIProvidersSettings: React.FC = () => {
                     </div>
 
                     {/* DeepSeek */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
                             DeepSeek API Key
                             {hasStoredKey.deepseek && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
@@ -595,7 +595,7 @@ export const AIProvidersSettings: React.FC = () => {
                 </div>
 
                 {isEditingCustom ? (
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle animated fadeIn">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle animated fadeIn">
                         <h4 className="text-sm font-bold text-text-primary mb-4">{editingProvider ? 'Edit Provider' : 'New Provider'}</h4>
 
                         <div className="space-y-4">
@@ -697,7 +697,7 @@ export const AIProvidersSettings: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handleSaveCustom}
-                                    className="px-4 py-2 rounded-lg text-xs font-medium bg-accent-primary text-white hover:bg-accent-secondary transition-colors flex items-center gap-2"
+                                    className="px-4 py-2 rounded-lg text-xs font-bold bg-accent-primary text-bg-primary hover:bg-accent-secondary transition-colors flex items-center gap-2"
                                 >
                                     <Save size={14} /> Save Provider
                                 </button>
@@ -712,7 +712,7 @@ export const AIProvidersSettings: React.FC = () => {
                             </div>
                         ) : (
                             customProviders.map((provider) => (
-                                <div key={provider.id} className="bg-bg-item-surface rounded-xl p-4 border border-border-subtle flex items-center justify-between group">
+                                <div key={provider.id} className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-4 border border-border-subtle flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-bg-input flex items-center justify-center text-text-secondary font-mono text-xs font-bold">
                                             {provider.name.substring(0, 2).toUpperCase()}

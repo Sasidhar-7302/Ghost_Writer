@@ -95,7 +95,7 @@ class RateLimiter {
 export const rateLimiter = new RateLimiter();
 
 // Register intelligence actions with appropriate limits
-rateLimiter.register('generate-what-to-say', { minInterval: 2000, maxConcurrent: 1 });
+rateLimiter.register('generate-what-to-say', { minInterval: 800, maxConcurrent: 1 });
 rateLimiter.register('generate-assist', { minInterval: 3000, maxConcurrent: 1 });
 rateLimiter.register('generate-follow-up', { minInterval: 1500, maxConcurrent: 1 });
 rateLimiter.register('generate-recap', { minInterval: 2000, maxConcurrent: 1 });

@@ -90,12 +90,18 @@ export class ScreenshotHelper {
 
       const exec = util.promisify(require('child_process').exec)
 
+      const captureScreen = async (filepath: string) => {
+        if (process.platform === "darwin") {
+          await exec(`screencapture -x -C "${filepath}"`)
+        } else {
+          await screenshot({ filename: filepath })
+        }
+      }
+
       if (this.view === "queue") {
         screenshotPath = path.join(this.screenshotDir, `${uuidv4()}.png`)
-        // Use native screencapture for reliability on macOS
-        // -x: do not play sound
-        // -C: capture cursor
-        await exec(`screencapture -x -C "${screenshotPath}"`)
+        // Use native screencapture for reliability on macOS, screenshot-desktop on Windows/Linux
+        await captureScreen(screenshotPath)
 
         this.screenshotQueue.push(screenshotPath)
         if (this.screenshotQueue.length > this.MAX_SCREENSHOTS) {
@@ -110,7 +116,7 @@ export class ScreenshotHelper {
         }
       } else {
         screenshotPath = path.join(this.extraScreenshotDir, `${uuidv4()}.png`)
-        await exec(`screencapture -x -C "${screenshotPath}"`)
+        await captureScreen(screenshotPath)
 
         this.extraScreenshotQueue.push(screenshotPath)
         if (this.extraScreenshotQueue.length > this.MAX_SCREENSHOTS) {
@@ -154,7 +160,12 @@ export class ScreenshotHelper {
       // -i: interactive mode (selection)
       // -x: do not play sound
       try {
-        await exec(`screencapture -i -x "${screenshotPath}"`)
+        if (process.platform === 'darwin') {
+          await exec(`screencapture -i -x "${screenshotPath}"`)
+        } else {
+          // On Windows/Linux fallback to full screen screenshot
+          await screenshot({ filename: screenshotPath })
+        }
       } catch (e: any) {
         // User cancelled selection (exit code 1 usually)
         throw new Error("Selection cancelled")

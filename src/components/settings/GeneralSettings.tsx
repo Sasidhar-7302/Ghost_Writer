@@ -12,6 +12,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
     // Google Service Account
     const [serviceAccountPath, setServiceAccountPath] = useState('');
 
+    // Security
+    const [airGapMode, setAirGapMode] = useState(false);
+
     useEffect(() => {
         const loadInitialData = async () => {
             // Load Credentials
@@ -20,6 +23,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
                 const creds = await window.electronAPI?.getStoredCredentials?.();
                 if (creds && creds.googleServiceAccountPath) {
                     setServiceAccountPath(creds.googleServiceAccountPath);
+                }
+                if (creds && creds.airGapMode !== undefined) {
+                    setAirGapMode(creds.airGapMode);
                 }
             } catch (e) {
                 console.error("Failed to load stored credentials:", e);
@@ -105,6 +111,14 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
         }
     };
 
+    const handleAirGapToggle = async () => {
+        const newMode = !airGapMode;
+        setAirGapMode(newMode);
+        if (window.electronAPI?.setAirGapMode) {
+            await window.electronAPI.setAirGapMode(newMode);
+        }
+    };
+
     return (
         <div className="space-y-8 animated fadeIn">
             <div>
@@ -113,7 +127,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
 
                 <div className="space-y-4">
                     {/* Google Cloud Service Account */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-2">Google Speech-to-Text Key (JSON)</label>
                         <div className="flex gap-3">
                             <div className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-secondary truncate flex items-center">
@@ -130,7 +144,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
                     </div>
 
                     {/* Recognition Language */}
-                    <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
                         <label className="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-2">Recognition Language</label>
                         <div className="relative">
                             <select
@@ -147,6 +161,25 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
                             <Globe size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
                         </div>
                         <p className="text-xs text-text-tertiary mt-2">Select your preferred accent for better recognition accuracy.</p>
+                    </div>
+
+                    {/* Air-Gap Mode */}
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle relative overflow-hidden">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 to-orange-500 opacity-50"></div>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold text-red-400 uppercase tracking-wide">Strict Air-Gap Mode</label>
+                            <button
+                                onClick={handleAirGapToggle}
+                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full focus:outline-none transition-colors duration-200 ease-in-out ${airGapMode ? 'bg-red-500' : 'bg-bg-input'}`}
+                                role="switch"
+                                aria-checked={airGapMode}
+                            >
+                                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${airGapMode ? 'translate-x-2' : '-translate-x-2'}`} />
+                            </button>
+                        </div>
+                        <p className="text-xs text-text-secondary leading-relaxed">
+                            When enabled, <strong className="text-text-primary">Ghost Writer requires Local Whisper STT and Ollama LLM to be used.</strong> It will aggressively block any outgoing requests to public cloud providers (OpenAI, Gemini, Deepgram, etc.) to ensure complete data privacy for highly sensitive meetings.
+                        </p>
                     </div>
                 </div>
             </div>

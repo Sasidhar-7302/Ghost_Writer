@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import icon from "../icon.ico";
 
@@ -12,6 +13,8 @@ export default function TopPill({
     onToggle,
     onQuit,
 }: TopPillProps) {
+
+
     return (
         <div className="flex justify-center mt-2 select-none z-50">
             <div
@@ -63,7 +66,7 @@ export default function TopPill({
             text-slate-200
             border border-white/0
             interaction-base interaction-hover interaction-press
-            hover:bg-white/10 hover:border-white/5 hover:text-white
+            hover:bg-bg-item-surface hover:border-border-subtle hover:text-text-primary
           "
                 >
                     <span className="opacity-70 group-hover:opacity-100 transition-opacity duration-200">
@@ -84,7 +87,7 @@ export default function TopPill({
             rounded-full
             bg-white/5
             flex items-center justify-center
-            text-white
+            text-text-primary
             interaction-base interaction-press
             hover:bg-red-500/10 hover:text-red-400
           "

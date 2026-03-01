@@ -23,96 +23,81 @@
   --font-system: "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
 
   /* --- SEMANTIC TOKEN SYSTEM (DEFAULT: DARK) --- */
-  /* Reference Image Matching */
-  --bg-sidebar: #18181B;
-  /* User Spec: Side Panel */
-  --bg-main: #1E1E21;
-  /* User Spec: Main BG */
-  --bg-card: #242429;
-  /* User Spec: Detectable Container */
+  /* Reference Image Matching - Deep Navy Theme */
+  --bg-sidebar: #050508;
+  --bg-main: #0a0a0f;
+  --bg-card: #12121a;
 
-  --bg-toggle-switch: #303033;
-  /* User Spec: Toggle Button */
-  --bg-item-surface: #27272A;
-  /* User Spec: Icons & Input Backgrounds */
-  --bg-item-active: #2C2C2C;
-  /* Selected state */
+  --bg-toggle-switch: #1c1c24;
+  --bg-item-surface: #16161f;
+  --bg-item-active: #1e1e2b;
 
-  --bg-primary: #000000;
-  /* Fallback */
-  --bg-secondary: #050505;
-  /* Fallback */
-  --bg-elevated: #151515;
-  /* Fallback */
-  --bg-input: #1A1A1A;
-  /* Fallback */
+  --bg-primary: #020205;
+  --bg-secondary: #050508;
+  --bg-elevated: #0f0f15;
+  --bg-input: #08080c;
 
   --text-primary: #ffffff;
-  --text-secondary: #A0A0A0;
-  --text-tertiary: #606060;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
 
-  --border-subtle: transparent;
-  --border-muted: #333333;
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --border-muted: rgba(255, 255, 255, 0.08);
 
-  --accent-primary: #3b82f6;
-  --accent-muted: rgba(59, 130, 246, 0.15);
+  --accent-primary: #38bdf8;
+  --accent-muted: rgba(56, 189, 248, 0.1);
 
-  --bg-component: #262626;
-  /* Specific legacy value */
+  --bg-component: #111118;
+  --overlay-bg: rgba(5, 5, 8, 0.85);
 
-  --overlay-bg: rgba(30, 30, 30, 0.65);
+  /* Glass / Acrylic System */
+  --bg-glass: rgba(15, 15, 20, 0.7);
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --bg-surface-frosted: rgba(255, 255, 255, 0.05);
+  --shadow-premium: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  --bg-card-alpha: rgba(20, 20, 25, 0.4);
 }
 
 [data-theme='light'] {
-  /* --- LIGHT MODE PALETTE (Refined Material Model) --- */
-
-  /* Canvas = Matte Paper | Cards = Porcelain */
-  --bg-primary: #FFFFFF;
-  /* Pure White */
-  --bg-secondary: #F5F5F7;
-  /* Light Grey for separation */
+  /* Canvas = Soft Matte | Cards = Frosted Porcelain */
+  --bg-primary: #F5F5F7;
+  --bg-secondary: #EBEBF0;
   --bg-elevated: #FFFFFF;
-  /* Porcelain: Clean cards */
-  --bg-input: #Eaeaea;
-  /* Recessed/Input areas */
+  --bg-input: #FFFFFF;
 
   /* Reference Image Mappings (Light) */
-  --bg-sidebar: #F5F5F7;
-  /* User Spec Light */
-  --bg-main: #FFFFFF;
-  /* User Spec Light */
-  --bg-card: #F9F9FB;
-  /* User Spec Light */
-  --bg-item-active: #E4E4E7;
-  /* User Spec Light */
+  --bg-sidebar: rgba(245, 245, 247, 0.8);
+  --bg-main: #F5F5F7;
+  --bg-card: #FFFFFF;
+  --bg-item-active: rgba(0, 0, 0, 0.06);
 
   --bg-toggle-switch: #E4E4E7;
-  /* User Spec Light */
-  --bg-item-surface: #F0F0F2;
-  /* User Spec Light */
+  --bg-item-surface: rgba(0, 0, 0, 0.04);
 
   /* Text = Graphite Ink */
   --text-primary: #000000;
-  /* Pure black for max contrast */
-  --text-secondary: #3A3A3C;
-  /* Dark Grey */
-  --text-tertiary: #8E8E93;
-  /* structural metadata */
+  --text-secondary: #111111;
+  --text-tertiary: #3A3A3C;
 
-  /* Borders = Nearly Invisible */
+  /* Borders = Clean & Precise */
   --border-subtle: rgba(0, 0, 0, 0.06);
   --border-muted: rgba(0, 0, 0, 0.12);
 
   /* Accent = Calm & Confident */
-  --accent-primary: #0071E3;
-  /* Premium balanced blue */
-  --accent-muted: rgba(0, 113, 227, 0.12);
+  --accent-primary: #0066CC;
+  --accent-muted: rgba(0, 102, 204, 0.1);
 
-  --bg-component: #F0F0F2;
-  /* Input/Button background in Light Mode */
+  --bg-component: #FFFFFF;
 
-  --overlay-bg: rgba(245, 245, 247, 0.85);
-  /* Frosted matte glass */
+  --overlay-bg: rgba(255, 255, 255, 0.8);
+
+  /* Glass / Acrylic System (Light) - White Frosted Glass on Soft Gray */
+  --bg-glass: rgba(255, 255, 255, 0.65);
+  --border-glass: rgba(0, 0, 0, 0.06);
+  --bg-sidebar-alpha: rgba(245, 245, 247, 0.7);
+  --bg-overlay: rgba(255, 255, 255, 0.4);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+  --bg-card-alpha: rgba(255, 255, 255, 0.75);
 
   .force-black-icon {
     filter: brightness(0) !important;
@@ -155,15 +140,13 @@ body {
 /* Liquid Glass Effect Base - Refined Matte Look */
 /* Used for floating elements on top of the vibrant background */
 .liquid-glass {
-  background: rgba(30, 30, 30, 0.65);
+  background: var(--bg-glass);
   /* Restored original opacity */
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-glass);
   border-radius: 1.25rem;
-  box-shadow:
-    0 20px 40px -10px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   position: relative;
   overflow: hidden;
 }
@@ -233,11 +216,11 @@ a:hover,
 
 /* Utilities for sidebar layout */
 .app-sidebar {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-sidebar-alpha);
   /* Darker sidebar */
   backdrop-filter: blur(10px);
   /* Minor local blur */
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid var(--border-glass);
 }
 
 .app-content {

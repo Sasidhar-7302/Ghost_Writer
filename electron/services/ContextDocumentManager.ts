@@ -9,11 +9,15 @@ export class ContextDocumentManager {
     private contextDir: string;
     private resumePath: string;
     private jdPath: string;
+    private projectKnowledgePath: string;
+    private agendaPath: string;
 
     private constructor() {
         this.contextDir = path.join(app.getPath('userData'), 'context_documents');
         this.resumePath = path.join(this.contextDir, 'resume.txt');
         this.jdPath = path.join(this.contextDir, 'jd.txt');
+        this.projectKnowledgePath = path.join(this.contextDir, 'project_knowledge.txt');
+        this.agendaPath = path.join(this.contextDir, 'agenda.txt');
         this.ensureDir();
     }
 
@@ -38,6 +42,14 @@ export class ContextDocumentManager {
         fs.writeFileSync(this.jdPath, text, 'utf-8');
     }
 
+    public async saveProjectKnowledgeText(text: string): Promise<void> {
+        fs.writeFileSync(this.projectKnowledgePath, text, 'utf-8');
+    }
+
+    public async saveAgendaText(text: string): Promise<void> {
+        fs.writeFileSync(this.agendaPath, text, 'utf-8');
+    }
+
     public getResumeText(): string {
         try {
             if (fs.existsSync(this.resumePath)) {
@@ -60,7 +72,29 @@ export class ContextDocumentManager {
         return '';
     }
 
-    public async processFile(filePath: string, type: 'resume' | 'jd'): Promise<string> {
+    public getProjectKnowledgeText(): string {
+        try {
+            if (fs.existsSync(this.projectKnowledgePath)) {
+                return fs.readFileSync(this.projectKnowledgePath, 'utf-8');
+            }
+        } catch (error) {
+            console.error('Error reading project knowledge:', error);
+        }
+        return '';
+    }
+
+    public getAgendaText(): string {
+        try {
+            if (fs.existsSync(this.agendaPath)) {
+                return fs.readFileSync(this.agendaPath, 'utf-8');
+            }
+        } catch (error) {
+            console.error('Error reading agenda:', error);
+        }
+        return '';
+    }
+
+    public async processFile(filePath: string, type: 'resume' | 'jd' | 'project' | 'agenda'): Promise<string> {
         const ext = path.extname(filePath).toLowerCase();
         let text = '';
 
@@ -78,13 +112,21 @@ export class ContextDocumentManager {
                 throw new Error('Unsupported file format');
             }
 
-            // Clean up text (remove excessive whitespace)
-            text = text.replace(/\s+/g, ' ').trim();
+            // Clean up text: remove horizontal whitespace redundancy but preserve vertical (newlines)
+            text = text
+                .split('\n')
+                .map(line => line.replace(/[ \t]+/g, ' ').trim())
+                .filter(line => line.length > 0)
+                .join('\n');
 
             if (type === 'resume') {
                 await this.saveResumeText(text);
-            } else {
+            } else if (type === 'jd') {
                 await this.saveJDText(text);
+            } else if (type === 'project') {
+                await this.saveProjectKnowledgeText(text);
+            } else if (type === 'agenda') {
+                await this.saveAgendaText(text);
             }
 
             return text;
@@ -100,5 +142,13 @@ export class ContextDocumentManager {
 
     public clearJD(): void {
         if (fs.existsSync(this.jdPath)) fs.unlinkSync(this.jdPath);
+    }
+
+    public clearProjectKnowledge(): void {
+        if (fs.existsSync(this.projectKnowledgePath)) fs.unlinkSync(this.projectKnowledgePath);
+    }
+
+    public clearAgenda(): void {
+        if (fs.existsSync(this.agendaPath)) fs.unlinkSync(this.agendaPath);
     }
 }

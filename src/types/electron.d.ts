@@ -6,6 +6,7 @@ export interface ElectronAPI {
   onToggleExpand: (callback: () => void) => () => void
   onQuickAnswer: (callback: () => void) => () => void
   getScreenshots: () => Promise<Array<{ path: string; preview: string }>>
+  getImagePreview: (path: string) => Promise<string>
   deleteScreenshot: (path: string) => Promise<{ success: boolean; error?: string }>
   onScreenshotTaken: (callback: (data: { path: string; preview: string }) => void) => () => void
   onScreenshotAttached: (callback: (data: { path: string; preview: string }) => void) => () => void
@@ -47,9 +48,11 @@ export interface ElectronAPI {
   getCurrentLlmConfig: () => Promise<{ provider: "ollama" | "gemini"; model: string; isOllama: boolean }>
   getAvailableOllamaModels: () => Promise<string[]>
   switchToOllama: (model?: string, url?: string) => Promise<{ success: boolean; error?: string }>
-  switchToGemini: (apiKey?: string, modelId?: string) => Promise<{ success: boolean; error?: string }>
-  testLlmConnection: (provider?: string, apiKey?: string) => Promise<{ success: boolean; error?: string }>
-  selectServiceAccount: () => Promise<{ success: boolean; path?: string; cancelled?: boolean; error?: string }>
+  switchToGemini: (apiKey?: string, modelId?: string) => Promise<{ success: boolean; error?: string }>;
+  testLlmConnection: (provider?: string, apiKey?: string) => Promise<{ success: boolean; error?: string }>;
+  selectServiceAccount: () => Promise<{ success: boolean; path?: string; cancelled?: boolean; error?: string }>;
+  getGpuInfo: () => Promise<{ success: boolean; info?: any; error?: string }>;
+  checkOllamaStatus: () => Promise<{ success: boolean; running: boolean; models?: any[]; error?: string }>;
 
   // API Key Management
   setGeminiApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
@@ -58,7 +61,7 @@ export interface ElectronAPI {
   setClaudeApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setNvidiaApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepseekApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
-  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean }>
+  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean }>
 
   // Native Audio Service Events
   onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean }) => void) => () => void
@@ -156,12 +159,17 @@ export interface ElectronAPI {
   checkForUpdates: () => Promise<void>
   downloadUpdate: () => Promise<void>
 
-  // Context Management
   saveResumeText: (text: string) => Promise<{ success: boolean; error?: string }>
   saveJDText: (text: string) => Promise<{ success: boolean; error?: string }>
   uploadResume: (filePath: string) => Promise<{ success: boolean; text?: string; error?: string }>
   uploadJD: (filePath: string) => Promise<{ success: boolean; text?: string; error?: string }>
-  getContextDocuments: () => Promise<{ resumeText: string; jdText: string }>
+  saveProjectText: (text: string) => Promise<{ success: boolean; error?: string }>
+  saveAgendaText: (text: string) => Promise<{ success: boolean; error?: string }>
+  uploadProject: (filePath: string) => Promise<{ success: boolean; text?: string; error?: string }>
+  uploadAgenda: (filePath: string) => Promise<{ success: boolean; text?: string; error?: string }>
+  getContextDocuments: () => Promise<{ resumeText: string; jdText: string; projectText: string; agendaText: string; isMeetingMode: boolean }>
+  clearProject: () => Promise<{ success: boolean }>
+  clearAgenda: () => Promise<{ success: boolean }>
   clearResume: () => Promise<{ success: boolean }>
   clearJD: () => Promise<{ success: boolean }>
 
@@ -179,8 +187,17 @@ export interface ElectronAPI {
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => Promise<{ success: boolean; error?: string }>
   getSttProvider: () => Promise<string>
+  getAirGapMode: () => Promise<boolean>
+  setAirGapMode: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   getWhisperStatus: () => Promise<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string }>
   setupWhisper: () => Promise<boolean>
+
+  // Customizable Prompts
+  getCustomPrompts: () => Promise<{ interviewPrompt: string | null; meetingPrompt: string | null }>
+  setCustomPrompt: (type: 'interview' | 'meeting', prompt: string) => Promise<{ success: boolean; error?: string }>
+  getDefaultPrompts: () => Promise<{ interviewPrompt: string; meetingPrompt: string }>
+  getMeetingMode: () => Promise<boolean>
+  setMeetingMode: (isMeeting: boolean) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

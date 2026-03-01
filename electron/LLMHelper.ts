@@ -3,6 +3,7 @@ import Groq from "groq-sdk"
 import OpenAI from "openai"
 import Anthropic from "@anthropic-ai/sdk"
 import fs from "fs"
+import { EventEmitter } from 'events';
 import {
   HARD_SYSTEM_PROMPT, GROQ_SYSTEM_PROMPT, OPENAI_SYSTEM_PROMPT, CLAUDE_SYSTEM_PROMPT,
   UNIVERSAL_SYSTEM_PROMPT, UNIVERSAL_ANSWER_PROMPT, UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
@@ -17,6 +18,7 @@ import { CustomProvider } from './services/CredentialsManager';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { CostTracker } from './utils/costTracker';
+import { GPUHelper, GPUInfo } from './utils/GPUHelper';
 const execAsync = promisify(exec);
 
 interface OllamaResponse {
@@ -37,7 +39,7 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-export class LLMHelper {
+export class LLMHelper extends EventEmitter {
   private client: GoogleGenAI | null = null
   private groqClient: Groq | null = null
   private openaiClient: OpenAI | null = null
@@ -55,8 +57,10 @@ export class LLMHelper {
   private ollamaUrl: string = "http://localhost:11434"
   private geminiModel: string = GEMINI_FLASH_MODEL
   private customProvider: CustomProvider | null = null;
+  private gpuInfo: GPUInfo | null = null;
 
   constructor(apiKey?: string, useOllama: boolean = false, ollamaModel?: string, ollamaUrl?: string, groqApiKey?: string, openaiApiKey?: string, claudeApiKey?: string, nvidiaApiKey?: string, deepseekApiKey?: string) {
+    super();
     this.useOllama = useOllama
 
     // Initialize Groq client if API key provided
@@ -97,9 +101,7 @@ export class LLMHelper {
     if (useOllama) {
       this.ollamaUrl = ollamaUrl || "http://localhost:11434"
       this.ollamaModel = ollamaModel || "qwen2.5:7b" // Default fallback
-
-      // Auto-detect and use first available model if specified model doesn't exist
-      this.initializeOllamaModel()
+      this.initializeGPUAndOllama();
     } else if (apiKey) {
       this.apiKey = apiKey
       // Initialize with v1alpha API version for Gemini 3 support
@@ -110,6 +112,12 @@ export class LLMHelper {
     } else {
       console.warn("[LLMHelper] No API key provided. Client will be uninitialized until key is set.")
     }
+  }
+
+  private async initializeGPUAndOllama() {
+    this.gpuInfo = await GPUHelper.detectGPU();
+    console.log(`[LLMHelper] Hardware Detected: ${this.gpuInfo.name} (${this.gpuInfo.vramGB}GB VRAM) - Tier: ${this.gpuInfo.tier}`);
+    await this.initializeOllamaModel();
   }
 
   public setApiKey(apiKey: string) {
@@ -153,6 +161,18 @@ export class LLMHelper {
   private currentModelId: string = GEMINI_FLASH_MODEL;
 
   public setModel(modelId: string, customProviders: CustomProvider[] = []) {
+    let airGapMode = false;
+    try {
+      const { CredentialsManager } = require('./services/CredentialsManager');
+      airGapMode = CredentialsManager.getInstance().getAirGapMode();
+    } catch(e) {}
+
+    if (airGapMode && !modelId.startsWith('ollama-')) {
+       console.warn(`[LLMHelper] Air-Gap Mode is ON. Refusing to set cloud model: ${modelId}`);
+       // Force back to Ollama
+       modelId = `ollama-${this.ollamaModel}`;
+    }
+
     // Map UI short codes to internal Model IDs
     let targetModelId = modelId;
     if (modelId === 'gemini') targetModelId = GEMINI_FLASH_MODEL;
@@ -189,6 +209,66 @@ export class LLMHelper {
     if (targetModelId === GEMINI_FLASH_MODEL) this.geminiModel = GEMINI_FLASH_MODEL;
 
     console.log(`[LLMHelper] Switched to Cloud Model: ${targetModelId}`);
+
+    // If switching TO Ollama, trigger background preload
+    if (this.useOllama) {
+      this.preloadModel(this.ollamaModel);
+    }
+  }
+
+  /**
+   * Background pre-load for Ollama models to warm up VRAM
+   */
+  public async preloadModel(modelId: string): Promise<void> {
+    if (!modelId) return;
+
+    console.log(`[LLMHelper] Pre-loading model: ${modelId}`);
+    this.emit('model-status', { model: modelId, status: 'loading' });
+
+    try {
+      // Force Ollama to load model by sending a minimal generate request
+      await fetch(`${this.ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelId,
+          prompt: "",
+          stream: false
+        })
+      });
+      console.log(`[LLMHelper] Model pre-loaded successfully: ${modelId}`);
+      this.emit('model-status', { model: modelId, status: 'ready' });
+    } catch (error) {
+      console.warn(`[LLMHelper] Pre-load failed for ${modelId}:`, error);
+      this.emit('model-status', { model: modelId, status: 'error' });
+    }
+  }
+
+  /**
+   * Returns the best available model based on configured API keys and local hardware
+   * Priority: Gemini > Groq > DeepSeek > OpenAI > Claude > Ollama
+   */
+  public getBestAvailableModel(): string {
+    let airGapMode = false;
+    try {
+      const { CredentialsManager } = require('./services/CredentialsManager');
+      airGapMode = CredentialsManager.getInstance().getAirGapMode();
+    } catch(e) {}
+
+    // Air Gap Mode overrides all cloud keys
+    if (airGapMode) {
+        return `ollama-${this.ollamaModel}`;
+    }
+
+    if (this.apiKey) return GEMINI_FLASH_MODEL;
+    if (this.groqApiKey) return GROQ_MODEL;
+    if (this.deepseekApiKey) return DEEPSEEK_MODEL;
+    if (this.openaiApiKey) return OPENAI_MODEL;
+    if (this.claudeApiKey) return CLAUDE_MODEL;
+    if (this.nvidiaApiKey) return NVIDIA_MODEL;
+    if (this.useOllama) return `ollama-${this.ollamaModel}`;
+
+    return GEMINI_FLASH_MODEL; // Final hard default
   }
 
   private cleanJsonResponse(text: string): string {
@@ -199,34 +279,72 @@ export class LLMHelper {
     return text;
   }
 
-  private async callOllama(prompt: string): Promise<string> {
+  /**
+   * Internal helper for Ollama calls with optional model override
+   */
+  private async callOllamaWithModel(modelId: string, prompt: string, imagePath?: string): Promise<string> {
     try {
-      const response = await fetch(`${this.ollamaUrl}/api/generate`, {
+      const body: any = {
+        model: modelId,
+        prompt: prompt,
+        stream: false,
+        options: {
+          temperature: 0.7,
+          top_p: 0.9,
+          num_ctx: 16384, // Default to a larger context for summary/batch calls
+          num_thread: 8,
+          // num_gpu: 1 // Removed to allow full GPU offloading where available
+        }
+      };
+
+      if (imagePath) {
+        try {
+          const imageData = await fs.promises.readFile(imagePath);
+          body.images = [imageData.toString('base64')];
+          console.log(`[LLMHelper] Sending image to Ollama multimodal...`);
+        } catch (err) {
+          console.error(`[LLMHelper] Failed to read image for Ollama:`, err);
+        }
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3-minute timeout
+
+      const isChat = !!imagePath;
+      const endpoint = isChat ? '/api/chat' : '/api/generate';
+
+      if (isChat) {
+        // Prepare chat messages for multimodal
+        body.messages = [
+          { role: 'user', content: prompt, images: body.images }
+        ];
+        delete body.prompt;
+        delete body.images;
+      }
+
+      const response = await fetch(`${this.ollamaUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: this.ollamaModel,
-          prompt: prompt,
-          stream: false,
-          options: {
-            temperature: 0.7,
-            top_p: 0.9,
-          }
-        }),
+        body: JSON.stringify(body),
+        signal: controller.signal
       })
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Ollama API error: ${response.status} ${response.statusText}`)
       }
 
-      const data: OllamaResponse = await response.json()
-      return data.response
+      const data = await response.json();
+      return isChat ? data.message?.content : data.response;
     } catch (error: any) {
-      // console.error("[LLMHelper] Error calling Ollama:", error)
       throw new Error(`Failed to connect to Ollama: ${error.message}. Make sure Ollama is running on ${this.ollamaUrl}`)
     }
+  }
+
+  private async callOllama(prompt: string, imagePath?: string): Promise<string> {
+    return this.callOllamaWithModel(this.ollamaModel, prompt, imagePath);
   }
 
   private async checkOllamaAvailable(): Promise<boolean> {
@@ -246,11 +364,36 @@ export class LLMHelper {
         return
       }
 
-      // Check if current model exists, if not use the first available
-      if (!availableModels.includes(this.ollamaModel)) {
-        this.ollamaModel = availableModels[0]
-        // console.log(`[LLMHelper] Auto-selected first available model: ${this.ollamaModel}`)
+      // Hardware-aware ranked selection
+      const rankedModels = [
+        // High Tier (12GB+ VRAM)
+        { tier: 'high', models: ['qwen2.5:14b', 'qwen2.5:7b', 'llama3.1:8b', 'llama3:8b', 'mistral:7b'] },
+        // Medium Tier (8GB+ VRAM)
+        { tier: 'medium', models: ['qwen2.5:7b', 'llama3.1:8b', 'llama3:8b', 'mistral:7b'] },
+        // Low Tier (CPU / <8GB)
+        { tier: 'low', models: ['qwen2.5:3b', 'qwen2.5:1.5b', 'llama3.2:3b', 'phi3:mini', 'availableModels[0]'] }
+      ];
+
+      const currentTier = this.gpuInfo?.tier || 'low';
+      const tierConfig = rankedModels.find(r => r.tier === currentTier);
+
+      if (tierConfig) {
+        // Find first available model from the ranked list
+        for (const pref of tierConfig.models) {
+          const match = availableModels.find(m => m.includes(pref));
+          if (match) {
+            this.ollamaModel = match;
+            break;
+          }
+        }
       }
+
+      // If still not matched or not set, use first available
+      if (!this.ollamaModel || !availableModels.includes(this.ollamaModel)) {
+        this.ollamaModel = availableModels[0];
+      }
+
+      console.log(`[LLMHelper] Hardware-aware model selection [${currentTier}]: ${this.ollamaModel}`);
 
       // Test the selected model works
       await this.callOllama("Hello")
@@ -1204,7 +1347,19 @@ ANSWER DIRECTLY:`;
     };
 
     if (this.useOllama) {
-      const response = await this.callOllama(combinedMessages.gemini);
+      // Automatic Vision Model Switching for Ollama
+      let activeModel = this.ollamaModel;
+      if (isMultimodal) {
+        const available = await this.getOllamaModels();
+        // Prefer llava or other vision models if present
+        const visionModel = available.find(m => m.includes('llava') || m.includes('minicpm-v') || m.includes('moondream') || m.includes('qwen2-vl'));
+        if (visionModel) {
+          console.log(`[LLMHelper] Switching to vision model for Ollama multimodal: ${visionModel}`);
+          activeModel = visionModel;
+        }
+      }
+
+      const response = await this.callOllama(combinedMessages.gemini, imagePath);
       yield response;
       return;
     }
@@ -1315,7 +1470,8 @@ ANSWER DIRECTLY:`;
 
     // 1. Ollama Streaming
     if (this.useOllama) {
-      yield* this.streamWithOllama(message, context, finalSystemPrompt);
+      this.emit('active-model', { model: this.ollamaModel, provider: 'ollama' });
+      yield* this.streamWithOllama(message, context, finalSystemPrompt, imagePath);
       return;
     }
 
@@ -1379,18 +1535,32 @@ ANSWER DIRECTLY:`;
       // Direct model use if specified
       if (this.currentModelId === GEMINI_PRO_MODEL) {
         const fullMsg = `${finalSystemPrompt}\n\n${userContent}`;
-        yield* this.streamWithGeminiModel(fullMsg, GEMINI_PRO_MODEL);
+        if (isMultimodal && imagePath) {
+          yield* this.streamWithGeminiMultimodal(fullMsg, imagePath, GEMINI_PRO_MODEL);
+        } else {
+          yield* this.streamWithGeminiModel(fullMsg, GEMINI_PRO_MODEL);
+        }
         return;
       }
       if (this.currentModelId === GEMINI_FLASH_MODEL) {
         const fullMsg = `${finalSystemPrompt}\n\n${userContent}`;
-        yield* this.streamWithGeminiModel(fullMsg, GEMINI_FLASH_MODEL);
+        if (isMultimodal && imagePath) {
+          yield* this.streamWithGeminiMultimodal(fullMsg, imagePath, GEMINI_FLASH_MODEL);
+        } else {
+          yield* this.streamWithGeminiModel(fullMsg, GEMINI_FLASH_MODEL);
+        }
         return;
       }
 
       // Race strategy (default)
       const raceMsg = `${finalSystemPrompt}\n\n${userContent}`;
-      yield* this.streamWithGeminiParallelRace(raceMsg);
+      if (isMultimodal && imagePath) {
+        // Parallel race for multimodal? Most users want the fastest one.
+        // For now, let's just use Flash for multimodal as it's reliable and fast
+        yield* this.streamWithGeminiMultimodal(raceMsg, imagePath, GEMINI_FLASH_MODEL);
+      } else {
+        yield* this.streamWithGeminiParallelRace(raceMsg);
+      }
     } else {
       throw new Error("No LLM provider available");
     }
@@ -1596,6 +1766,55 @@ ANSWER DIRECTLY:`;
   }
 
   /**
+   * Stream multimodal (image + text) response from Gemini
+   */
+  private async * streamWithGeminiMultimodal(userMessage: string, imagePath: string, model: string): AsyncGenerator<string, void, unknown> {
+    if (!this.client) throw new Error("Gemini client not initialized");
+
+    const imageData = await fs.promises.readFile(imagePath);
+    const base64Image = imageData.toString("base64");
+
+    const streamResult = await this.client.models.generateContentStream({
+      model: model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: userMessage },
+            {
+              inlineData: {
+                mimeType: "image/png",
+                data: base64Image,
+              }
+            }
+          ]
+        }
+      ],
+      config: {
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        temperature: 0.4,
+      }
+    });
+
+    // @ts-ignore
+    const stream = streamResult.stream || streamResult;
+
+    for await (const chunk of stream) {
+      let chunkText = "";
+      if (typeof chunk.text === 'function') {
+        chunkText = chunk.text();
+      } else if (typeof chunk.text === 'string') {
+        chunkText = chunk.text;
+      } else if (chunk.candidates?.[0]?.content?.parts?.[0]?.text) {
+        chunkText = chunk.candidates[0].content.parts[0].text;
+      }
+      if (chunkText) {
+        yield chunkText;
+      }
+    }
+  }
+
+  /**
    * Stream response from a specific Gemini model
    */
   private async * streamWithGeminiModel(fullMessage: string, model: string): AsyncGenerator<string, void, unknown> {
@@ -1668,39 +1887,130 @@ ANSWER DIRECTLY:`;
   }
 
   // --- OLLAMA STREAMING ---
-  private async * streamWithOllama(message: string, context?: string, systemPrompt: string = UNIVERSAL_SYSTEM_PROMPT): AsyncGenerator<string, void, unknown> {
+  private async * streamWithOllama(message: string, context?: string, systemPrompt: string = UNIVERSAL_SYSTEM_PROMPT, imagePath?: string): AsyncGenerator<string, void, unknown> {
     const fullPrompt = context
       ? `SYSTEM: ${systemPrompt}\nCONTEXT: ${context}\nUSER: ${message}`
       : `SYSTEM: ${systemPrompt}\nUSER: ${message}`;
 
+    // Estimate context requirements
+    const promptTokens = estimateTokens(fullPrompt);
+    const contextWindow = Math.max(4096, Math.min(32768, promptTokens + (imagePath ? 8192 : 2048))); // Increased padding for vision/long transcripts
+
     try {
-      const response = await fetch(`${this.ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.ollamaModel,
-          prompt: fullPrompt,
-          stream: true,
-          options: { temperature: 0.7 }
-        })
-      });
+      let modelToUse = this.ollamaModel;
+      const images: string[] = [];
 
-      if (!response.body) throw new Error("No response body from Ollama");
+      if (imagePath) {
+        // 1. Check if CURRENT model is already vision-capable
+        const currentLower = this.ollamaModel.toLowerCase();
+        const isAlreadyVision = ['llava', 'minicpm-v', 'moondream', 'qwen2-vl', 'qwen3-vl'].some(v => currentLower.includes(v));
 
-      // iterate over the readable stream
-      // @ts-ignore
-      for await (const chunk of response.body) {
-        const text = new TextDecoder().decode(chunk);
-        // Ollama sends JSON objects per line
-        const lines = text.split('\n').filter(l => l.trim());
-        for (const line of lines) {
-          try {
-            const json = JSON.parse(line);
-            if (json.response) yield json.response;
-            if (json.done) return;
-          } catch (e) {
-            // ignore partial json
+        if (!isAlreadyVision) {
+          // 2. Automatic Vision model switching if current isn't vision
+          const available = await this.getOllamaModels();
+          const visionModel = available.find(m => {
+            const low = m.toLowerCase();
+            return (low.includes('qwen3-vl') || low.includes('qwen2-vl') || low.includes('llava') || low.includes('minicpm-v') || low.includes('moondream'));
+          });
+
+          if (visionModel) {
+            console.log(`[LLMHelper] Switching to vision model for streaming: ${visionModel}`);
+            modelToUse = visionModel;
           }
+        } else {
+          // Respect user's already visual model
+          modelToUse = this.ollamaModel;
+        }
+        try {
+          const imageData = await fs.promises.readFile(imagePath);
+          images.push(imageData.toString('base64'));
+        } catch (err) {
+          console.error(`[LLMHelper] Failed to read image for Ollama stream:`, err);
+        }
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.warn(`[LLMHelper] Ollama stream timed out after 180s`);
+      }, 180000); // 180s (3m) timeout for vision/heavy generation
+
+      let lineBuffer = "";
+      try {
+        const isChat = images.length > 0;
+        const endpoint = isChat ? '/api/chat' : '/api/generate';
+
+        const body: any = {
+          model: modelToUse,
+          stream: true,
+          options: {
+            temperature: 0.7,
+            num_ctx: contextWindow,
+            num_thread: 8,
+            // num_gpu: 1 // Removed to allow full GPU offloading where available
+          }
+        };
+
+        if (isChat) {
+          body.messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: context ? `CONTEXT: ${context}\n\nQUESTION: ${message}` : message, images }
+          ];
+        } else {
+          body.prompt = fullPrompt;
+        }
+
+        const response = await fetch(`${this.ollamaUrl}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+
+        if (!response.body) throw new Error("No response body from Ollama");
+
+        // iterate over the readable stream
+        // @ts-ignore
+        for await (const chunk of response.body) {
+          lineBuffer += new TextDecoder().decode(chunk);
+
+          const lines = lineBuffer.split('\n');
+          // Keep the potentially incomplete last line in the buffer
+          lineBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const json = JSON.parse(trimmed);
+              // Handle both /api/generate and /api/chat formats
+              const content = isChat ? json.message?.content : json.response;
+              if (content) yield content;
+              if (json.done) {
+                clearTimeout(timeoutId);
+                return;
+              }
+            } catch (e) {
+              console.warn(`[LLMHelper] Failed to parse Ollama JSON line: ${trimmed.substring(0, 100)}...`);
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          throw new Error("Ollama generation timed out (90s). Please check if your hardware is overloaded.");
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      // Handle the last remaining bit if any
+      if (lineBuffer.trim()) {
+        try {
+          const json = JSON.parse(lineBuffer.trim());
+          if (json.response) yield json.response;
+        } catch (e) {
+          // Final bit could be just debris
         }
       }
     } catch (e) {
@@ -1732,11 +2042,13 @@ ANSWER DIRECTLY:`;
       } catch (e) { }
     }
 
-    const combinedMessage = context ? `${context}\n\n${message}` : message;
+    const combinedMessageWithSystem = systemPrompt 
+      ? `${systemPrompt}\n\n${context ? `${context}\n\n` : ""}${message}`
+      : (context ? `${context}\n\n${message}` : message);
 
     const variables = {
-      TEXT: combinedMessage,
-      PROMPT: combinedMessage,
+      TEXT: combinedMessageWithSystem,
+      PROMPT: combinedMessageWithSystem,
       SYSTEM_PROMPT: systemPrompt,
       USER_MESSAGE: message,
       CONTEXT: context || "",
@@ -1841,14 +2153,18 @@ ANSWER DIRECTLY:`;
   }
 
   public async getOllamaModels(): Promise<string[]> {
-    // Note: We checking if URL is accessible, ignoring useOllama flag for the check itself to be useful in settings
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout for tags
+
     try {
-      const response = await fetch(`${this.ollamaUrl}/api/tags`);
+      const response = await fetch(`${this.ollamaUrl}/api/tags`, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error('Failed to fetch models');
 
       const data = await response.json();
       return data.models?.map((model: any) => model.name) || [];
     } catch (error) {
+      clearTimeout(timeoutId);
       console.warn("[LLMHelper] Error fetching Ollama models:", error);
       return [];
     }
@@ -2136,17 +2452,13 @@ ANSWER DIRECTLY:`;
    * 3. Gemini Pro (Retry 5x)
    */
   public async generateMeetingSummary(systemPrompt: string, context: string, groqSystemPrompt?: string): Promise<string> {
-    console.log(`[LLMHelper] generateMeetingSummary called. Context length: ${context.length}`);
-
-    // Helper: Estimate tokens (crude approximation: 4 chars = 1 token)
     const estimateTokens = (text: string) => Math.ceil(text.length / 4);
     const tokenCount = estimateTokens(context);
-    console.log(`[LLMHelper] Estimated tokens: ${tokenCount}`);
+    // Generate structured summary (robust strategy)
 
     // ATTEMPT 1: Groq (if text-only and within limits)
     // Groq Llama 3.3 70b has ~128k context, let's be safe with 100k
     if (this.groqClient && tokenCount < 100000) {
-      console.log(`[LLMHelper] Attempting Groq for summary...`);
       try {
         const groqPrompt = groqSystemPrompt || systemPrompt;
         // Use non-streaming for summary
@@ -2179,8 +2491,7 @@ ANSWER DIRECTLY:`;
       }
     }
 
-    // ATTEMPT 2: Gemini Flash (with 2 retries = 3 attempts total)
-    console.log(`[LLMHelper] Attempting Gemini Flash for summary...`);
+    // ATTEMPT 2: Gemini Flash
     const contents = [{ text: `${systemPrompt}\n\nCONTEXT:\n${context}` }];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -2195,51 +2506,83 @@ ANSWER DIRECTLY:`;
           return this.processResponse(text);
         }
       } catch (e: any) {
-        console.warn(`[LLMHelper] ⚠️ Gemini Flash attempt ${attempt}/3 failed: ${e.message}`);
+        if (attempt === 3) console.warn(`[LLMHelper] ⚠️ Gemini Flash summary failed: ${e.message}`);
         if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 1000 * attempt)); // Linear backoff
+          await new Promise(r => setTimeout(r, 1000 * attempt));
         }
       }
     }
 
     // ATTEMPT 3: Gemini Pro (Infinite-ish loop)
-    // User requested "call gemini 3 pro until summary is generated"
-    // We will cap it at 5 heavily backed-off retries to avoid hanging processes forever,
-    // but effectively this acts as a very persistent retry.
-    console.log(`[LLMHelper] ⚠️ Flash exhausted. Switching to Gemini Pro for robust retry...`);
-    const maxProRetries = 5;
+    if (this.client) {
+      console.log(`[LLMHelper] ⚠️ Flash exhausted. Switching to Gemini Pro for robust retry...`);
+      const maxProRetries = 5;
 
-    if (!this.client) throw new Error("Gemini client not initialized");
+      for (let attempt = 1; attempt <= maxProRetries; attempt++) {
+        try {
+          const response = await this.withTimeout(
+            // @ts-ignore
+            this.client.models.generateContent({
+              model: GEMINI_PRO_MODEL,
+              contents: contents,
+              config: {
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                temperature: 0.3,
+              }
+            }),
+            60000,
+            `Gemini Pro Summary (Attempt ${attempt})`
+          );
+          const text = response.text || "";
 
-    for (let attempt = 1; attempt <= maxProRetries; attempt++) {
-      try {
-        console.log(`[LLMHelper] 🔄 Gemini Pro Attempt ${attempt}/${maxProRetries}...`);
-        const response = await this.withTimeout(
-          // @ts-ignore
-          this.client.models.generateContent({
-            model: GEMINI_PRO_MODEL,
-            contents: contents,
-            config: {
-              maxOutputTokens: MAX_OUTPUT_TOKENS,
-              temperature: 0.3,
-            }
-          }),
-          60000,
-          `Gemini Pro Summary (Attempt ${attempt})`
-        );
-        const text = response.text || "";
-
-        if (text.trim().length > 0) {
-          console.log(`[LLMHelper] ✅ Gemini Pro summary generated successfully.`);
-          return this.processResponse(text);
+          if (text.trim().length > 0) {
+            console.log(`[LLMHelper] ✅ Gemini Pro summary generated successfully.`);
+            return this.processResponse(text);
+          }
+        } catch (e: any) {
+          console.warn(`[LLMHelper] ⚠️ Gemini Pro attempt ${attempt} failed: ${e.message}`);
+          // Aggressive backoff for Pro: 2s, 4s, 8s, 16s, 32s
+          const backoff = 2000 * Math.pow(2, attempt - 1);
+          console.log(`[LLMHelper] Waiting ${backoff}ms before next retry...`);
+          await new Promise(r => setTimeout(r, backoff));
         }
-      } catch (e: any) {
-        console.warn(`[LLMHelper] ⚠️ Gemini Pro attempt ${attempt} failed: ${e.message}`);
-        // Aggressive backoff for Pro: 2s, 4s, 8s, 16s, 32s
-        const backoff = 2000 * Math.pow(2, attempt - 1);
-        console.log(`[LLMHelper] Waiting ${backoff}ms before next retry...`);
-        await new Promise(r => setTimeout(r, backoff));
       }
+    }
+
+    // ATTEMPT 4: Ollama (Final Fallback)
+    console.log(`[LLMHelper] ⚠️ Cloud options exhausted. Attempting Ollama for summary (300s timeout)...`);
+    try {
+      let modelToUse = this.ollamaModel;
+      const currentLower = this.ollamaModel.toLowerCase();
+      const isVisionModel = ['vl', 'llava', 'minicpm'].some(v => currentLower.includes(v));
+
+      if (isVisionModel) {
+        console.log(`[LLMHelper] Selected model ${this.ollamaModel} is Vision-heavy. Searching for faster text-only summary model...`);
+        const available = await this.getOllamaModels();
+        const fastModel = available.find(m => {
+          const low = m.toLowerCase();
+          return (low.includes('llama3.1') || low.includes('llama3.2') || low.includes('qwen2.5') || low.includes('mistral')) && !low.includes('vl');
+        });
+
+        if (fastModel) {
+          console.log(`[LLMHelper] Switching to ${fastModel} for faster local summarization.`);
+          modelToUse = fastModel;
+        }
+      }
+
+      // For summarization, we need a large context window and high priority
+      const response = (await this.withTimeout(
+        this.callOllamaWithModel(modelToUse, `${systemPrompt}\n\nCONTEXT:\n${context}`),
+        300000, // 5 minutes for local summarization
+        "Ollama Summary"
+      )) as string;
+
+      if (response && response.trim().length > 0) {
+        console.log(`[LLMHelper] ✅ Ollama summary generated successfully.`);
+        return this.processResponse(response);
+      }
+    } catch (e: any) {
+      console.warn(`[LLMHelper] ⚠️ Ollama summary failed: ${e.message}`);
     }
 
     throw new Error("Failed to generate summary after all fallback attempts.");

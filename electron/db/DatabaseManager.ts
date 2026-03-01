@@ -31,6 +31,7 @@ export interface Meeting {
     calendarEventId?: string;
     source?: 'manual' | 'calendar';
     isProcessed?: boolean;
+    screenshots?: string[];
 }
 
 export interface TokenUsage {
@@ -64,7 +65,7 @@ export class DatabaseManager {
 
     private init() {
         try {
-            console.log(`[DatabaseManager] Initializing database at ${this.dbPath}`);
+            // Initializing database
             // Ensure directory exists (though userData usually does)
             const dir = path.dirname(this.dbPath);
             if (!fs.existsSync(dir)) {
@@ -91,7 +92,8 @@ export class DatabaseManager {
                 summary_json TEXT, -- JSON containing actionItems, keyPoints, and legacy summary text if needed
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 calendar_event_id TEXT,
-                source TEXT
+                source TEXT,
+                screenshots_json TEXT
             );
         `;
 
@@ -208,7 +210,7 @@ export class DatabaseManager {
             this.db.exec("CREATE INDEX IF NOT EXISTS idx_token_usage_provider ON token_usage(provider)");
         } catch (e) { /* Index may exist */ }
 
-        console.log('[DatabaseManager] Migrations completed.');
+        // Migrations completed
     }
 
     // ============================================
@@ -222,8 +224,8 @@ export class DatabaseManager {
         }
 
         const insertMeeting = this.db.prepare(`
-            INSERT OR REPLACE INTO meetings (id, title, start_time, duration_ms, summary_json, created_at, calendar_event_id, source, is_processed)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO meetings (id, title, start_time, duration_ms, summary_json, created_at, calendar_event_id, source, is_processed, screenshots_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const insertTranscript = this.db.prepare(`
@@ -252,7 +254,8 @@ export class DatabaseManager {
                 meeting.date, // Using the ISO string as created_at for sorting simply
                 meeting.calendarEventId || null,
                 meeting.source || 'manual',
-                meeting.isProcessed ? 1 : 0
+                meeting.isProcessed ? 1 : 0,
+                JSON.stringify(meeting.screenshots || [])
             );
 
             // 2. Insert Transcript
@@ -300,7 +303,7 @@ export class DatabaseManager {
 
         try {
             runTransaction();
-            console.log(`[DatabaseManager] Successfully saved meeting ${meeting.id}`);
+            // Successfully saved meeting
         } catch (err) {
             console.error(`[DatabaseManager] Failed to save meeting ${meeting.id}`, err);
             throw err;
@@ -392,7 +395,8 @@ export class DatabaseManager {
                 source: row.source as any,
                 // We don't load full transcript/usage for list view to keep it light
                 transcript: [] as any[],
-                usage: [] as any[]
+                usage: [] as any[],
+                screenshots: [] as string[]
             };
         });
     }
@@ -415,6 +419,7 @@ export class DatabaseManager {
 
         // Reconstruct
         const summaryData = JSON.parse(meetingRow.summary_json || '{}');
+        const screenshotsArray = JSON.parse(meetingRow.screenshots_json || '[]');
         const minutes = Math.floor(meetingRow.duration_ms / 60000);
         const seconds = Math.floor((meetingRow.duration_ms % 60000) / 1000);
         const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -459,7 +464,8 @@ export class DatabaseManager {
             calendarEventId: meetingRow.calendar_event_id,
             source: meetingRow.source,
             transcript: transcript,
-            usage: usage
+            usage: usage,
+            screenshots: screenshotsArray
         };
     }
 
@@ -525,7 +531,7 @@ export class DatabaseManager {
             this.db.exec('DELETE FROM transcripts');
             this.db.exec('DELETE FROM meetings');
 
-            console.log('[DatabaseManager] All data cleared from database.');
+            // All data cleared
             return true;
         } catch (error) {
             console.error('[DatabaseManager] Failed to clear all data:', error);
@@ -582,7 +588,7 @@ Join a scheduled meeting and start directly from the meeting notification.
 - **Answer**: Manually trigger a response or use voice input to ask specific questions.
 
 ## Meeting Insights (Launcher)
-- **Smart Note Taking**: Automatically captures key points, action items, and structured summaries.
+- **Smart Note Taking**: Automatically captures key points, action items,
 - **Summary**: A concise high-level brief of the entire meeting.
 - **Transcript**: Full real-time speech-to-text transcript, available during and after the call.
 - **Usage**: Track your interaction history and see how Ghost Writer assisted you.
@@ -714,7 +720,7 @@ ghostwriter.contact@gmail.com`;
         };
 
         this.saveMeeting(demoMeeting, today.getTime(), durationMs);
-        console.log('[DatabaseManager] Seeded demo meeting.');
+        // Seeded demo meeting
     }
 
     // Token Usage Tracking Methods

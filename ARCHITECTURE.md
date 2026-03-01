@@ -110,7 +110,18 @@ The RAG (Retrieval-Augmented Generation) engine provides semantic search over co
 - `electron/rag/VectorStore.ts` — SQLite vector storage
 - `electron/rag/LocalEmbeddingManager.ts` — Transformer pipeline wrapper
 
-### 5. Database Layer
+- `electron/rag/LocalEmbeddingManager.ts` — Transformer pipeline wrapper
+
+### 5. Hardware-Aware Intelligence Engine
+
+Ghost Writer features a sophisticated hardware-aware model management layer that optimizes for local GPU resources (e.g., dedicated GPUs with 8GB+ VRAM).
+
+**Key Capabilities:**
+- **Tiered Optimization**: Automatically detects VRAM and assigns performance profiles. "High Tier" (>=10GB VRAM) enables 32k context windows and 8-thread processing.
+- **Background Pre-loading**: Uses an `EventEmitter` pattern to signal model loading states. Triggered upon model selection to "warm up" VRAM before use.
+- **Smart Task Switching**: In `LLMHelper.generateMeetingSummary`, the system detects if the active model is Vision-heavy (e.g., `llava`) and automatically switches to a high-speed text model (e.g., `qwen2.5:7b`) for summarization to avoid context hangs.
+
+### 6. Database Layer
 
 SQLite database (`ghost-writer.db`) with automatic migrations:
 
@@ -188,9 +199,10 @@ transcribe() ──→ POST /inference ──→ ~1-2s ──→ JSON response
 | Audio capture latency | <10ms (Rust WASAPI) |
 | Whisper transcription (server mode) | ~1-2s per chunk |
 | Whisper transcription (CLI fallback) | ~15s per chunk |
-| LLM response (Groq) | ~0.5s |
-| LLM response (Claude/GPT) | ~2-3s |
+| LLM response (Groq/Flash) | ~0.5s - 1s |
+| LLM response (Local 8b GPU) | ~1-2s (8GB+ VRAM) |
+| VRAM warm-up (Cold start) | ~10-15s (Model pre-loading) |
 | Memory usage (idle) | ~150MB |
 | Memory usage (recording) | ~400MB + model size |
 | GPU VRAM (whisper small) | ~500MB |
-| GPU VRAM (whisper medium) | ~1.5GB |
+| GPU VRAM (llama 8b) | ~5-6GB |

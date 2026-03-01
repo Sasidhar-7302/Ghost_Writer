@@ -55,7 +55,7 @@ const UserMessage: React.FC<{ content: string }> = ({ content }) => (
         transition={{ duration: 0.15 }}
         className="flex justify-end mb-6"
     >
-        <div className="bg-[#2C2C2E] text-white px-5 py-3 rounded-2xl rounded-tr-md max-w-[70%] text-[15px] leading-relaxed">
+        <div className="bg-white text-black px-5 py-3 rounded-2xl rounded-tr-md max-w-[70%] text-[15px] font-medium leading-relaxed shadow-[0_10px_30px_-10px_rgba(255,255,255,0.2)]">
             {content}
         </div>
     </motion.div>
@@ -311,23 +311,28 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
                     />
 
                     {/* Chat Window */}
-                    <motion.div
-                        ref={chatWindowRef}
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "85vh", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{
-                            height: { type: "spring", stiffness: 300, damping: 30, mass: 0.8 },
-                            opacity: { duration: 0.2 }
-                        }}
-                        className="relative mx-auto w-full max-w-[680px] mb-0 bg-bg-secondary dark:bg-[#0C0C0C] rounded-t-[24px] border-t border-x border-border-subtle shadow-2xl overflow-hidden flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle shrink-0">
-                            <div className="flex items-center gap-2 text-text-tertiary">
-                                <img src={ghostWriterIcon} className="w-3.5 h-3.5 force-black-icon brightness-0 dark:brightness-100 dark:opacity-50 dark:grayscale" alt="logo" />
-                                <span className="text-[13px] font-medium">Search all meetings</span>
-                            </div>
+                        <motion.div
+                            ref={chatWindowRef}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "85vh", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                                height: { type: "spring", stiffness: 300, damping: 30, mass: 0.8 },
+                                opacity: { duration: 0.2 }
+                            }}
+                            className="relative mx-auto w-full max-w-[680px] mb-0 bg-bg-main/90 border-t border-x border-white/10 rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col backdrop-blur-3xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+                                        <img src={ghostWriterIcon} className="w-3.5 h-3.5 opacity-50" alt="logo" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-text-primary">Global Intelligence</span>
+                                        <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Metadata Synthesis</span>
+                                    </div>
+                                </div>
                             <button
                                 onClick={onClose}
                                 className="p-2 transition-colors group"
@@ -368,8 +373,8 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={handleInputKeyDown}
-                                    placeholder="Ask me anything..."
-                                    className="w-full pl-5 pr-12 py-3 bg-bg-elevated shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-border-muted dark:bg-bg-elevated/20 dark:backdrop-blur-xl dark:border-border-subtle rounded-full text-sm text-text-primary placeholder-text-tertiary/70 focus:outline-none transition-all"
+                                    placeholder="Global semantic query..."
+                                    className="w-full pl-6 pr-14 py-4 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-2xl text-[14px] text-white placeholder-text-tertiary/40 focus:outline-none focus:border-white/20 transition-all duration-500 shadow-2xl font-medium"
                                 />
                                 <button
                                     onClick={() => {
@@ -378,10 +383,10 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
                                             setQuery('');
                                         }
                                     }}
-                                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all duration-200 border border-white/5 ${query.trim() ? 'bg-text-primary text-bg-primary hover:scale-105' : 'bg-bg-item-active text-text-primary hover:bg-bg-item-hover'
+                                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all duration-500 border border-white/10 ${query.trim() ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'bg-white/5 text-text-tertiary hover:bg-white/10'
                                         }`}
                                 >
-                                    <ArrowUp size={16} className="transform rotate-45" />
+                                    <ArrowUp size={18} />
                                 </button>
                             </div>
                         </div>

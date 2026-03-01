@@ -46,7 +46,7 @@ export class WindowHelper {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       this.overlayWindow.setContentProtection(enable)
     }
-    console.log(`[WindowHelper] Content Protection set to: ${enable}`)
+    // Content Protection
   }
 
   public setWindowDimensions(width: number, height: number): void {
@@ -79,7 +79,7 @@ export class WindowHelper {
   // Dedicated method for overlay window resizing - decoupled from launcher
   public setOverlayDimensions(width: number, height: number): void {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return
-    console.log('[WindowHelper] setOverlayDimensions:', width, height);
+    // Noisy log removed for production
 
     const [currentX, currentY] = this.overlayWindow.getPosition()
     const primaryDisplay = screen.getPrimaryDisplay()
@@ -128,12 +128,12 @@ export class WindowHelper {
         contextIsolation: true,
         preload: path.join(__dirname, "preload.js"),
         scrollBounce: true,
-        webSecurity: !isDev, // DEBUG: Disable web security only in dev
+        webSecurity: !isDev,
       },
-      show: false, // DEBUG: Force show -> Fixed white screen, now relies on ready-to-show
+      show: false,
       // Windows: use default title bar
       titleBarStyle: 'hidden',
-      transparent: false, // DEBUG: Disable transparency
+      transparent: false,
       hasShadow: true,
       backgroundColor: "#000000", // Fixed: Black background to match startup sequence
       focusable: true,
@@ -145,12 +145,9 @@ export class WindowHelper {
         : path.resolve(__dirname, "../assets/icons/win/icon.ico")
     }
 
-    console.log(`[WindowHelper] Icon Path: ${launcherSettings.icon}`);
-    console.log(`[WindowHelper] Start URL: ${startUrl}`);
-
     try {
       this.launcherWindow = new BrowserWindow(launcherSettings)
-      console.log('[WindowHelper] BrowserWindow created successfully');
+      // Quick answer
     } catch (err) {
       console.error('[WindowHelper] Failed to create BrowserWindow:', err);
       return;
@@ -160,16 +157,13 @@ export class WindowHelper {
     // Can be enabled via stealth mode toggle: this.setContentProtection(true)
 
     this.launcherWindow.loadURL(`${startUrl}?window=launcher`)
-      .then(() => console.log('[WindowHelper] loadURL success'))
       .catch((e) => { console.error("[WindowHelper] Failed to load URL:", e) })
 
     this.launcherWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       console.error(`[WindowHelper] did-fail-load: ${errorCode} ${errorDescription}`);
     });
 
-    if (!isPackaged) {
-      // this.launcherWindow.webContents.openDevTools({ mode: 'detach' }); // DEBUG: Open DevTools
-    }
+    // DevTools handling removed for production
 
     // --- 2. Create Overlay Window (Hidden initially) ---
     const overlaySettings: Electron.BrowserWindowConstructorOptions = {
@@ -256,7 +250,6 @@ export class WindowHelper {
     }
   }
 
-  // Helper to get whichever window should be treated as "Main" for IPC
   public getMainWindow(): BrowserWindow | null {
     if (this.overlayWindow && this.overlayWindow.isVisible()) {
       return this.overlayWindow;
@@ -306,7 +299,6 @@ export class WindowHelper {
   // --- Swapping Logic ---
 
   public switchToOverlay(): void {
-    console.log('[WindowHelper] Switching to OVERLAY');
     this.currentWindowMode = 'overlay';
 
     // Show Overlay FIRST
@@ -334,7 +326,6 @@ export class WindowHelper {
   }
 
   public switchToLauncher(): void {
-    console.log('[WindowHelper] Switching to LAUNCHER');
     this.currentWindowMode = 'launcher';
 
     // Show Launcher FIRST

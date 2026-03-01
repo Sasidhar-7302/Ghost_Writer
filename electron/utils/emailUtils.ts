@@ -119,7 +119,7 @@ export function extractRecipientName(attendeeInfo: string): string {
     // If it's an email, extract the part before @
     if (attendeeInfo.includes('@')) {
         const localPart = attendeeInfo.split('@')[0];
-        // Convert something like "john.doe" to "John"
+        // Convert something like "jane.doe" to "Jane"
         const firstName = localPart.split(/[._-]/)[0];
         return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
     }

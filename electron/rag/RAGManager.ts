@@ -70,15 +70,12 @@ export class RAGManager {
         transcript: RawSegment[],
         summary?: string
     ): Promise<{ chunkCount: number }> {
-        console.log(`[RAGManager] Processing meeting ${meetingId} with ${transcript.length} segments`);
 
         // 1. Preprocess transcript
         const cleaned = preprocessTranscript(transcript);
-        console.log(`[RAGManager] Preprocessed to ${cleaned.length} cleaned segments`);
 
         // 2. Chunk the transcript
         const chunks = chunkTranscript(meetingId, cleaned);
-        console.log(`[RAGManager] Created ${chunks.length} chunks`);
 
         if (chunks.length === 0) {
             console.log(`[RAGManager] No chunks to save for meeting ${meetingId}`);
@@ -225,7 +222,6 @@ export class RAGManager {
      * Useful for demo meetings or reprocessing failed ones
      */
     async reprocessMeeting(meetingId: string): Promise<void> {
-        console.log(`[RAGManager] Reprocessing meeting ${meetingId}`);
 
         // delete existing RAG data first to avoid duplicates
         this.deleteMeetingData(meetingId);
@@ -294,7 +290,7 @@ export class RAGManager {
         // Ideally we check if *this* meeting is in queue. 
         // For now, relies on isMeetingProcessed check mostly.
 
-        console.log('[RAGManager] Demo meeting found but not processed. Processing now...');
+        // console.log('[RAGManager] Demo meeting found but not processed. Processing now...');
         await this.reprocessMeeting(demoId);
     }
 
@@ -308,7 +304,7 @@ export class RAGManager {
                 WHERE meeting_id NOT IN (SELECT id FROM meetings)
             `).run();
             if (info.changes > 0) {
-                console.log(`[RAGManager] Cleaned up ${info.changes} stale queue items`);
+                // console.log(`[RAGManager] Cleaned up ${info.changes} stale queue items`);
             }
         } catch (error) {
             console.error('[RAGManager] Failed to cleanup stale queue items:', error);

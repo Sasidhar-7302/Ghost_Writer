@@ -404,7 +404,6 @@ export class LocalWhisperSTT extends EventEmitter {
                 }
 
                 if (transcript && transcript.trim().length > 0) {
-                    console.log(`[LocalWhisperSTT] Transcript: "${transcript.substring(0, 60)}..."`);
                     this.emit('transcript', {
                         text: transcript.trim(),
                         isFinal: true,
@@ -505,8 +504,6 @@ export class LocalWhisperSTT extends EventEmitter {
 
                             if (elapsed > 5000) {
                                 console.warn(`[LocalWhisperSTT] Slow server transcription: ${elapsed}ms`);
-                            } else {
-                                console.log(`[LocalWhisperSTT] Server transcription: ${elapsed}ms`);
                             }
 
                             resolve(text);
@@ -598,10 +595,6 @@ export class LocalWhisperSTT extends EventEmitter {
                     if (text.length < 2) {
                         resolve('');
                         return;
-                    }
-
-                    if (elapsed > 5000) {
-                        console.warn(`[LocalWhisperSTT] Slow CLI transcription: ${elapsed}ms for ${wavFilePath}`);
                     }
 
                     resolve(text);

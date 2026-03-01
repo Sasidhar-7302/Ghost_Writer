@@ -19,7 +19,10 @@ import { registerCostHandlers } from "./ipc/costHandlers"
 
 let ipcHandlersInitialized = false;
 
+import { setupSystemHandlers } from './ipc/systemHandlers';
+
 export function initializeIpcHandlers(appState: AppState): void {
+  setupSystemHandlers();
   if (ipcHandlersInitialized) {
     console.log('[IPC] Handlers already initialized, skipping');
     return;
@@ -116,6 +119,14 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   })
 
+  safeIpcHandle("get-image-preview", async (event, filepath: string) => {
+    try {
+      return await appState.getImagePreview(filepath);
+    } catch (error) {
+      throw error;
+    }
+  })
+
   safeIpcHandle("toggle-window", async () => {
     appState.toggleMainWindow()
   })
@@ -151,6 +162,16 @@ export function initializeIpcHandlers(appState: AppState): void {
     return { success: true };
   });
 
+  safeIpcHandle("save-project-text", async (event, text: string) => {
+    await appState.contextManager.saveProjectKnowledgeText(text);
+    return { success: true };
+  });
+
+  safeIpcHandle("save-agenda-text", async (event, text: string) => {
+    await appState.contextManager.saveAgendaText(text);
+    return { success: true };
+  });
+
   safeIpcHandle("upload-resume", async (event, filePath: string) => {
     const text = await appState.contextManager.processFile(filePath, 'resume');
     return { success: true, text };
@@ -161,10 +182,32 @@ export function initializeIpcHandlers(appState: AppState): void {
     return { success: true, text };
   });
 
+  safeIpcHandle("upload-project", async (event, filePath: string) => {
+    const text = await appState.contextManager.processFile(filePath, 'project');
+    return { success: true, text };
+  });
+
+  safeIpcHandle("upload-agenda", async (event, filePath: string) => {
+    const text = await appState.contextManager.processFile(filePath, 'agenda');
+    return { success: true, text };
+  });
+
   safeIpcHandle("get-context-documents", async () => {
     const resumeText = appState.contextManager.getResumeText();
     const jdText = appState.contextManager.getJDText();
-    return { resumeText, jdText };
+    const projectText = appState.contextManager.getProjectKnowledgeText();
+    const agendaText = appState.contextManager.getAgendaText();
+    const isMeetingMode = appState.credentialsManager.getIsMeetingMode();
+    return { resumeText, jdText, projectText, agendaText, isMeetingMode };
+  });
+
+  safeIpcHandle("set-meeting-mode", async (event, isMeeting: boolean) => {
+    appState.credentialsManager.setIsMeetingMode(isMeeting);
+    return { success: true };
+  });
+
+  safeIpcHandle("get-meeting-mode", async () => {
+    return appState.credentialsManager.getIsMeetingMode();
   });
 
   safeIpcHandle("clear-resume", async () => {
@@ -174,6 +217,16 @@ export function initializeIpcHandlers(appState: AppState): void {
 
   safeIpcHandle("clear-jd", async () => {
     appState.contextManager.clearJD();
+    return { success: true };
+  });
+
+  safeIpcHandle("clear-project", async () => {
+    appState.contextManager.clearProjectKnowledge();
+    return { success: true };
+  });
+
+  safeIpcHandle("clear-agenda", async () => {
+    appState.contextManager.clearAgenda();
     return { success: true };
   });
 
@@ -481,9 +534,11 @@ export function initializeIpcHandlers(appState: AppState): void {
         ibmWatsonRegion: creds.ibmWatsonRegion || 'us-south',
         hasResume: !!creds.resumePath,
         hasJobDescription: !!creds.jobDescriptionText,
+        hasProject: !!appState.contextManager.getProjectKnowledgeText(),
+        hasAgenda: !!appState.contextManager.getAgendaText(),
       };
     } catch (error: any) {
-      return { hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, hasNvidiaKey: false, hasDeepseekKey: false, googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', hasResume: false, hasJobDescription: false };
+      return { hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, hasNvidiaKey: false, hasDeepseekKey: false, googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', hasResume: false, hasJobDescription: false, hasProject: false, hasAgenda: false };
     }
   });
 

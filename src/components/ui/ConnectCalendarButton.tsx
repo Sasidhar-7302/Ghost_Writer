@@ -121,12 +121,12 @@ const ConnectCalendarButton: React.FC<ConnectCalendarButtonProps> = ({ className
                         relative flex items-center justify-center w-[20px] h-[20px] rounded-full 
                         bg-violet-600 shadow-sm ring-1 ring-white/20
                     ">
-                        <Check size={12} className="text-white" strokeWidth={4} />
+                        <Check size={12} className="text-emerald-500" strokeWidth={4} />
                     </div>
 
                     {/* Text: High-End Typography */}
-                    <span className="text-[13px] font-medium tracking-wide text-white flex flex-col leading-none gap-0.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-                        <span className="font-semibold text-white/95">Calendar Connected</span>
+                    <span className="text-[13px] font-medium tracking-wide text-text-primary flex flex-col leading-none gap-0.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                        <span className="font-semibold text-text-primary">Calendar Connected</span>
                     </span>
                 </span>
             </motion.div>

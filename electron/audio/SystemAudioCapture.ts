@@ -61,18 +61,12 @@ export class SystemAudioCapture extends EventEmitter {
         }
 
         try {
-            console.log('[SystemAudioCapture] Starting native capture...');
-
             let receivedData = false;
             this.monitor.start((chunk: Uint8Array) => {
                 // The native module sends raw PCM bytes (Uint8Array)
                 if (chunk && chunk.length > 0) {
                     receivedData = true;
                     const buffer = Buffer.from(chunk);
-                    if (Math.random() < 0.05) {
-                        const prefix = buffer.slice(0, 10).toString('hex');
-                        console.log(`[SystemAudioCapture] Chunk: ${buffer.length}b, Rate: ${this.detectedSampleRate}, Data(hex): ${prefix}...`);
-                    }
                     this.emit('data', buffer);
                 }
             });

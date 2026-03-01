@@ -4,7 +4,10 @@ import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Save } from 'lucide
 export const ContextGroundingSettings: React.FC = () => {
     const [resumeText, setResumeText] = useState('');
     const [jdText, setJdText] = useState('');
+    const [projectText, setProjectText] = useState('');
+    const [agendaText, setAgendaText] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isMeeting, setIsMeeting] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
     const resumeInputRef = useRef<HTMLInputElement>(null);
@@ -12,7 +15,13 @@ export const ContextGroundingSettings: React.FC = () => {
 
     useEffect(() => {
         loadContext();
+        loadMode();
     }, []);
+
+    const loadMode = async () => {
+        const mode = await window.electronAPI.getMeetingMode();
+        setIsMeeting(mode);
+    };
 
     const loadContext = async () => {
         try {
@@ -20,6 +29,8 @@ export const ContextGroundingSettings: React.FC = () => {
             const docs = await window.electronAPI.getContextDocuments();
             setResumeText(docs.resumeText || '');
             setJdText(docs.jdText || '');
+            setProjectText(docs.projectText || '');
+            setAgendaText(docs.agendaText || '');
         } catch (error) {
             console.error('Failed to load context documents:', error);
         } finally {
@@ -39,15 +50,28 @@ export const ContextGroundingSettings: React.FC = () => {
 
             let result;
             if (type === 'resume') {
-                result = await window.electronAPI.uploadResume(filePath);
-                if (result.success && result.text) setResumeText(result.text);
+                if (isMeeting) {
+                    result = await window.electronAPI.uploadProject(filePath);
+                    if (result.success && result.text) setProjectText(result.text);
+                } else {
+                    result = await window.electronAPI.uploadResume(filePath);
+                    if (result.success && result.text) setResumeText(result.text);
+                }
             } else {
-                result = await window.electronAPI.uploadJD(filePath);
-                if (result.success && result.text) setJdText(result.text);
+                if (isMeeting) {
+                    result = await window.electronAPI.uploadAgenda(filePath);
+                    if (result.success && result.text) setAgendaText(result.text);
+                } else {
+                    result = await window.electronAPI.uploadJD(filePath);
+                    if (result.success && result.text) setJdText(result.text);
+                }
             }
 
             if (result.success) {
-                showStatus('success', `${type === 'resume' ? 'Resume' : 'Job Description'} uploaded successfully!`);
+                const label = type === 'resume'
+                    ? (isMeeting ? 'Project Documentation' : 'Resume')
+                    : (isMeeting ? 'Agenda' : 'Job Description');
+                showStatus('success', `${label} uploaded successfully!`);
             } else {
                 showStatus('error', `Failed to upload ${type}: ${result.error}`);
             }
@@ -65,13 +89,24 @@ export const ContextGroundingSettings: React.FC = () => {
             setLoading(true);
             let result;
             if (type === 'resume') {
-                result = await window.electronAPI.saveResumeText(resumeText);
+                if (isMeeting) {
+                    result = await window.electronAPI.saveProjectText(projectText);
+                } else {
+                    result = await window.electronAPI.saveResumeText(resumeText);
+                }
             } else {
-                result = await window.electronAPI.saveJDText(jdText);
+                if (isMeeting) {
+                    result = await window.electronAPI.saveAgendaText(agendaText);
+                } else {
+                    result = await window.electronAPI.saveJDText(jdText);
+                }
             }
 
             if (result.success) {
-                showStatus('success', `${type === 'resume' ? 'Resume' : 'Job Description'} saved successfully!`);
+                const label = type === 'resume'
+                    ? (isMeeting ? 'Project Documentation' : 'Resume')
+                    : (isMeeting ? 'Agenda' : 'Job Description');
+                showStatus('success', `${label} saved successfully!`);
             } else {
                 showStatus('error', `Failed to save: ${result.error}`);
             }
@@ -83,16 +118,29 @@ export const ContextGroundingSettings: React.FC = () => {
     };
 
     const handleClear = async (type: 'resume' | 'jd') => {
-        if (!confirm(`Are you sure you want to clear the ${type === 'resume' ? 'Resume' : 'Job Description'} context?`)) return;
+        const label = type === 'resume'
+            ? (isMeeting ? 'Project Documentation' : 'Resume')
+            : (isMeeting ? 'Agenda' : 'Job Description');
+        if (!confirm(`Are you sure you want to clear the ${label} context?`)) return;
 
         try {
             setLoading(true);
             if (type === 'resume') {
-                await window.electronAPI.clearResume();
-                setResumeText('');
+                if (isMeeting) {
+                    await window.electronAPI.clearProject();
+                    setProjectText('');
+                } else {
+                    await window.electronAPI.clearResume();
+                    setResumeText('');
+                }
             } else {
-                await window.electronAPI.clearJD();
-                setJdText('');
+                if (isMeeting) {
+                    await window.electronAPI.clearAgenda();
+                    setAgendaText('');
+                } else {
+                    await window.electronAPI.clearJD();
+                    setJdText('');
+                }
             }
             showStatus('success', 'Context cleared.');
         } catch (error) {
@@ -108,12 +156,16 @@ export const ContextGroundingSettings: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 text-gray-200">
+        <div className="space-y-6 text-text-primary">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-bold text-white mb-1">Context Grounding</h2>
-                    <p className="text-sm text-gray-400">
-                        Provide your Resume and the Job Description to help the AI give more relevant answers.
+                    <h2 className="text-xl font-bold text-text-primary mb-1">
+                        {isMeeting ? 'Meeting Context' : 'Interview Context'}
+                    </h2>
+                    <p className="text-sm text-text-secondary">
+                        {isMeeting
+                            ? 'Provide project documentation and the agenda to help the AI give more relevant insights.'
+                            : 'Provide your Resume and the Job Description to help the AI give more relevant answers.'}
                     </p>
                 </div>
             </div>
@@ -126,11 +178,13 @@ export const ContextGroundingSettings: React.FC = () => {
             )}
 
             {/* Resume Section */}
-            <div className="bg-gray-800/50 rounded-lg p-5 border border-gray-700">
+            <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl border border-border-subtle rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <FileText className="text-purple-400" size={20} />
-                        <h3 className="font-semibold text-white">Resume / CV</h3>
+                        <h3 className="font-semibold text-text-primary">
+                            {isMeeting ? 'Project Documentation' : 'Resume / CV'}
+                        </h3>
                     </div>
                     <div className="flex gap-2">
                         <input
@@ -143,13 +197,13 @@ export const ContextGroundingSettings: React.FC = () => {
                         <button
                             onClick={() => resumeInputRef.current?.click()}
                             disabled={loading}
-                            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                            className="px-3 py-1.5 bg-bg-item-surface hover:bg-bg-item-active text-text-primary border border-border-subtle rounded text-xs font-medium transition-colors flex items-center gap-1"
                         >
                             <Upload size={14} /> Upload File
                         </button>
                         <button
                             onClick={() => handleClear('resume')}
-                            disabled={loading || !resumeText}
+                            disabled={loading || (isMeeting ? !projectText : !resumeText)}
                             className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-xs font-medium transition-colors flex items-center gap-1"
                         >
                             <Trash2 size={14} /> Clear
@@ -159,30 +213,34 @@ export const ContextGroundingSettings: React.FC = () => {
 
                 <div className="relative">
                     <textarea
-                        value={resumeText}
-                        onChange={(e) => setResumeText(e.target.value)}
-                        placeholder="Paste your resume text here, or upload a PDF/DOCX file..."
-                        className="w-full h-48 bg-gray-900/50 border border-gray-700 rounded-md p-3 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none resize-none font-mono"
+                        value={isMeeting ? projectText : resumeText}
+                        onChange={(e) => isMeeting ? setProjectText(e.target.value) : setResumeText(e.target.value)}
+                        placeholder={isMeeting
+                            ? "Paste project documentation, technical specs, or meeting notes here..."
+                            : "Paste your resume text here, or upload a PDF/DOCX file..."}
+                        className="w-full h-48 bg-bg-input border border-border-subtle rounded-md p-3 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none resize-none font-mono text-text-primary scrollbar-thin"
                     />
                     <button
                         onClick={() => handleSaveText('resume')}
                         disabled={loading}
-                        className="absolute bottom-3 right-3 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-medium shadow-lg transition-colors flex items-center gap-1"
+                        className="absolute bottom-3 right-3 px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded text-xs font-medium shadow-lg transition-colors flex items-center gap-1"
                     >
                         <Save size={14} /> Save Text
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-text-tertiary mt-2">
                     Uploaded files are automatically converted to text. You can edit the extracted text above.
                 </p>
             </div>
 
             {/* JD Section */}
-            <div className="bg-gray-800/50 rounded-lg p-5 border border-gray-700">
+            <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl border border-border-subtle rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <FileText className="text-blue-400" size={20} />
-                        <h3 className="font-semibold text-white">Job Description</h3>
+                        <h3 className="font-semibold text-text-primary">
+                            {isMeeting ? 'Meeting Agenda' : 'Job Description'}
+                        </h3>
                     </div>
                     <div className="flex gap-2">
                         <input
@@ -195,13 +253,13 @@ export const ContextGroundingSettings: React.FC = () => {
                         <button
                             onClick={() => jdInputRef.current?.click()}
                             disabled={loading}
-                            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                            className="px-3 py-1.5 bg-bg-item-surface hover:bg-bg-item-active text-text-primary border border-border-subtle rounded text-xs font-medium transition-colors flex items-center gap-1"
                         >
                             <Upload size={14} /> Upload File
                         </button>
                         <button
                             onClick={() => handleClear('jd')}
-                            disabled={loading || !jdText}
+                            disabled={loading || (isMeeting ? !agendaText : !jdText)}
                             className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-xs font-medium transition-colors flex items-center gap-1"
                         >
                             <Trash2 size={14} /> Clear
@@ -211,15 +269,17 @@ export const ContextGroundingSettings: React.FC = () => {
 
                 <div className="relative">
                     <textarea
-                        value={jdText}
-                        onChange={(e) => setJdText(e.target.value)}
-                        placeholder="Paste the Job Description text here..."
-                        className="w-full h-48 bg-gray-900/50 border border-gray-700 rounded-md p-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none font-mono"
+                        value={isMeeting ? agendaText : jdText}
+                        onChange={(e) => isMeeting ? setAgendaText(e.target.value) : setJdText(e.target.value)}
+                        placeholder={isMeeting
+                            ? "Paste the meeting agenda, goals, or discussion points here..."
+                            : "Paste the Job Description text here..."}
+                        className="w-full h-48 bg-bg-input border border-border-subtle rounded-md p-3 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none resize-none font-mono text-text-primary scrollbar-thin"
                     />
                     <button
                         onClick={() => handleSaveText('jd')}
                         disabled={loading}
-                        className="absolute bottom-3 right-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium shadow-lg transition-colors flex items-center gap-1"
+                        className="absolute bottom-3 right-3 px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded text-xs font-medium shadow-lg transition-colors flex items-center gap-1"
                     >
                         <Save size={14} /> Save Text
                     </button>

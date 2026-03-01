@@ -7,6 +7,7 @@ import Launcher from "./components/Launcher"
 import SettingsOverlay from "./components/SettingsOverlay"
 import StartupSequence from "./components/StartupSequence"
 import SetupWizard from "./components/SetupWizard"
+import ModeSelectionModal from "./components/ModeSelectionModal"
 import { AnimatePresence, motion } from "framer-motion"
 import UpdateBanner from "./components/UpdateBanner"
 import { analytics } from "./lib/analytics/analytics.service"
@@ -60,6 +61,7 @@ const App: React.FC = () => {
   const [showStartup, setShowStartup] = useState(true);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showModeSelection, setShowModeSelection] = useState(false);
 
   // Check for first run setup
   useEffect(() => {
@@ -72,7 +74,12 @@ const App: React.FC = () => {
   }, [showStartup, isLauncherWindow]);
 
   // Handlers
+  const handleStartMeetingTrigger = () => {
+    setShowModeSelection(true);
+  };
+
   const handleStartMeeting = async () => {
+    setShowModeSelection(false);
     try {
       const inputDeviceId = localStorage.getItem('preferredInputDeviceId');
       let outputDeviceId = localStorage.getItem('preferredOutputDeviceId');
@@ -179,8 +186,13 @@ const App: React.FC = () => {
               <QueryClientProvider client={queryClient}>
                 <ToastProvider>
                   <Launcher
-                    onStartMeeting={handleStartMeeting}
+                    onStartMeeting={handleStartMeetingTrigger}
                     onOpenSettings={() => setIsSettingsOpen(true)}
+                  />
+                  <ModeSelectionModal 
+                    isOpen={showModeSelection}
+                    onClose={() => setShowModeSelection(false)}
+                    onConfirm={handleStartMeeting}
                   />
                   <SettingsOverlay
                     isOpen={isSettingsOpen}

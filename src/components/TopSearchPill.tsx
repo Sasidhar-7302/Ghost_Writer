@@ -270,10 +270,11 @@ const TopSearchPill: React.FC<TopSearchPillProps> = ({
                             <div
                                 className={`
                                     relative overflow-hidden
-                                    bg-[#F2F2F7]/90 dark:bg-[#161618]/90
-                                    backdrop-blur-xl backdrop-saturate-150
+                                    bg-bg-sidebar/95
+                                    backdrop-blur-2xl backdrop-saturate-200
                                     rounded-2xl
-                                    shadow-sm
+                                    shadow-[0_8px_32px_rgba(0,0,0,0.5)]
+                                    border border-white/5
                                 `}
                             >
                                 {/* Input Row */}
@@ -341,7 +342,7 @@ const TopSearchPill: React.FC<TopSearchPillProps> = ({
                                                             onClick={() => handleSelect(0)}
                                                             onMouseEnter={() => setSelectedIndex(0)}
                                                         >
-                                                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shrink-0">
+                                                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-accent-primary to-blue-600 flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(0,242,255,0.4)]">
                                                                 <Sparkles size={12} className="text-white" />
                                                             </div>
                                                             <span className="text-[13px] text-text-primary truncate">

@@ -109,8 +109,15 @@ export class IntelligenceManager extends EventEmitter {
         source?: 'manual' | 'calendar';
     } | null = null;
 
+    private currentScreenshots: string[] = [];
+
     public setMeetingMetadata(metadata: any) {
         this.currentMeetingMetadata = metadata;
+        this.currentScreenshots = [];
+    }
+
+    public addMeetingScreenshot(path: string) {
+        this.currentScreenshots.push(path);
     }
 
     // Mode state
@@ -141,6 +148,15 @@ export class IntelligenceManager extends EventEmitter {
         this.llmHelper = llmHelper;
         this.initializeLLMs();
 
+        // Forward LLMHelper events
+        this.llmHelper.on('model-status', (info) => {
+            this.emit('model-status', info);
+        });
+
+        this.llmHelper.on('active-model', (info) => {
+            this.emit('active-model', info);
+        });
+
     }
 
 
@@ -150,7 +166,7 @@ export class IntelligenceManager extends EventEmitter {
      * Must be called after API keys are updated.
      */
     public initializeLLMs(): void {
-        console.log(`[IntelligenceManager] Initializing LLMs with LLMHelper`);
+        // Initializing mode-specific LLMs
         this.answerLLM = new AnswerLLM(this.llmHelper);
         this.assistLLM = new AssistLLM(this.llmHelper);
         // Wait, I missed AssistLLM in my refactoring list. 
@@ -166,7 +182,7 @@ export class IntelligenceManager extends EventEmitter {
     }
 
     public setModel(modelName: string): void {
-        console.log(`[IntelligenceManager] Switching model to: ${modelName}`);
+        // Switching model
         this.currentModel = modelName;
         this.initializeLLMs();
         // switchToGemini is async - must catch the promise, not use sync try/catch
@@ -242,7 +258,7 @@ export class IntelligenceManager extends EventEmitter {
      * Add assistant-generated message to context
      */
     addAssistantMessage(text: string): void {
-        console.log(`[IntelligenceManager] addAssistantMessage called with:`, text.substring(0, 50));
+        // addAssistantMessage
 
         // Ghost Writer style filtering
         if (!text) return;
@@ -292,7 +308,7 @@ export class IntelligenceManager extends EventEmitter {
             this.assistantResponseHistory = this.assistantResponseHistory.slice(-10);
         }
 
-        console.log(`[IntelligenceManager] lastAssistantMessage updated, history size: ${this.assistantResponseHistory.length}`);
+        // lastAssistantMessage updated
         this.evictOldEntries();
     }
 
@@ -476,6 +492,13 @@ export class IntelligenceManager extends EventEmitter {
     async runWhatShouldISay(question?: string, confidence: number = 0.8, imagePath?: string): Promise<string | null> {
         const now = Date.now();
 
+        // Autowire the latest screenshot captured via Ctrl+H if no explicit image was passed
+        let targetImagePath = imagePath;
+        if (!targetImagePath && this.currentScreenshots.length > 0) {
+            targetImagePath = this.currentScreenshots.pop();
+            console.log(`[IntelligenceManager] Picked up implicit screenshot for WhatShouldISay: ${targetImagePath}`);
+        }
+
         // Cooldown check
         if (now - this.lastTriggerTime < this.triggerCooldown) {
             return null;
@@ -521,7 +544,7 @@ export class IntelligenceManager extends EventEmitter {
                     (lastItem.text === this.lastInterimInterviewer.text || Math.abs(lastItem.timestamp - this.lastInterimInterviewer.timestamp) < 1000); // 1s buffer
 
                 if (!isDuplicate) {
-                    console.log(`[IntelligenceManager] Injecting interim transcript: "${this.lastInterimInterviewer.text.substring(0, 50)}..."`);
+                    // Interim transcript injection
                     contextItems.push({
                         role: 'interviewer',
                         text: this.lastInterimInterviewer.text,
@@ -554,13 +577,13 @@ export class IntelligenceManager extends EventEmitter {
                 this.assistantResponseHistory.length
             );
 
-            console.log(`[IntelligenceManager] Temporal RAG: ${temporalContext.previousResponses.length} responses, tone: ${temporalContext.toneSignals[0]?.type || 'neutral'}, intent: ${intentResult.intent}${imagePath ? ', with image' : ''}`);
+            // Temporal RAG
 
             // Single-pass LLM call: question inference + answer generation with temporal context + intent
             // NOW STREAMING - with optional image support
 
             let fullAnswer = "";
-            const stream = this.whatToAnswerLLM.generateStream(preparedTranscript, temporalContext, intentResult, imagePath);
+            const stream = this.whatToAnswerLLM.generateStream(preparedTranscript, temporalContext, intentResult, targetImagePath);
 
             for await (const token of stream) {
                 this.emit('suggested_answer_token', token, question || 'inferred', confidence);
@@ -947,15 +970,8 @@ export class IntelligenceManager extends EventEmitter {
         // 2. Reset state immediately so new meeting can start or UI is clean
         this.reset();
 
-        const meetingId = crypto.randomUUID();
-        this.processAndSaveMeeting(snapshot, meetingId).catch(err => {
-            console.error('[IntelligenceManager] Background processing failed:', err);
-        });
-
-        // 4. Initial Save (Placeholder)
-        const minutes = Math.floor(durationMs / 60000);
-        const seconds = ((durationMs % 60000) / 1000).toFixed(0);
-        const durationStr = `${minutes}:${Number(seconds) < 10 ? '0' : ''}${seconds}`;
+        const durationStr = `${Math.floor(durationMs / 60000)}:${((durationMs % 60000) / 1000).toFixed(0).padStart(2, '0')}`;
+        const meetingId = require('crypto').randomUUID();
 
         const placeholder: Meeting = {
             id: meetingId,
@@ -963,20 +979,26 @@ export class IntelligenceManager extends EventEmitter {
             date: new Date().toISOString(),
             duration: durationStr,
             summary: "Generating summary...",
-            detailedSummary: { actionItems: [], keyPoints: [] },
+            detailedSummary: { overview: '', actionItems: [], keyPoints: [] },
             transcript: snapshot.transcript,
             usage: snapshot.usage,
             isProcessed: false // Mark as unprocessed initially
         };
 
         try {
-            DatabaseManager.getInstance().saveMeeting(placeholder, snapshot.startTime, durationMs);
-            // Notify Frontend
-            const wins = require('electron').BrowserWindow.getAllWindows();
-            wins.forEach((w: any) => w.webContents.send('meetings-updated'));
+            // 4. Initial Save (Placeholder) - MUST await or do before background task to avoid race
+            await DatabaseManager.getInstance().saveMeeting(placeholder, snapshot.startTime, durationMs);
+
+            // 5. Trigger Background processing
+            this.processAndSaveMeeting(snapshot, meetingId).catch(err => {
+                console.error('[IntelligenceManager] Background processing failed:', err);
+            });
         } catch (e) {
-            console.error("Failed to save placeholder", e);
+            console.error('[IntelligenceManager] Failed to save placeholder meeting:', e);
         }
+        // Notify Frontend
+        const wins = require('electron').BrowserWindow.getAllWindows();
+        wins.forEach((w: any) => w.webContents.send('meetings-updated'));
     }
 
     /**
@@ -1001,11 +1023,13 @@ export class IntelligenceManager extends EventEmitter {
                 const groqTitlePrompt = GROQ_TITLE_PROMPT;
 
                 // Use robust Groq-first generation for title
-                const generatedTitle = await this.llmHelper.generateMeetingSummary(titlePrompt, data.context.substring(0, 5000), groqTitlePrompt);
+                const generatedTitle = await this.llmHelper.generateMeetingSummary(titlePrompt, data.context.substring(0, 10000), groqTitlePrompt);
                 if (generatedTitle) title = generatedTitle.replace(/["*]/g, '').trim();
             }
 
-            // Generate Structured Summary
+            // Generate structured summary (robust strategy)
+            const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+            const tokenCount = estimateTokens(data.context);
             // Only generate if we have sufficient context/transcript
             if (this.recapLLM && data.transcript.length > 2) {
                 const summaryPrompt = `You are a silent meeting summarizer. Convert this conversation into concise internal meeting notes.
@@ -1030,8 +1054,8 @@ export class IntelligenceManager extends EventEmitter {
 
                 const groqSummaryPrompt = GROQ_SUMMARY_JSON_PROMPT; // Context is now removed from the template
 
-                // Use the new robust summary generation method
-                const generatedSummary = await this.llmHelper.generateMeetingSummary(summaryPrompt, data.context.substring(0, 10000), groqSummaryPrompt);
+                // Use the new robust summary generation method (30k chars context)
+                const generatedSummary = await this.llmHelper.generateMeetingSummary(summaryPrompt, data.context.substring(0, 30000), groqSummaryPrompt);
 
                 if (generatedSummary) {
                     // Try to extract JSON - handle both raw JSON and markdown-wrapped
@@ -1071,6 +1095,8 @@ export class IntelligenceManager extends EventEmitter {
             const seconds = ((data.durationMs % 60000) / 1000).toFixed(0);
             const durationStr = `${minutes}:${Number(seconds) < 10 ? '0' : ''}${seconds}`;
 
+            const summaryText = summaryData?.overview || "Meeting summarized.";
+
             const meetingData: Meeting = {
                 id: meetingId,
                 title: title,
@@ -1079,13 +1105,14 @@ export class IntelligenceManager extends EventEmitter {
                 // But let's respect original date. Ideally we pass date in data.
                 // For now, new Date() is fine as it's just a few seconds difference.
                 duration: durationStr,
-                summary: "See detailed summary",
+                summary: summaryText,
                 detailedSummary: summaryData,
                 transcript: data.transcript,
                 usage: data.usage,
                 calendarEventId: calendarEventId,
                 source: source,
-                isProcessed: true // Mark as processed
+                isProcessed: true, // Mark as processed
+                screenshots: [...this.currentScreenshots]
             };
 
             // Save to SQLite
@@ -1093,6 +1120,7 @@ export class IntelligenceManager extends EventEmitter {
 
             // Clear metadata
             this.currentMeetingMetadata = null;
+            this.currentScreenshots = [];
 
             // Notify Frontend to refresh list
             const wins = require('electron').BrowserWindow.getAllWindows();
@@ -1100,6 +1128,14 @@ export class IntelligenceManager extends EventEmitter {
 
         } catch (error) {
             console.error('[IntelligenceManager] Failed to save meeting:', error);
+        } finally {
+            // Clear metadata
+            this.currentMeetingMetadata = null;
+            this.currentScreenshots = [];
+
+            // ALWAYS Notify Frontend to refresh list - even if summarized failed
+            const wins = require('electron').BrowserWindow.getAllWindows();
+            wins.forEach((w: any) => w.webContents.send('meetings-updated'));
         }
     }
 

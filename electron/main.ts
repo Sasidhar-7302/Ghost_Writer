@@ -63,6 +63,7 @@ export class AppState {
   private themeManager: ThemeManager
   private ragManager: RAGManager | null = null
   public contextManager: ContextDocumentManager // Added Context Manager
+  public credentialsManager: CredentialsManager // Added Credentials Manager
   private tray: Tray | null = null
   private updateAvailable: boolean = false
   private disguiseMode: 'terminal' | 'settings' | 'activity' | 'none' = 'none'
@@ -122,6 +123,7 @@ export class AppState {
     // Initialize ThemeManager
     this.themeManager = ThemeManager.getInstance()
     this.contextManager = ContextDocumentManager.getInstance() // Initialize Context Manager
+    this.credentialsManager = CredentialsManager.getInstance() // Initialize Credentials Manager
 
     // Initialize RAG Manager (optional, can be disabled if heavy)meManager = ThemeManager.getInstance()
 
@@ -240,6 +242,20 @@ export class AppState {
   private googleSTT: GoogleSTT | RestSTT | DeepgramStreamingSTT | LocalWhisperSTT | null = null; // Interviewer
   private googleSTT_User: GoogleSTT | RestSTT | DeepgramStreamingSTT | LocalWhisperSTT | null = null; // User
 
+  private lastSystemAudioLoudTime: number = 0;
+  private readonly AEC_THRESHOLD_VOLUME = 500; // Int16 amplitude threshold
+  private readonly AEC_MUTE_DURATION_MS = 300; // Drop mic for 300ms after loud system audio
+
+  private getBufferVolume(buf: Buffer): number {
+    let sum = 0;
+    for (let i = 0; i < buf.length; i += 2) {
+      if (i + 1 < buf.length) {
+        sum += Math.abs(buf.readInt16LE(i));
+      }
+    }
+    return buf.length > 0 ? sum / (buf.length / 2) : 0;
+  }
+
   private setupSystemAudioPipeline(): void {
     // REMOVED EARLY RETURN: if (this.systemAudioCapture && this.microphoneCapture) return; // Already initialized
 
@@ -250,6 +266,10 @@ export class AppState {
         this.systemAudioCapture = new SystemAudioCapture();
         // Wire Capture -> STT
         this.systemAudioCapture.on('data', (chunk: Buffer) => {
+          const vol = this.getBufferVolume(chunk);
+          if (vol > this.AEC_THRESHOLD_VOLUME) {
+            this.lastSystemAudioLoudTime = Date.now();
+          }
           this.googleSTT?.write(chunk);
         });
         this.systemAudioCapture.on('error', (err: Error) => {
@@ -261,6 +281,11 @@ export class AppState {
         this.microphoneCapture = new MicrophoneCapture();
         // Wire Capture -> STT
         this.microphoneCapture.on('data', (chunk: Buffer) => {
+          if (Date.now() - this.lastSystemAudioLoudTime < this.AEC_MUTE_DURATION_MS) {
+            // Echo cancellation: drop user's mic chunk because system output was loud recently
+            // console.log('[Main] AEC: Dropped user mic chunk');
+            return;
+          }
           this.googleSTT_User?.write(chunk);
         });
         this.microphoneCapture.on('error', (err: Error) => {
@@ -272,7 +297,7 @@ export class AppState {
       if (!this.googleSTT) {
         // Check which provider to use
         const { CredentialsManager } = require('./services/CredentialsManager');
-        const sttProvider = CredentialsManager.getInstance().getSttProvider();
+        const sttProvider = CredentialsManager.getInstance().getAirGapMode() ? 'local-whisper' : CredentialsManager.getInstance().getSttProvider();
 
         if (sttProvider === 'deepgram') {
           const apiKey = CredentialsManager.getInstance().getDeepgramApiKey();
@@ -380,7 +405,7 @@ export class AppState {
       if (!this.googleSTT_User) {
         // Check which provider to use
         const { CredentialsManager } = require('./services/CredentialsManager');
-        const sttProvider = CredentialsManager.getInstance().getSttProvider();
+        const sttProvider = CredentialsManager.getInstance().getAirGapMode() ? 'local-whisper' : CredentialsManager.getInstance().getSttProvider();
 
         if (sttProvider === 'deepgram') {
           const apiKey = CredentialsManager.getInstance().getDeepgramApiKey();
@@ -529,7 +554,10 @@ export class AppState {
       this.googleSTT?.setSampleRate(rate);
 
       this.systemAudioCapture.on('data', (chunk: Buffer) => {
-        // console.log('[Main] SysAudio chunk', chunk.length);
+        const vol = this.getBufferVolume(chunk);
+        if (vol > this.AEC_THRESHOLD_VOLUME) {
+          this.lastSystemAudioLoudTime = Date.now();
+        }
         this.googleSTT?.write(chunk);
       });
       this.systemAudioCapture.on('error', (err: Error) => {
@@ -541,6 +569,10 @@ export class AppState {
             this.systemAudioCapture?.stop();
             this.systemAudioCapture = new SystemAudioCapture();
             this.systemAudioCapture.on('data', (chunk: Buffer) => {
+              const vol = this.getBufferVolume(chunk);
+              if (vol > this.AEC_THRESHOLD_VOLUME) {
+                this.lastSystemAudioLoudTime = Date.now();
+              }
               this.googleSTT?.write(chunk);
             });
             this.systemAudioCapture.on('error', (err2: Error) => {
@@ -563,6 +595,10 @@ export class AppState {
         this.googleSTT?.setSampleRate(rate);
 
         this.systemAudioCapture.on('data', (chunk: Buffer) => {
+          const vol = this.getBufferVolume(chunk);
+          if (vol > this.AEC_THRESHOLD_VOLUME) {
+            this.lastSystemAudioLoudTime = Date.now();
+          }
           this.googleSTT?.write(chunk);
         });
         this.systemAudioCapture.on('error', (err: Error) => {
@@ -587,7 +623,9 @@ export class AppState {
       this.googleSTT_User?.setSampleRate(rate);
 
       this.microphoneCapture.on('data', (chunk: Buffer) => {
-        // console.log('[Main] Mic chunk', chunk.length);
+        if (Date.now() - this.lastSystemAudioLoudTime < this.AEC_MUTE_DURATION_MS) {
+          return;
+        }
         this.googleSTT_User?.write(chunk);
       });
       this.microphoneCapture.on('error', (err: Error) => {
@@ -603,6 +641,9 @@ export class AppState {
         this.googleSTT_User?.setSampleRate(rate);
 
         this.microphoneCapture.on('data', (chunk: Buffer) => {
+          if (Date.now() - this.lastSystemAudioLoudTime < this.AEC_MUTE_DURATION_MS) {
+            return;
+          }
           this.googleSTT_User?.write(chunk);
         });
         this.microphoneCapture.on('error', (err: Error) => {
@@ -902,6 +943,20 @@ export class AppState {
         win.webContents.send('intelligence-error', { error: error.message, mode })
       }
     })
+
+    this.intelligenceManager.on('model-status', (info) => {
+      const win = mainWindow()
+      if (win) {
+        win.webContents.send('model-status', info)
+      }
+    })
+
+    this.intelligenceManager.on('active-model', (info) => {
+      const win = mainWindow()
+      if (win) {
+        win.webContents.send('active-model', info)
+      }
+    })
   }
 
 
@@ -1071,6 +1126,10 @@ export class AppState {
       }
     )
 
+    if (this.isMeetingActive) {
+      this.intelligenceManager.addMeetingScreenshot(screenshotPath);
+    }
+
     return screenshotPath
   }
 
@@ -1089,6 +1148,10 @@ export class AppState {
         }
       }
     )
+
+    if (this.isMeetingActive) {
+      this.intelligenceManager.addMeetingScreenshot(screenshotPath);
+    }
 
     return screenshotPath
   }

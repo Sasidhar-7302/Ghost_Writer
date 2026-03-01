@@ -18,17 +18,21 @@ export class ShortcutsHelper {
     globalShortcut.register("CommandOrControl+H", async () => {
       const mainWindow = this.appState.getMainWindow()
       if (mainWindow) {
-        // console.log("Taking screenshot...")
+        // Taking screenshot
         try {
           const screenshotPath = await this.appState.takeScreenshot()
+          // Screenshot captured
           const preview = await this.appState.getImagePreview(screenshotPath)
+          // Preview generated
           mainWindow.webContents.send("screenshot-taken", {
             path: screenshotPath,
             preview
           })
         } catch (error) {
-          // console.error("Error capturing screenshot:", error)
+          console.error("[Shortcuts] Error capturing screenshot:", error)
         }
+      } else {
+        console.warn("[Shortcuts] Ctrl+H pressed, but no mainWindow found!")
       }
     })
 
@@ -96,69 +100,93 @@ export class ShortcutsHelper {
       this.appState.moveWindowUp()
     })
 
-    // Ctrl+J: Quick Answer using full context (transcript + resume + JD)
-    globalShortcut.register("CommandOrControl+J", async () => {
-      console.log('[Shortcuts] Ctrl+J pressed - triggering quick answer');
-      const overlayWindow = this.appState.getWindowHelper().getOverlayWindow();
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        // Expand overlay and show processing state
-        overlayWindow.webContents.send('quick-answer');
-      }
-      // Trigger the intelligence manager's "What should I say?"
-      try {
-        await this.appState.getIntelligenceManager().runWhatShouldISay();
-      } catch (err) {
-        console.error('[Shortcuts] Quick answer failed:', err);
-      }
-    })
-
     globalShortcut.register("CommandOrControl+B", () => {
-      const windowHelper = this.appState.getWindowHelper()
-      const overlayWindow = windowHelper.getOverlayWindow()
-      const launcherWindow = windowHelper.getLauncherWindow()
-      const currentMode = windowHelper.getCurrentWindowMode()
-      const focusedWindow = BrowserWindow.getFocusedWindow()
+      this.handleToggleVisibility();
+    });
 
-      // console.log(`[Shortcuts] Cmd+B pressed. Mode: ${currentMode}, Focused: ${focusedWindow?.id}`)
+    // Alt+G: Alias for Toggle Visibility
+    globalShortcut.register("Alt+G", () => {
+      this.handleToggleVisibility();
+    });
 
-      // 1. If Launcher is focused, always toggle Launcher (hide it)
-      if (focusedWindow && launcherWindow && focusedWindow.id === launcherWindow.id) {
-        // console.log('[Shortcuts] Launcher focused -> Hiding Launcher')
-        launcherWindow.hide() // Focus lost implies next press will hit fallback logic
-        return
-      }
+    // F8: "What to answer" / Ask AI
+    globalShortcut.register("F8", async () => {
+      await this.handleQuickAnswer();
+    });
 
-      // 2. If Overlay is focused/visible, always toggle Overlay (hide it)
-      // Note: Overlay might be "focused" but transparent/click-through? 
-      // Usually if user interacts it is focused.
-      if (focusedWindow && overlayWindow && focusedWindow.id === overlayWindow.id) {
-        // console.log('[Shortcuts] Overlay focused -> Toggling Expand (Hide)')
-        overlayWindow.webContents.send('toggle-expand')
-        return
-      }
+    // Ctrl+J: Legacy alias for Quick Answer
+    globalShortcut.register("CommandOrControl+J", async () => {
+      await this.handleQuickAnswer();
+    });
 
-      // 3. Fallback: No window focused (or other app focused). 
-      // Toggle based on Current Mode.
-      if (currentMode === 'overlay' && overlayWindow) {
-        // Toggle overlay visibility - send event to renderer to toggle expanded state
-        overlayWindow.webContents.send('toggle-expand')
+    // F9: Start/Stop transcription (Toggle Meeting)
+    globalShortcut.register("F9", async () => {
+      if (this.appState.getIsMeetingActive()) {
+        await this.appState.endMeeting();
       } else {
-        // Launcher mode - toggle launcher visibility
-        // console.log(`[Shortcuts] Toggling launcher visibility (Fallback)`)
-        if (launcherWindow) {
-          if (launcherWindow.isVisible()) {
-            launcherWindow.hide()
-          } else {
-            launcherWindow.show()
-            launcherWindow.focus()
-          }
-        }
+        await this.appState.startMeeting();
       }
-    })
+    });
+
+    // Alt+C: Reset/Cancel (Alias for Cmd+R)
+    globalShortcut.register("Alt+C", () => {
+      this.handleResetSession();
+    });
 
     // Unregister shortcuts when quitting
     app.on("will-quit", () => {
       globalShortcut.unregisterAll()
     })
+  }
+
+  private async handleQuickAnswer(): Promise<void> {
+    const overlayWindow = this.appState.getWindowHelper().getOverlayWindow();
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('quick-answer');
+    }
+    try {
+      await this.appState.getIntelligenceManager().runWhatShouldISay();
+    } catch (err) {
+      console.error('[Shortcuts] Quick answer failed:', err);
+    }
+  }
+
+  private handleToggleVisibility(): void {
+    const windowHelper = this.appState.getWindowHelper()
+    const overlayWindow = windowHelper.getOverlayWindow()
+    const launcherWindow = windowHelper.getLauncherWindow()
+    const currentMode = windowHelper.getCurrentWindowMode()
+    const focusedWindow = BrowserWindow.getFocusedWindow()
+
+    if (focusedWindow && launcherWindow && focusedWindow.id === launcherWindow.id) {
+      launcherWindow.hide()
+      return
+    }
+
+    if (focusedWindow && overlayWindow && focusedWindow.id === overlayWindow.id) {
+      overlayWindow.webContents.send('toggle-expand')
+      return
+    }
+
+    if (currentMode === 'overlay' && overlayWindow) {
+      overlayWindow.webContents.send('toggle-expand')
+    } else if (launcherWindow) {
+      if (launcherWindow.isVisible()) {
+        launcherWindow.hide()
+      } else {
+        launcherWindow.show()
+        launcherWindow.focus()
+      }
+    }
+  }
+
+  private handleResetSession(): void {
+    this.appState.processingHelper.cancelOngoingRequests()
+    this.appState.clearQueues()
+    this.appState.setView("queue")
+    const mainWindow = this.appState.getMainWindow()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("reset-view")
+    }
   }
 }

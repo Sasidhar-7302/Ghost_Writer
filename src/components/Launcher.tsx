@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ToggleLeft, ToggleRight, Search, Zap, Calendar, ArrowRight, ArrowLeft, MoreHorizontal, Globe, Clock, ChevronRight, Settings, RefreshCw, Eye, EyeOff, Ghost, Plus, Mail, Link as LinkIcon, ChevronDown, Trash2, Bell, Check, Download } from 'lucide-react';
+import { ToggleLeft, ToggleRight, Search, Zap, Calendar, ArrowRight, ArrowLeft, MoreHorizontal, Globe, Clock, ChevronRight, Settings, RefreshCw, Eye, EyeOff, Ghost, Plus, Mail, Link as LinkIcon, ChevronDown, Trash2, Bell, Check, Download, Play } from 'lucide-react';
 import { generateMeetingPDF } from '../utils/pdfGenerator';
 import icon from "./icon.ico";
 import mainui from "../UI_comp/mainui.png";
@@ -283,43 +283,27 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
 
     return (
         <div className="h-full w-full flex flex-col bg-bg-primary text-text-primary font-sans overflow-hidden selection:bg-accent-secondary/30">
-            {/* 1. Header (Static) */}
-            <header className="relative h-[40px] shrink-0 flex items-center justify-between pl-0 pr-2 drag-region select-none bg-bg-secondary border-b border-border-subtle z-[200]">
-                {/* Left: Spacing for Traffic Lights + Navigation Arrows */}
+            {/* 1. Header Navigation Bar (Command Center style) */}
+            <header className="h-14 flex items-center justify-between px-4 border-b border-border-subtle bg-[var(--bg-sidebar-alpha)] backdrop-blur-3xl z-50">
+                {/* Left: Navigation Controls */}
                 <div className="flex items-center gap-1 no-drag">
-                    <div className="w-[70px]" /> {/* Traffic Light Spacer */}
-
-                    {/* Back Button */}
                     <button
-                        onClick={selectedMeeting ? handleBack : undefined}
+                        onClick={handleBack}
                         disabled={!selectedMeeting}
-                        className={`
-                            transition-all duration-300 p-1 flex items-center justify-center mt-1 ml-2
-                            ${selectedMeeting
-                                ? 'text-text-secondary hover:text-text-primary hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] cursor-pointer'
-                                : 'text-text-tertiary opacity-50 cursor-default'}
-                        `}
+                        className="p-1.5 text-text-tertiary hover:text-text-primary disabled:opacity-20 transition-all duration-300 rounded-lg hover:bg-bg-item-surface"
                     >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={18} />
                     </button>
-
-                    {/* Forward Button */}
                     <button
                         onClick={handleForward}
                         disabled={!forwardMeeting}
-                        className={`
-                            transition-all duration-300 p-1 flex items-center justify-center mt-1
-                            ${forwardMeeting
-                                ? 'text-text-secondary hover:text-text-primary hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] cursor-pointer'
-                                : 'text-text-tertiary opacity-0 cursor-default'}
-                        `}
+                        className="p-1.5 text-text-tertiary hover:text-text-primary disabled:opacity-20 transition-all duration-300 rounded-lg hover:bg-bg-item-surface"
                     >
-                        <ArrowRight size={16} />
+                        <ArrowRight size={18} />
                     </button>
                 </div>
 
-
-                {/* Center: Spotlight-style Search Pill */}
+                {/* Center: Command Palette Input */}
                 <TopSearchPill
                     meetings={meetings}
                     onAIQuery={(query) => {
@@ -328,8 +312,6 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                         setIsGlobalChatOpen(true);
                     }}
                     onLiteralSearch={(query) => {
-                        // For now, also use AI query for literal search
-                        // Could be enhanced to do fuzzy filtering in the UI
                         analytics.trackCommandExecuted('literal_search');
                         setSubmittedGlobalQuery(query);
                         setIsGlobalChatOpen(true);
@@ -344,13 +326,10 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                 />
 
                 {/* Right: Actions */}
-                <div className="flex items-center gap-3 no-drag">
+                <div className="flex items-center gap-2 no-drag">
                     <button
-                        onClick={() => {
-                            onOpenSettings();
-                            // analytics.trackCommandExecuted('open_settings'); // Optional, high volume
-                        }}
-                        className="p-2 text-text-secondary hover:text-text-primary transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+                        onClick={() => onOpenSettings()}
+                        className="p-2 text-text-tertiary hover:text-text-primary transition-all duration-300 rounded-lg hover:bg-bg-item-surface"
                         title="Settings"
                     >
                         <Settings size={18} />
@@ -391,93 +370,83 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                             {/* Main Area - Fixed Top, Scrollable Bottom */}
                             {/* Top Section is now effectively static due to parent flex col */}
 
-                            {/* TOP SECTION: Grey Background (Scrolls with content) */}
-                            <section className="bg-bg-elevated px-8 pt-6 pb-8 border-b border-border-subtle shrink-0">
-                                <div className="max-w-4xl mx-auto space-y-6">
-                                    {/* 1.5. Hero Header (Title + Controls + CTA) */}
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <h1 className="text-3xl font-celeb-light font-medium text-text-primary tracking-wide drop-shadow-sm">Ghost Writer</h1>
+                            {/* TOP SECTION: Minimalist Header (Seamless) */}
+                            <section className="px-8 py-8 shrink-0 flex items-center justify-center">
+                                <div className="max-w-4xl mx-auto w-full">
+                                    {/* 1. Hero Section: Integrated Single-Row Design (Minimalist) */}
+                                    <div className="flex items-center justify-between w-full h-16 px-2 transition-all duration-500">
 
-                                            {/* Refresh Button */}
-                                            <button
-                                                onClick={handleRefresh}
-                                                disabled={isRefreshing}
-                                                className={`p-2 text-text-secondary hover:text-text-primary hover:bg-white/10 rounded-full transition-colors ${isRefreshing ? 'animate-spin text-blue-400' : ''}`}
-                                                title="Refresh State"
-                                            >
-                                                <RefreshCw size={18} />
-                                            </button>
-
-                                            {/* Detectable Toggle Pill */}
-                                            <div className="flex items-center gap-3 bg-[#101011] border border-border-muted rounded-full px-3 py-1.5 min-w-[140px]">
-                                                {isDetectable ? (
-                                                    <Ghost
-                                                        size={14}
-                                                        strokeWidth={2} // Using 2 for clearer visibility
-                                                        className="text-white transition-colors"
-                                                    />
-                                                ) : (
-                                                    <svg
-                                                        width="14"
-                                                        height="14"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        className="transition-colors"
-                                                    >
-                                                        <path
-                                                            d="M12 2C7.58172 2 4 5.58172 4 10V22L7 19L9.5 21.5L12 19L14.5 21.5L17 19L20 22V10C20 5.58172 16.4183 2 12 2Z"
-                                                            fill="white"
-                                                        />
-                                                        <circle cx="9" cy="10" r="1.5" fill="black" />
-                                                        <circle cx="15" cy="10" r="1.5" fill="black" />
-                                                    </svg>
-                                                )}
-                                                <span className={`text-xs font-medium flex-1 transition-colors text-[#B7B7B8]`}>
-                                                    {isDetectable ? "Detectable" : "Undetectable"}
-                                                </span>
-                                                <div
-                                                    className={`w-8 h-4 rounded-full relative cursor-pointer transition-colors ${!isDetectable ? 'bg-blue-500' : 'bg-zinc-700'}`}
-                                                    onClick={toggleDetectable}
-                                                >
-                                                    <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${!isDetectable ? 'left-[18px]' : 'left-0.5'}`} />
+                                        {/* LEFT: Logo & Brand */}
+                                        <div className="flex-1 flex justify-start">
+                                            <div className="flex items-center gap-4 group/brand cursor-default">
+                                                <div className="w-10 h-10 flex items-center justify-center transition-transform duration-500 group-hover/brand:scale-105 group-hover/brand:rotate-3">
+                                                    <img src={icon} alt="Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <h1 className="text-lg font-bold text-text-primary tracking-tight leading-none">Ghost Writer</h1>
+                                                    <span className="text-[10px] text-text-tertiary font-medium mt-1 uppercase tracking-widest opacity-70">Production v1.2.4</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Start Ghost Writer CTA Pill */}
-                                        <button
-                                            onClick={() => {
-                                                onStartMeeting();
-                                                analytics.trackCommandExecuted('start_ghost_writer_cta');
-                                            }}
-                                            className="
-                                    group relative overflow-hidden
-                                    bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600
-                                    text-white
-                                    px-6 py-3
-                                    rounded-full
-                                    font-celeb font-medium tracking-normal
-                                    shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.1),0_2px_10px_rgba(14,165,233,0.4),0_0_0_1px_rgba(255,255,255,0.15)]
-                                    hover:shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),inset_0_-1px_3px_rgba(0,0,0,0.15),0_6px_16px_rgba(14,165,233,0.6),0_0_0_1px_rgba(255,255,255,0.25)]
-                                    hover:brightness-110
-                                    hover:scale-[1.01]
-                                    active:scale-[0.99]
-                                    transition-all duration-500 ease-out
-                                    flex items-center justify-center gap-3
-                                    backdrop-blur-xl
-                                "
-                                        >
-                                            {/* Top Highlight Band */}
-                                            <div className="absolute inset-x-3 top-0 h-[40%] bg-gradient-to-b from-white/40 to-transparent blur-[2px] rounded-b-lg opacity-80 pointer-events-none" />
+                                        {/* CENTER: Mode Toggle */}
+                                        <div className="flex justify-center">
+                                            <div
+                                                className="flex items-center p-1 bg-white/5 border border-white/10 rounded-full h-9 min-w-[170px] relative cursor-pointer select-none hover:bg-white/10 transition-all duration-300"
+                                                onClick={toggleDetectable}
+                                            >
+                                                <motion.div
+                                                    className="absolute inset-1 w-[calc(50%-4px)] bg-white text-black rounded-full shadow-2xl z-0"
+                                                    animate={{ x: isDetectable ? 0 : '100%' }}
+                                                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                                                />
+                                                <div className={`flex-1 flex items-center justify-center gap-1.5 z-10 transition-all duration-500 ${isDetectable ? 'text-black' : 'text-text-tertiary/60'}`}>
+                                                    <Eye size={12} className={isDetectable ? 'font-black' : ''} />
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Visible</span>
+                                                </div>
+                                                <div className={`flex-1 flex items-center justify-center gap-1.5 z-10 transition-all duration-500 ${!isDetectable ? 'text-black' : 'text-text-tertiary/60'}`}>
+                                                    <Ghost size={12} className={!isDetectable ? 'font-black' : ''} />
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Ghost</span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                            {/* Internal "suspended light" glow */}
-                                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                                        {/* RIGHT: Actions */}
+                                        <div className="flex-1 flex justify-end items-center gap-4">
+                                            {/* Refresh Button */}
+                                            <button
+                                                onClick={handleRefresh}
+                                                disabled={isRefreshing}
+                                                className={`p-2 text-text-tertiary hover:text-text-primary transition-all hover:bg-bg-item-surface rounded-xl border border-transparent hover:border-border-subtle ${isRefreshing ? 'animate-spin text-text-primary' : ''}`}
+                                                title="Sync Calendar"
+                                            >
+                                                <RefreshCw size={18} />
+                                            </button>
 
-                                            <img src={icon} alt="Logo" className="w-[18px] h-[18px] object-contain brightness-0 invert drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] opacity-90" />
-                                            <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)] text-[20px] leading-none">Start Ghost Writer</span>
-                                        </button>
+                                            {/* Start Ghost Writer CTA */}
+                                            <button
+                                                onClick={() => {
+                                                    onStartMeeting();
+                                                    analytics.trackCommandExecuted('start_ghost_writer_cta');
+                                                }}
+                                                className="
+                                                    group/btn relative overflow-hidden
+                                                    bg-white text-black
+                                                    px-6 py-2.5
+                                                    rounded-xl
+                                                    font-black text-[11px] uppercase tracking-[0.2em]
+                                                    transition-all duration-500
+                                                    hover:bg-white/90
+                                                    hover:scale-[1.05]
+                                                    active:scale-[0.95]
+                                                    flex items-center gap-2.5
+                                                    shadow-[0_20px_40px_-10px_rgba(255,255,255,0.3)]
+                                                "
+                                            >
+                                                <Play size={12} fill="currentColor" className="ml-0.5" />
+                                                <span>Initiate</span>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* 2. Hero Section Cards - Only show if there is content */}
@@ -486,22 +455,19 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                             {/* PREPARED STATE CARD */}
                                             {isPrepared && preparedEvent ? (
                                                 <div className="md:col-span-3 relative group rounded-xl overflow-hidden border border-emerald-500/30 bg-bg-secondary flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/40 via-bg-secondary to-bg-secondary">
-
                                                     <div className="absolute top-4 right-4 text-emerald-400">
                                                         <Zap size={16} className="text-yellow-400" />
                                                     </div>
-
                                                     <div className="text-center max-w-lg z-10">
                                                         <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold tracking-wider mb-4 border border-emerald-500/20">
                                                             READY TO JOIN
                                                         </span>
-                                                        <h2 className="text-2xl font-bold text-white mb-2">{preparedEvent.title}</h2>
+                                                        <h2 className="text-2xl font-bold text-text-primary mb-2">{preparedEvent.title}</h2>
                                                         <p className="text-xs text-text-secondary mb-6 flex items-center justify-center gap-2">
                                                             <Calendar size={12} />
                                                             {new Date(preparedEvent.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(preparedEvent.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                                             {preparedEvent.link && " • Link Ready"}
                                                         </p>
-
                                                         <div className="flex items-center gap-3 justify-center">
                                                             <button
                                                                 onClick={handleStartPreparedMeeting}
@@ -512,31 +478,26 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                                             </button>
                                                             <button
                                                                 onClick={() => setIsPrepared(false)}
-                                                                className="px-4 py-3 rounded-xl text-xs font-medium text-text-tertiary hover:text-white transition-colors"
+                                                                className="px-4 py-3 rounded-xl text-xs font-medium text-text-tertiary hover:text-text-primary transition-colors"
                                                             >
                                                                 Cancel
                                                             </button>
                                                         </div>
                                                     </div>
-
-                                                    {/* Glows */}
                                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-emerald-500/10 blur-[100px] pointer-events-none" />
                                                 </div>
                                             ) : (
                                                 /* Dynamic Next Meeting */
                                                 <div className="md:col-span-2 relative group rounded-xl overflow-hidden bg-bg-secondary flex flex-col">
-                                                    {/* Header */}
                                                     <div className="p-5 flex-1 relative z-10">
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                             <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Up Next</span>
                                                             <span className="text-[11px] text-text-tertiary">• Starts in {nextMeeting ? Math.max(0, Math.ceil((new Date(nextMeeting.startTime).getTime() - Date.now()) / 60000)) : 0} min</span>
                                                         </div>
-
-                                                        <h2 className="text-xl font-bold text-white leading-tight mb-1 line-clamp-2">
+                                                        <h2 className="text-xl font-bold text-text-primary leading-tight mb-1 line-clamp-2">
                                                             {nextMeeting?.title}
                                                         </h2>
-
                                                         <div className="flex items-center gap-2 text-text-secondary text-xs mt-2">
                                                             <Calendar size={12} />
                                                             <span>{nextMeeting ? new Date(nextMeeting.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''} - {nextMeeting ? new Date(nextMeeting.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span>
@@ -549,25 +510,21 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                                             )}
                                                         </div>
                                                     </div>
-
-                                                    {/* Actions */}
-                                                    <div className="p-4 bg-bg-elevated/50 border-t border-border-subtle flex items-center gap-3">
+                                                    <div className="p-4 bg-[var(--bg-card-alpha)] border-t border-border-subtle flex items-center gap-3">
                                                         <button
                                                             onClick={() => nextMeeting && handlePrepare(nextMeeting)}
-                                                            className="flex-1 bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
+                                                            className="flex-1 bg-bg-item-surface hover:bg-bg-item-active border border-border-subtle text-text-primary px-4 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
                                                         >
                                                             <Zap size={13} className="text-yellow-400" />
                                                             Prepare
                                                         </button>
                                                         <button
-                                                            onClick={onStartMeeting} // For now just start, later could link
-                                                            className="px-4 py-2 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all"
+                                                            onClick={onStartMeeting}
+                                                            className="px-4 py-2 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-item-surface transition-all"
                                                         >
                                                             Start now
                                                         </button>
                                                     </div>
-
-                                                    {/* Background Decoration */}
                                                     <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-emerald-500/10 blur-[60px] pointer-events-none" />
                                                 </div>
                                             )}
@@ -590,30 +547,37 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                                         <motion.div
                                                             key={m.id}
                                                             layoutId={`meeting-${m.id}`}
-                                                            className="group relative flex items-center justify-between px-3 py-2 rounded-lg bg-transparent hover:bg-[#18181B] transition-colors cursor-pointer"
+                                                            className="group relative flex items-center justify-between px-5 py-3.5 rounded-2xl bg-[var(--bg-card-alpha)] hover:bg-bg-item-surface transition-all cursor-pointer border border-border-subtle hover:border-border-muted"
                                                             onClick={() => handleOpenMeeting(m)}
                                                         >
-                                                            <div className={`font-medium text-[14px] max-w-[60%] truncate ${m.title === 'Processing...' ? 'text-blue-400 italic animate-pulse' : 'text-[#F4F4F5]'}`}>
-                                                                {m.title}
+                                                            <div className="flex flex-col gap-0.5 max-w-[65%]">
+                                                                <div className={`font-semibold text-[14px] truncate ${m.title === 'Processing...' ? 'text-accent-primary italic animate-pulse' : 'text-text-primary'}`}>
+                                                                    {m.title}
+                                                                </div>
+                                                                {m.summary && (
+                                                                    <div className="text-[11px] text-text-tertiary truncate opacity-60">
+                                                                        {m.summary}
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             {/* Time & Duration Section */}
-                                                            <div className="flex items-center gap-4">
+                                                            <div className="flex items-center gap-5">
                                                                 {m.title === 'Processing...' ? (
-                                                                    <div className="flex items-center gap-2 transition-all duration-200 ease-out group-hover:opacity-0 group-hover:translate-x-2 delayed-hover-exit">
-                                                                        <RefreshCw size={12} className="animate-spin text-blue-500" />
-                                                                        <span className="text-xs text-blue-500 font-medium">Finalizing...</span>
+                                                                    <div className="flex items-center gap-2 transition-all duration-200 ease-out group-hover:opacity-0 group-hover:translate-x-2">
+                                                                        <RefreshCw size={12} className="animate-spin text-accent-primary" />
+                                                                        <span className="text-[10px] text-accent-primary font-bold uppercase tracking-wider">Processing</span>
                                                                     </div>
                                                                 ) : (
                                                                     <>
-                                                                        <span className="relative z-10 bg-[#242426] text-[#9F9FAA] text-[9px] px-1.5 py-0.5 rounded-full font-medium min-w-[35px] text-center tracking-wide">
-                                                                            {formatDurationPill(m.duration)}
-                                                                        </span>
-
-                                                                        {/* Time Text (Should fade out on hover) */}
-                                                                        <span className="text-[13px] text-[#D4D4D8] font-medium min-w-[60px] text-right transition-all duration-200 ease-out group-hover:opacity-0 group-hover:translate-x-2 delayed-hover-exit">
-                                                                            {formatTime(m.date)}
-                                                                        </span>
+                                                                        <div className="flex flex-col items-end gap-1.5 transition-all duration-200 ease-out group-hover:opacity-0 group-hover:translate-x-2">
+                                                                            <span className="text-[11px] text-text-secondary font-medium uppercase tracking-tight">
+                                                                                {formatTime(m.date)}
+                                                                            </span>
+                                                                            <span className="bg-bg-item-surface text-text-tertiary text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest border border-border-subtle">
+                                                                                {formatDurationPill(m.duration)}
+                                                                            </span>
+                                                                        </div>
                                                                     </>
                                                                 )}
                                                             </div>
@@ -621,7 +585,7 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                                             {/* Context Menu Trigger (Slides in on hover) */}
                                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 translate-x-4 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-0">
                                                                 <button
-                                                                    className="p-1.5 text-text-secondary hover:text-white transition-colors"
+                                                                    className="p-1.5 text-text-secondary hover:text-text-primary transition-colors"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setActiveMenuId(activeMenuId === m.id ? null : m.id);
@@ -681,6 +645,9 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                                                                         if (success) {
                                                                                             // Optimistic update or refetch
                                                                                             setMeetings(prev => prev.filter(meeting => meeting.id !== m.id));
+
+                                                                                            // Clear stale history if the deleted meeting was in navigation
+                                                                                            if (forwardMeeting && forwardMeeting.id === m.id) setForwardMeeting(null);
                                                                                         }
                                                                                     }
                                                                                     setActiveMenuId(null);
@@ -709,38 +676,35 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
+            </div >
 
 
 
             {/* Notification Toast - Liquid Glass */}
             <AnimatePresence>
-                {showNotification && (
-                    <motion.div
-                        initial={{ x: 300, opacity: 0, scale: 0.9 }}
-                        animate={{ x: 0, opacity: 1, scale: 1 }}
-                        exit={{ x: 300, opacity: 0, scale: 0.95 }}
-                        transition={{ type: "spring", stiffness: 350, damping: 30, mass: 1 }}
-                        className="fixed bottom-10 right-10 z-[2000] flex items-center gap-4 pl-4 pr-6 py-3.5 rounded-[18px] bg-[#2A2A2E]/40 backdrop-blur-xl saturate-[180%] border border-white/10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(255,255,255,0.05)] ring-1 ring-black/10"
-                    >
-                        {/* Liquid Icon Orb */}
-                        <div className="relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-b from-blue-400/20 to-blue-600/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] border border-white/5">
-                            <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-md" />
-                            <RefreshCw size={15} className="text-blue-300 animate-[spin_2s_linear_infinite] drop-shadow-[0_0_5px_rgba(59,130,246,0.6)]" />
-                        </div>
+                {
+                    showNotification && (
+                        <motion.div
+                            initial={{ y: 50, opacity: 0, scale: 0.9 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: 50, opacity: 0, scale: 0.9 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            className="fixed bottom-10 right-10 z-[2000] flex items-center gap-4 pl-4 pr-6 py-4 rounded-2xl bg-white/10 backdrop-blur-3xl border border-white/20 shadow-2xl saturate-[180%]"
+                        >
+                            {/* Mono Icon Orb */}
+                            <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white text-black shadow-2xl">
+                                <RefreshCw size={16} className="animate-[spin_3s_linear_infinite]" />
+                            </div>
 
-                        {/* Text Content */}
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[14px] font-semibold text-white/95 leading-none tracking-tight drop-shadow-md">Refreshed</span>
-                            <span className="text-[11px] text-blue-200/60 font-medium leading-none tracking-wide">Synced with calendar</span>
-                        </div>
-
-                        {/* Specular Highlight Overlay */}
-                        <div className="absolute inset-0 rounded-[18px] bg-gradient-to-tr from-white/5 via-transparent to-transparent pointer-events-none" />
-                    </motion.div>
-                )}
+                            {/* Text Content */}
+                            <div className="flex flex-col">
+                                <span className="text-[12px] font-black text-text-primary uppercase tracking-[0.2em]">Synchronized</span>
+                                <span className="text-[9px] text-text-tertiary font-bold uppercase tracking-widest opacity-60">Meeting core updated</span>
+                            </div>
+                        </motion.div>
+                    )
+                }
             </AnimatePresence>
-
             {/* Global Chat Overlay */}
             <GlobalChatOverlay
                 isOpen={isGlobalChatOpen}

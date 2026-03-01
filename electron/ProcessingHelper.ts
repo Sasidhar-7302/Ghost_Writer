@@ -60,49 +60,42 @@ export class ProcessingHelper {
     const deepseekKey = credManager.getDeepseekApiKey();
 
     if (geminiKey) {
-      console.log("[ProcessingHelper] Loading stored Gemini API Key from CredentialsManager");
       this.llmHelper.setApiKey(geminiKey);
     }
 
     if (groqKey) {
-      console.log("[ProcessingHelper] Loading stored Groq API Key from CredentialsManager");
       this.llmHelper.setGroqApiKey(groqKey);
     }
 
     if (openaiKey) {
-      console.log("[ProcessingHelper] Loading stored OpenAI API Key from CredentialsManager");
       this.llmHelper.setOpenaiApiKey(openaiKey);
     }
 
     if (claudeKey) {
-      console.log("[ProcessingHelper] Loading stored Claude API Key from CredentialsManager");
       this.llmHelper.setClaudeApiKey(claudeKey);
     }
 
     if (nvidiaKey) {
-      console.log("[ProcessingHelper] Loading stored NVIDIA API Key from CredentialsManager");
       this.llmHelper.setNvidiaApiKey(nvidiaKey);
     }
 
     if (deepseekKey) {
-      console.log("[ProcessingHelper] Loading stored DeepSeek API Key from CredentialsManager");
       this.llmHelper.setDeepseekApiKey(deepseekKey);
     }
 
     // CRITICAL: Re-initialize IntelligenceManager now that keys are loaded
     // This fixes the issue where buttons don't work in production because of late key loading
+    this.llmHelper.setModel(this.llmHelper.getBestAvailableModel());
     this.appState.getIntelligenceManager().initializeLLMs();
 
     // CRITICAL: Initialize RAGManager (Embeddings) with loaded key
     // This fixes "RAG unavailable" in production where process.env is empty
     const ragManager = this.appState.getRAGManager();
     if (ragManager) {
-      console.log("[ProcessingHelper] Initializing RAGManager embeddings");
       ragManager.initializeEmbeddings();
 
       // CRITICAL: Retry pending embeddings now that we have a key
       // This ensures any meetings that failed or were queued during startup get processed
-      console.log("[ProcessingHelper] Retrying pending embeddings...");
       ragManager.retryPendingEmbeddings().catch(console.error);
 
       // CRITICAL: Ensure demo meeting has chunks

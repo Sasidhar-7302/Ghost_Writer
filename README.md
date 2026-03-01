@@ -11,10 +11,10 @@
 [![Rust](https://img.shields.io/badge/Rust-Native-DEA584?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 
-**Ghost Writer** is a production-ready AI copilot for high-stakes interviews and meetings.  
-Real-time transcription, context-aware AI suggestions, and an invisible overlay — all running locally on your GPU.
+**Ghost Writer** is a professional-grade AI assistant for high-stakes interviews and meetings with **flexible privacy**.  
+Run 100% locally with a capable GPU for ultimate privacy, or leverage lightning-fast cloud providers (Groq, Deepgram, etc.) for seamless performance on any hardware.
 
-[Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](ARCHITECTURE.md) · [Support](https://paypal.me/sasidhar7302) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -33,7 +33,7 @@ Real-time transcription, context-aware AI suggestions, and an invisible overlay 
 <td width="50%">
 
 ### 🎙️ Real-Time Transcription
-- **GPU-Accelerated Whisper**: Local speech-to-text via `whisper.cpp` — no cloud API needed
+- **Hybrid Audio Pipeline**: Choose GPU-accelerated local transcription via `whisper.cpp` for ultimate privacy, or lightning-fast cloud STT (Deepgram, Groq, OpenAI) for lower-end hardware.
 - **Persistent Server Mode**: Model stays loaded in GPU VRAM for **~1-2s** latency
 - **Dual Audio Capture**: Simultaneous microphone + system audio (loopback) via native Rust module
 - **Smart Silence Detection**: Skips processing during silence to save GPU cycles
@@ -41,11 +41,12 @@ Real-time transcription, context-aware AI suggestions, and an invisible overlay 
 </td>
 <td width="50%">
 
-### 🧠 AI Intelligence Engine
-- **5 AI Modes**: What to Answer, Shorten, Recap, Follow Up Questions, Manual Answer
-- **Multi-Provider LLM**: Claude, GPT, Gemini, Groq, DeepSeek, Ollama (local)
-- **RAG Pipeline**: Semantic search over conversation history using local embeddings
-- **Document Grounding**: Upload resume + job description for personalized responses
+- ### 🧠 Smart Intelligence Engine
+- **Flexible Privacy & Hybrid LLMs**: Choose between free cloud top-tier models (Groq, Gemini, DeepSeek) or private local models (Ollama). Automatically detects GPU VRAM to optimize local execution.
+- **Visual Model Feedback**: Real-time "Ready" tickmarks and active model indicators in the UI so you always know which model is answering.
+- **Multi-Provider LLM**: Claude 3.5, GPT-4o, Gemini 1.5 Flash, Groq, DeepSeek, Ollama (local).
+- **RAG Pipeline**: Semantic search over conversation history using local embeddings.
+- **Document Grounding**: Upload resume + job description for personalized responses.
 
 </td>
 </tr>
@@ -96,41 +97,51 @@ Ghost Writer uses a layered architecture with clear separation of concerns:
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Getting Started
+
+Ghost Writer is designed for **one-click deployment**. You don't need to be a developer to use it.
+
+### 1. Download & Install
+1. **[Download the Latest Release](https://github.com/Sasidhar-7302/Ghost_Writer/releases)** (`Ghost.Writer.Setup.exe`).
+2. Run the installer.
+3. The **Setup Wizard** will launch automatically to guide you through hardware diagnosis and AI configuration.
+
+### 2. Prerequisites (Recommendations)
+| Component | Required | Why? | Recommendation |
+|-----------|----------|------|----------------|
+| **NVIDIA GPU** | Optional* | Fast local transcription | Dedicated GPU with 8GB+ VRAM for high-tier local performance. |
+| **Ollama** | Optional | Free local LLM | Download from [ollama.com](https://ollama.com) to run models like `qwen2.5:7b` locally. |
+| **API Keys** | Optional | High-accuracy cloud AI | Get a **free** key from [Groq](https://console.groq.com) for ultra-fast, high-quality responses. |
+
+*\*If no GPU is detected, Ghost Writer will automatically fallback to CPU or Cloud if keys are provided.*
+
+---
+
+## 🛠️ Developer Guide
+
+If you want to build Ghost Writer from source:
 
 ### Prerequisites
+- **Node.js**: 18+
+- **Rust**: Latest stable (for N-API native module)
+- **NVIDIA GPU**: Required for local Whisper acceleration
 
-| Requirement | Version | Purpose |
-|------------|---------|---------|
-| Node.js | 18+ | JavaScript runtime |
-| Rust | Latest stable | Native audio module compilation |
-| NVIDIA GPU | CUDA-capable | Whisper transcription acceleration |
-| Windows | 10/11 | Target platform |
-
-### Installation
-
+### Build Instructions
 ```bash
-# Clone the repository
+# 1. Clone & Install
 git clone https://github.com/Sasidhar-7302/Ghost_Writer.git
 cd Ghost_Writer
-
-# Install dependencies
 npm install
 
-# Build native audio module (Rust → N-API)
+# 2. Build Native Audio Module
 npm run build:native
 
-# Launch in development mode
+# 3. Run Development
 npm run app:dev
+
+# 4. Pack for Distribution
+npm run app:build
 ```
-
-### First-Time Setup
-
-1. **Setup Wizard** — The app automatically shows a guided onboarding wizard on first launch
-2. **API Keys** — Enter at least one LLM provider key (Groq is free and recommended to start)
-3. **Whisper Model** — The app auto-downloads the whisper binary and model (~500MB for small, ~1.5GB for medium)
-4. **Audio Test** — Verify your microphone works with the built-in audio test
-5. **Upload Context** — Add your resume and job description for personalized AI responses
 
 ---
 
@@ -151,6 +162,7 @@ npm run app:dev
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+K` | Global Spotlight Search — instant AI chat |
+| `Ctrl+H` | **Attach Screenshot** — Capture screen and add to chat |
 | `Ctrl+Shift+H` | Toggle overlay visibility |
 | `Ctrl+Shift+M` | Start/stop meeting |
 
@@ -280,12 +292,12 @@ SENTRY_DSN=your_sentry_dsn     # Optional crash reporting
 
 | Provider | Models | Tier | Latency |
 |----------|--------|------|---------|
-| **Groq** | Llama-3.3-70b | Free | ⚡ ~0.5s |
-| **Google** | Gemini 3 Flash/Pro | Free tier available | ⚡ ~1s |
-| **Anthropic** | Claude Sonnet 4.5 | Paid | ~2s |
-| **OpenAI** | GPT-5.2 | Paid | ~2s |
-| **DeepSeek** | DeepSeek Chat | Affordable | ~1.5s |
-| **Ollama** | Any local model | Free (local) | Varies |
+| **Groq** | Llama 3.3 70B | Free | ⚡ ~0.5s |
+| **Google** | Gemini 1.5 Flash/Pro | Free tier available | ⚡ ~1s |
+| **Anthropic** | Claude 3.5 Sonnet | Paid | ~2s |
+| **OpenAI** | GPT-4o | Paid | ~2s |
+| **DeepSeek** | DeepSeek-V3 | Affordable | ~1.5s |
+| **Ollama** | qwen2.5, llava (vision) | Free (local) | ⚡ ~1s (GPU) |
 | **Custom** | Any OpenAI-compatible API | Varies | Varies |
 
 ### Speech-to-Text Providers
@@ -338,30 +350,40 @@ SENTRY_DSN=your_sentry_dsn     # Optional crash reporting
 
 ---
 
-## 📈 Roadmap
+### 🚀 Hardware-Aware Optimization & Flexible Privacy
+- **Scalable Performance**: Automatically detects GPU VRAM (e.g., 8GB+ dedicated GPUs) and optimizes threads (`num_thread: 8`) and context windows (`num_ctx: 32k`) for local models. Users without capable GPUs can seamlessly switch to ultra-fast cloud providers.
+- **Instant Pre-loading**: Models are "warmed up" in VRAM background the moment they are selected, reducing cold-start latency to zero.
+- **Smart Summarization**: Automatically switches to lightning-fast text models (e.g., qwen2.5:7b) for transcripts, even if a heavy VL model is currently active for vision tasks.
+- **Offline Reliability**: Fully functional "Zero-Cloud" mode by leveraging high-accuracy local Ollama + Whisper.
+
+---
 
 - [x] Real-time transcription with GPU acceleration
 - [x] Multi-provider LLM support (6+ providers)
 - [x] RAG pipeline with local embeddings
 - [x] Whisper Server Mode (~1-2s latency)
-- [x] Setup Wizard for onboarding
-- [x] Cost tracking and analytics
+- [x] Hardware-aware model selection & optimization
+- [x] Visual model status & active use indicators
+- [x] Professional transcript summarization pipeline
 - [ ] macOS support with CoreAudio loopback
 - [ ] Multi-language transcription support
 - [ ] Shareable meeting notes with polished exports
-- [ ] Mobile companion app
-- [ ] Custom LLM fine-tuning for interview patterns
 
 ---
 
-## 🤝 Contributing
+## 🤝 Community & Support
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Ghost Writer is developed for the community. If you find it helpful, please consider supporting the project:
 
+- **[Support on PayPal](https://paypal.me/sasidhar7302)**: Support independent development.
+- **[Star the Repository](https://github.com/Sasidhar-7302/Ghost_Writer)**: Help more people discover the project.
+- **[Contribute](CONTRIBUTING.md)**: Open an issue or submit a pull request.
+
+---
 **Quick overview:**
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/amazing-feature`)
-3. Commit your changes with [Conventional Commits](https://www.conventionalcommits.org/)
+3. Commit your changes with [Conventional Commits](https://www.conventionalcommits.com/)
 4. Push and open a Pull Request
 
 ---

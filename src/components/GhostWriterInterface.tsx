@@ -607,44 +607,19 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
 
 
 
-        // Screenshot taken - auto-analyze
+        // Screenshot taken - attach for later use
         cleanups.push(window.electronAPI.onScreenshotTaken(async (data) => {
+            console.log('[GhostWriterInterface] Screenshot taken event received:', data.path);
             setIsExpanded(true);
-            setIsProcessing(true);
-            analytics.trackCommandExecuted('screenshot_analysis');
+            setAttachedContext(data);
+            analytics.trackCommandExecuted('screenshot_attached');
 
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'user',
-                text: 'Analyzing screenshot...',
-                hasScreenshot: true,
-                screenshotPreview: data.preview
-            }]);
-
-            // Auto-focus input for immediate typing (Robust Retry)
-            // We retry a few times to ensure window focus has settled
-            [100, 300, 600].forEach(delay => {
+            // Auto-focus input for immediate typing
+            [100, 300].forEach(delay => {
                 setTimeout(() => {
                     textInputRef.current?.focus();
                 }, delay);
             });
-
-            try {
-                const result = await window.electronAPI.invoke('analyze-image-file', data.path);
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    role: 'system',
-                    text: result.text
-                }]);
-            } catch (err) {
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    role: 'system',
-                    text: `Error analyzing screenshot: ${err}`
-                }]);
-            } finally {
-                setIsProcessing(false);
-            }
         }));
 
         // Selective Screenshot (Latent Context)
@@ -1464,33 +1439,50 @@ Provide only the answer, nothing else.`;
 
                             {/* Input Area */}
                             <div className="p-3 pt-0">
-                                {/* Latent Context Preview (Attached Screenshot) */}
-                                {attachedContext && (
-                                    <div className="mb-2 flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-2 animate-in fade-in slide-in-from-bottom-1">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative group">
-                                                <img
-                                                    src={attachedContext.preview}
-                                                    alt="Context"
-                                                    className="h-10 w-auto rounded border border-white/20"
-                                                />
-                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors rounded" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[11px] font-medium text-white">Screenshot attached</span>
-                                                <span className="text-[10px] text-slate-400">Ask a question or click Answer</span>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setAttachedContext(null)}
-                                            className="p-1 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
-                                        >
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                )}
-
                                 <div className="relative group">
+                                    {/* Latent Context Preview (Attached Screenshot) - Compact Version */}
+                                    <AnimatePresence>
+                                        {attachedContext && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                className="absolute bottom-full left-0 mb-3 z-20"
+                                            >
+                                                <div className="relative group/thumb">
+                                                    <div className="
+                                                            relative w-16 h-16 rounded-xl overflow-hidden border-2 border-white/20 
+                                                            shadow-2xl ring-1 ring-black/50
+                                                        ">
+                                                        <img
+                                                            src={attachedContext.preview}
+                                                            alt="Context"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-transparent transition-colors" />
+                                                    </div>
+
+                                                    {/* Remove Button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAttachedContext(null);
+                                                        }}
+                                                        className="
+                                                                absolute -top-2 -right-2 w-6 h-6 
+                                                                bg-[#2A2A2A] text-white/70 hover:text-white
+                                                                border border-white/20 rounded-full 
+                                                                flex items-center justify-center 
+                                                                shadow-xl z-30 transition-all active:scale-90
+                                                            "
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
                                     <input
                                         ref={textInputRef}
                                         type="text"

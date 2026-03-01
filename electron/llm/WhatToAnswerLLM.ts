@@ -1,5 +1,6 @@
 import { LLMHelper } from "../LLMHelper";
-import { UNIVERSAL_WHAT_TO_ANSWER_PROMPT, injectUserContext } from "./prompts";
+import { CredentialsManager } from "../services/CredentialsManager";
+import { UNIVERSAL_WHAT_TO_ANSWER_PROMPT, UNIVERSAL_MEETING_ANSWER_PROMPT, injectUserContext } from "./prompts";
 import { TemporalContext } from "./TemporalContextBuilder";
 import { IntentResult } from "./IntentClassifier";
 import { ContextDocumentManager } from "../services/ContextDocumentManager";
@@ -56,13 +57,26 @@ ANSWER SHAPE: ${intentResult.answerShape}
                 ? `${extraContext}\n\nCONVERSATION:\n${cleanedTranscript}`
                 : cleanedTranscript;
 
-            // Get user context (resume/JD)
+            // Get user context (resume/JD/Project/Agenda)
             const contextManager = ContextDocumentManager.getInstance();
             const resumeText = contextManager.getResumeText();
             const jdText = contextManager.getJDText();
+            const projectKnowledge = contextManager.getProjectKnowledgeText();
+            const agendaText = contextManager.getAgendaText();
+
+            // Get custom prompt from CredentialsManager
+            const creds = CredentialsManager.getInstance();
+            const isMeeting = creds.getIsMeetingMode();
+            const customPrompt = isMeeting ? creds.getMeetingPrompt() : creds.getInterviewPrompt();
+
+            // Select the correct base prompt based on mode
+            let basePrompt = customPrompt;
+            if (!basePrompt) {
+                basePrompt = isMeeting ? UNIVERSAL_MEETING_ANSWER_PROMPT : UNIVERSAL_WHAT_TO_ANSWER_PROMPT;
+            }
 
             // Inject into prompt
-            const prompt = injectUserContext(UNIVERSAL_WHAT_TO_ANSWER_PROMPT, resumeText, jdText);
+            const prompt = injectUserContext(basePrompt, resumeText, jdText, projectKnowledge, agendaText, isMeeting ? 'meeting' : 'interview');
 
             // Use Universal Prompt
             // Note: WhatToAnswer has a very specific prompt. 
@@ -103,6 +117,7 @@ ANSWER SHAPE: ${intentResult.answerShape}
         if (model.includes('groq') || model.includes('llama')) return 'groq';
         if (model.includes('deepseek')) return 'deepseek';
         if (model.includes('nvidia')) return 'nvidia';
+        if (model.includes('ollama')) return 'ollama';
         return 'unknown';
     }
 

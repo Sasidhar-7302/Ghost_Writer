@@ -8,6 +8,7 @@ interface ElectronAPI {
   }) => Promise<void>
   getRecognitionLanguages: () => Promise<Record<string, any>>
   getScreenshots: () => Promise<Array<{ path: string; preview: string }>>
+  getImagePreview: (path: string) => Promise<string>
   deleteScreenshot: (
     path: string
   ) => Promise<{ success: boolean; error?: string }>
@@ -45,6 +46,8 @@ interface ElectronAPI {
   switchToGemini: (apiKey?: string, modelId?: string) => Promise<{ success: boolean; error?: string }>
   testLlmConnection: (provider?: string, apiKey?: string) => Promise<{ success: boolean; error?: string }>
   selectServiceAccount: () => Promise<{ success: boolean; path?: string; cancelled?: boolean; error?: string }>
+  getGpuInfo: () => Promise<{ success: boolean; info?: any; error?: string }>
+  checkOllamaStatus: () => Promise<{ success: boolean; running: boolean; models?: any[]; error?: string }>
 
   // API Key Management
   setGeminiApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
@@ -53,7 +56,11 @@ interface ElectronAPI {
   setClaudeApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setNvidiaApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepseekApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
-  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean }>
+  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean }>
+  
+  // Security
+  setAirGapMode: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+  getAirGapMode: () => Promise<boolean>
 
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => Promise<{ success: boolean; error?: string }>
@@ -64,6 +71,14 @@ interface ElectronAPI {
   setLocalWhisperPaths: (binaryPath?: string, modelPath?: string) => Promise<{ success: boolean; status: any }>
   selectLocalFile: (prompt: string, filters: any[]) => Promise<string | null>
   setGroqSttApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
+
+  // Customizable Prompts
+  getCustomPrompts: () => Promise<{ interviewPrompt: string | null; meetingPrompt: string | null }>
+  setCustomPrompt: (type: 'interview' | 'meeting', prompt: string) => Promise<{ success: boolean; error?: string }>
+  getDefaultPrompts: () => Promise<{ interviewPrompt: string; meetingPrompt: string }>
+  getMeetingMode: () => Promise<boolean>
+  setMeetingMode: (isMeeting: boolean) => Promise<{ success: boolean; error?: string }>
+
   setOpenAiSttApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepgramApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setElevenLabsApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
@@ -88,6 +103,16 @@ interface ElectronAPI {
   stopAudioTest: () => Promise<{ success: boolean }>
   onAudioLevel: (callback: (level: number) => void) => () => void
   setRecognitionLanguage: (key: string) => Promise<{ success: boolean; error?: string }>
+  onSessionReset: (callback: () => void) => () => void
+
+  saveProjectText: (text: string) => Promise<{ success: boolean; error?: string }>
+  saveAgendaText: (text: string) => Promise<{ success: boolean; error?: string }>
+  uploadProject: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  uploadAgenda: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  clearProject: () => Promise<{ success: boolean; error?: string }>
+  clearAgenda: () => Promise<{ success: boolean; error?: string }>
+
+  getContextDocuments: () => Promise<{ resumeText: string; jdText: string; projectText: string; agendaText: string; isMeetingMode: boolean }>
 
   // Intelligence Mode IPC
   generateAssist: () => Promise<{ insight: string | null }>
@@ -192,6 +217,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getRecognitionLanguages: () => ipcRenderer.invoke("get-recognition-languages"),
   takeScreenshot: () => ipcRenderer.invoke("take-screenshot"),
   getScreenshots: () => ipcRenderer.invoke("get-screenshots"),
+  getImagePreview: (path: string) => ipcRenderer.invoke("get-image-preview", path),
   deleteScreenshot: (path: string) =>
     ipcRenderer.invoke("delete-screenshot", path),
 
@@ -361,6 +387,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   switchToGemini: (apiKey?: string, modelId?: string) => ipcRenderer.invoke("switch-to-gemini", apiKey, modelId),
   testLlmConnection: (provider?: string, apiKey?: string) => ipcRenderer.invoke("test-llm-connection", provider, apiKey),
   selectServiceAccount: () => ipcRenderer.invoke("select-service-account"),
+  getGpuInfo: () => ipcRenderer.invoke("get-gpu-info"),
+  checkOllamaStatus: () => ipcRenderer.invoke("check-ollama-status"),
 
   // API Key Management
   setGeminiApiKey: (apiKey: string) => ipcRenderer.invoke("set-gemini-api-key", apiKey),
@@ -387,6 +415,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => ipcRenderer.invoke("set-stt-provider", provider),
   getSttProvider: () => ipcRenderer.invoke("get-stt-provider"),
 
+  // Security
+  getAirGapMode: () => ipcRenderer.invoke("get-air-gap-mode"),
+  setAirGapMode: (enabled: boolean) => ipcRenderer.invoke("set-air-gap-mode", enabled),
+
   // Local Whisper Setup
   getWhisperStatus: () => ipcRenderer.invoke("get-whisper-status"),
   setupWhisper: (model?: string) => ipcRenderer.invoke("setup-whisper", model),
@@ -399,6 +431,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   setLocalWhisperPaths: (binaryPath?: string, modelPath?: string) => ipcRenderer.invoke("set-local-whisper-paths", binaryPath, modelPath),
   selectLocalFile: (prompt: string, filters: any[]) => ipcRenderer.invoke("select-local-file", prompt, filters),
+
+  // Customizable Prompts
+  getCustomPrompts: () => ipcRenderer.invoke("get-custom-prompts"),
+  setCustomPrompt: (type: 'interview' | 'meeting', prompt: string) => ipcRenderer.invoke("set-custom-prompt", type, prompt),
+  getDefaultPrompts: () => ipcRenderer.invoke("get-default-prompts"),
+  getMeetingMode: () => ipcRenderer.invoke("get-meeting-mode"),
+  setMeetingMode: (isMeeting: boolean) => ipcRenderer.invoke("set-meeting-mode", isMeeting),
+
+  saveProjectText: (text: string) => ipcRenderer.invoke('save-project-text', text),
+  saveAgendaText: (text: string) => ipcRenderer.invoke('save-agenda-text', text),
+  uploadProject: (filePath: string) => ipcRenderer.invoke('upload-project', filePath),
+  uploadAgenda: (filePath: string) => ipcRenderer.invoke('upload-agenda', filePath),
+  clearProject: () => ipcRenderer.invoke('clear-project'),
+  clearAgenda: () => ipcRenderer.invoke('clear-agenda'),
 
   setGroqSttApiKey: (apiKey: string) => ipcRenderer.invoke("set-groq-stt-api-key", apiKey),
   setOpenAiSttApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-stt-api-key", apiKey),

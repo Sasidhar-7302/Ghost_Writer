@@ -39,11 +39,11 @@ const ModelSelect: React.FC<ModelSelectProps> = ({ value, options, onChange, pla
         <div className="relative" ref={containerRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-40 bg-bg-input border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary flex items-center justify-between hover:bg-bg-elevated transition-colors"
+                className="w-56 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-text-primary focus:outline-none focus:border-white/30 flex items-center justify-between hover:bg-white/10 transition-all duration-300 shadow-sm"
                 type="button"
             >
-                <span className="truncate pr-2">{selectedOption ? selectedOption.name : placeholder}</span>
-                <ChevronDown size={14} className={`text-text-secondary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <span className="truncate pr-2 font-bold">{selectedOption ? selectedOption.name : placeholder}</span>
+                <ChevronDown size={14} className={`text-text-tertiary transition-transform duration-500 ${isOpen ? 'rotate-180 text-white' : ''}`} />
             </button>
 
             {isOpen && (
@@ -82,6 +82,7 @@ export const AIModelsSettings: React.FC = () => {
     const [selectedModel, setSelectedModel] = useState<string>('gemini');
     const [isApplying, setIsApplying] = useState(false);
     const [showApplied, setShowApplied] = useState(false);
+    const [gpuInfo, setGpuInfo] = useState<{name: string, vramGB: number, tier: string} | null>(null);
 
     // Load Data
     useEffect(() => {
@@ -184,6 +185,13 @@ export const AIModelsSettings: React.FC = () => {
                     }
                 }
 
+                if (window.electronAPI?.getGpuInfo) {
+                     const gpu = await window.electronAPI.getGpuInfo();
+                     if (gpu.success && gpu.info) {
+                         setGpuInfo(gpu.info);
+                     }
+                }
+
             } catch (e) {
                 console.error("Failed to load AI Models settings:", e);
             }
@@ -213,7 +221,7 @@ export const AIModelsSettings: React.FC = () => {
                 <p className="text-xs text-text-secondary mb-2">Primary model for new chats. Other configured models act as fallbacks.</p>
             </div>
 
-            <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle flex items-center justify-between">
+            <div className="relative z-30 bg-white/5 backdrop-blur-3xl rounded-2xl p-6 border border-white/10 flex items-center justify-between shadow-2xl transition-all duration-500 hover:bg-white/[0.07]">
                 <div>
                     <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-0">Active Model</label>
                     <p className="text-[10px] text-text-secondary">Applies to new chats instantly.</p>
@@ -243,7 +251,7 @@ export const AIModelsSettings: React.FC = () => {
                         <button
                             onClick={handleApply}
                             disabled={isApplying}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-primary text-white hover:bg-accent-secondary disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-accent-primary text-bg-primary hover:bg-accent-secondary disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
                         >
                             {isApplying ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
                             Apply
@@ -251,6 +259,72 @@ export const AIModelsSettings: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* VRAM Budgeting UI - Only show when an Ollama model is selected and GPU is detected */}
+            {selectedModel.startsWith('ollama-') && gpuInfo && (
+                <div className="relative z-20 bg-white/5 backdrop-blur-3xl rounded-2xl p-6 border border-white/10 mt-4 space-y-4 shadow-xl transition-all duration-500 hover:bg-white/[0.07]">
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-text-primary uppercase tracking-wide">VRAM Budget</label>
+                        <span className="text-[10px] text-text-secondary bg-bg-input px-2 py-1 rounded-md border border-border-subtle">{gpuInfo.name}</span>
+                    </div>
+
+                    {(() => {
+                        const modelName = selectedModel.replace('ollama-', '');
+                        
+                        // Heuristic VRAM calculation (rough estimates)
+                        let requiredVRAM = 4.5; // default 7B
+                        if (modelName.includes('32b')) requiredVRAM = 18;
+                        else if (modelName.includes('14b')) requiredVRAM = 9;
+                        else if (modelName.includes('8b')) requiredVRAM = 5.5;
+                        else if (modelName.includes('7b')) requiredVRAM = 4.5;
+                        else if (modelName.includes('3b')) requiredVRAM = 2.5;
+                        else if (modelName.includes('1.5b')) requiredVRAM = 1.5;
+
+                        const totalVRAM = gpuInfo.vramGB;
+                        // For non-NVIDIA/AMD discrete GPUs or generic, totalVRAM might be 0, assume minimum shared.
+                        const effectiveVRAM = totalVRAM > 0 ? totalVRAM : 8; // fallback assuming shared memory
+                        
+                        const usedRatio = Math.min((requiredVRAM / effectiveVRAM) * 100, 100);
+                        const isWarning = usedRatio > 85;
+                        const isDanger = usedRatio > 100 || effectiveVRAM < requiredVRAM;
+
+                        return (
+                            <div className="space-y-4">
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-[11px] font-medium">
+                                        <span className={isDanger ? 'text-red-400' : isWarning ? 'text-orange-400' : 'text-emerald-400'}>
+                                            Estimated Usage: {requiredVRAM} GB
+                                        </span>
+                                        <span className="text-text-secondary">Capacity: {totalVRAM > 0 ? `${totalVRAM} GB` : 'Shared Memory'}</span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-bg-input rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full rounded-full transition-all duration-500 ${isDanger ? 'bg-red-500' : isWarning ? 'bg-orange-500' : 'bg-emerald-500'}`}
+                                            style={{ width: `${usedRatio}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {isDanger && (
+                                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-lg text-[11px] leading-relaxed">
+                                        <strong>⚠️ Potential Slower Generation:</strong> This model requires more VRAM than your GPU has available. It will fallback to system RAM, causing significantly slower response times.
+                                    </div>
+                                )}
+                                {!isDanger && isWarning && (
+                                    <div className="bg-orange-500/10 border border-orange-500/20 text-orange-400 px-3 py-2 rounded-lg text-[11px] leading-relaxed">
+                                        <strong>⚠️ High VRAM Expected:</strong> This model will use most of your VRAM, leaving little room for other heavy applications or high-res gaming during generation.
+                                    </div>
+                                )}
+                                {!isDanger && !isWarning && totalVRAM > 0 && (
+                                    <div className="text-[10px] text-text-secondary italic">
+                                        Your hardware can comfortably run this model.
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+            )}
         </div>
     );
 };

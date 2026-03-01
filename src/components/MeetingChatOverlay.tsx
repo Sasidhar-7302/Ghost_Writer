@@ -68,7 +68,7 @@ const UserMessage: React.FC<{ content: string }> = ({ content }) => (
         transition={{ duration: 0.15 }}
         className="flex justify-end mb-6"
     >
-        <div className="bg-accent-primary text-white px-5 py-3 rounded-2xl rounded-tr-md max-w-[70%] text-[15px] leading-relaxed">
+        <div className="bg-white text-black px-5 py-3 rounded-2xl rounded-tr-md max-w-[70%] text-[15px] font-medium leading-relaxed shadow-[0_10px_30px_-10px_rgba(255,255,255,0.2)]">
             {content}
         </div>
     </motion.div>
@@ -411,24 +411,29 @@ ${contextString}`;
                     />
 
                     {/* Chat Window - extends to bottom, leaves room for input */}
-                    <motion.div
-                        ref={chatWindowRef}
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "85vh", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{
-                            height: { type: "spring", stiffness: 300, damping: 30, mass: 0.8 },
-                            opacity: { duration: 0.2 }
-                        }}
-                        className="relative mx-auto w-full max-w-[680px] mb-0 bg-bg-secondary dark:bg-[#0C0C0C] rounded-t-[24px] border-t border-x border-border-subtle shadow-2xl overflow-hidden flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header with close button */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle shrink-0">
-                            <div className="flex items-center gap-2 text-text-tertiary">
-                                <img src={ghostWriterIcon} className="w-3.5 h-3.5 brightness-0 dark:brightness-100 dark:opacity-50 dark:grayscale" alt="logo" />
-                                <span className="text-[13px] font-medium">Search this meeting</span>
-                            </div>
+                        <motion.div
+                            ref={chatWindowRef}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "85vh", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                                height: { type: "spring", stiffness: 300, damping: 30, mass: 0.8 },
+                                opacity: { duration: 0.2 }
+                            }}
+                            className="relative mx-auto w-full max-w-[680px] mb-0 bg-bg-main/90 border-t border-x border-white/10 rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col backdrop-blur-3xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header with close button */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+                                        <img src={ghostWriterIcon} className="w-3.5 h-3.5 opacity-50" alt="logo" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-text-primary">Contextual Recall</span>
+                                        <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Session intelligence</span>
+                                    </div>
+                                </div>
                             <button
                                 onClick={handleClose}
                                 className="p-2 transition-colors group"

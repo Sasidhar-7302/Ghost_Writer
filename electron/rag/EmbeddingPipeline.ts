@@ -77,7 +77,6 @@ export class EmbeddingPipeline {
         });
 
         queueAll();
-        console.log(`[EmbeddingPipeline] Queued ${chunks.length} chunks + 1 summary for meeting ${meetingId}`);
 
         // Start processing in background
         this.processQueue().catch(err => {
@@ -90,7 +89,6 @@ export class EmbeddingPipeline {
      */
     async processQueue(): Promise<void> {
         if (this.isProcessing) {
-            console.log('[EmbeddingPipeline] Already processing queue');
             return;
         }
 
@@ -107,7 +105,6 @@ export class EmbeddingPipeline {
                 `).get(MAX_RETRIES) as any;
 
                 if (!pending) {
-                    console.log('[EmbeddingPipeline] Queue empty');
                     break;
                 }
 
@@ -170,8 +167,6 @@ export class EmbeddingPipeline {
 
         const embedding = await this.getEmbedding(row.cleaned_text);
         this.vectorStore.storeEmbedding(chunkId, embedding);
-
-        console.log(`[EmbeddingPipeline] Embedded chunk ${chunkId} locally`);
     }
 
     /**
@@ -184,14 +179,11 @@ export class EmbeddingPipeline {
         ).get(meetingId) as any;
 
         if (!row) {
-            console.log(`[EmbeddingPipeline] No summary for meeting ${meetingId}, skipping`);
             return;
         }
 
         const embedding = await this.getEmbedding(row.summary_text);
         this.vectorStore.storeSummaryEmbedding(meetingId, embedding);
-
-        console.log(`[EmbeddingPipeline] Embedded summary for meeting ${meetingId} locally`);
     }
 
     /**
