@@ -10,6 +10,9 @@ import SetupWizard from "./components/SetupWizard"
 import ModeSelectionModal from "./components/ModeSelectionModal"
 import { AnimatePresence, motion } from "framer-motion"
 import UpdateBanner from "./components/UpdateBanner"
+import Paywall from "./components/Paywall"
+import TrialBanner from "./components/ui/TrialBanner"
+import Maintenance from "./components/Maintenance"
 import { analytics } from "./lib/analytics/analytics.service"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 
@@ -62,6 +65,45 @@ const App: React.FC = () => {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showModeSelection, setShowModeSelection] = useState(false);
+
+  // License state
+  const [licenseStatus, setLicenseStatus] = useState<'beta' | 'trial' | 'paid' | 'expired' | 'loading'>('loading');
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
+  const [isServiceActive, setIsServiceActive] = useState(true);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+
+  // Check license on mount (launcher window only)
+  useEffect(() => {
+    if (!isLauncherWindow && !isDefault) return;
+    const checkLicense = async () => {
+      try {
+        const state = await window.electronAPI.invoke('get-license-status');
+        setLicenseStatus(state.status);
+        setTrialDaysRemaining(state.remainingDays || 0);
+        setIsServiceActive(state.isServiceActive ?? true);
+        setMaintenanceMessage(state.maintenanceMessage || '');
+      } catch (err) {
+        console.error('[App] License check failed:', err);
+        setLicenseStatus('beta'); // Be generous on error
+      }
+    };
+    if (!showStartup) {
+      checkLicense();
+    }
+  }, [showStartup, isLauncherWindow, isDefault]);
+
+  const handlePaywallUnlocked = async () => {
+    // Re-fetch full state from server/cache to get license keys, etc.
+    try {
+      const state = await window.electronAPI.invoke('get-license-status');
+      setLicenseStatus(state.status);
+      setTrialDaysRemaining(state.remainingDays || 0);
+      setIsServiceActive(state.isServiceActive ?? true);
+      setMaintenanceMessage(state.maintenanceMessage || '');
+    } catch {
+      setLicenseStatus('paid');
+    }
+  };
 
   // Check for first run setup
   useEffect(() => {
@@ -121,6 +163,15 @@ const App: React.FC = () => {
     }
   };
 
+  // --- MAINTENANCE / KILL SWITCH ---
+  if (!isServiceActive) {
+    return (
+      <ErrorBoundary>
+        <Maintenance message={maintenanceMessage} />
+      </ErrorBoundary>
+    );
+  }
+
   // Render Logic
   if (isSettingsWindow) {
     return (
@@ -157,9 +208,25 @@ const App: React.FC = () => {
 
   // --- LAUNCHER WINDOW (Default) ---
   // Renders if window=launcher OR no param
+
+  // Show paywall if trial expired
+  if (licenseStatus === 'expired') {
+    return (
+      <ErrorBoundary>
+        <Paywall onUnlocked={handlePaywallUnlocked} />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <div className="h-full min-h-0 w-full relative">
+        {licenseStatus === 'trial' && (
+          <TrialBanner
+            remainingDays={trialDaysRemaining}
+            onBuyClick={() => window.electronAPI.invoke('initiate-checkout')}
+          />
+        )}
         <AnimatePresence>
           {showStartup ? (
             <motion.div
@@ -189,7 +256,7 @@ const App: React.FC = () => {
                     onStartMeeting={handleStartMeetingTrigger}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                   />
-                  <ModeSelectionModal 
+                  <ModeSelectionModal
                     isOpen={showModeSelection}
                     onClose={() => setShowModeSelection(false)}
                     onConfirm={handleStartMeeting}

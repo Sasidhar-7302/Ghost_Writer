@@ -26,7 +26,13 @@ Ghost Writer is an Electron desktop application with a multi-layered architectur
 │  └──────────────┘  └──────────┘  └────────────────────────────┘│
 │  ┌──────────────┐  ┌──────────┐  ┌────────────────────────────┐│
 │  │ Audio Manager│  │ Database │  │ Services                  ││
-│  │ (Rust NAPI)  │  │ (SQLite) │  │ (Credentials, Cost, etc.) ││
+│  │ (Rust NAPI)  │  │ (SQLite) │  │ (Licensing, Analytics, etc)││
+│  └──────────────┘  └──────────┘  └────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│                   Cloud Infrastructure                          │
+│  ┌──────────────┐  ┌──────────┐  ┌────────────────────────────┐│
+│  │ Supabase DB  │  │ Edge     │  │ Gumroad                   ││
+│  │ (Global State)│  │ Functions│  │ (Monetization Engine)      ││
 │  └──────────────┘  └──────────┘  └────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────────┤
 │               Native Audio Module (Rust)                        │
@@ -138,6 +144,16 @@ SQLite database (`ghost-writer.db`) with automatic migrations:
 - **Preload Bridge** — Explicit allowlist of IPC methods via `contextBridge`
 - **Encrypted Credentials** — API keys stored with OS-level encryption
 - **Content Protection** — BrowserWindow flag prevents screen capture
+- **Remote Kill Switch** — `is_service_active` flag in Supabase allows immediate remote application lockout.
+- **License Hardening** — Hardware-bound Machine IDs prevent license sharing.
+
+### 7. Cloud Integration Layer (Supabase + Gumroad)
+
+Ghost Writer uses a hybrid approach for enterprise-grade management:
+
+- **Licensing Engine**: `LicenseManager.ts` coordinates between local state, Supabase `checkout_sessions`, and Gumroad's API.
+- **Pulse Analytics**: A 5-minute heartbeat loop (`AnalyticsManager.ts`) synchronizes usage metrics (active time, launch counts) to Supabase.
+- **Edge Orchestration**: The `gumroad-webhook` Edge Function handles server-to-server notifications from Gumroad to instantly unlock clients via Supabase Realtime.
 
 ---
 

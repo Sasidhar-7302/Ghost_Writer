@@ -51,6 +51,11 @@ export interface StoredCredentials {
     localWhisperModel?: string;
     // Security
     airGapMode?: boolean;
+    // Licensing
+    gumroadLicenseKey?: string;
+    machineId?: string;
+    licenseStatus?: 'beta' | 'trial' | 'paid' | 'expired';
+    betaRegisteredAt?: string;
 }
 
 export class CredentialsManager {
@@ -187,6 +192,23 @@ export class CredentialsManager {
 
     public getAllCredentials(): StoredCredentials {
         return { ...this.credentials };
+    }
+
+    // License getters
+    public getLicenseKey(): string | undefined {
+        return this.credentials.gumroadLicenseKey;
+    }
+
+    public getMachineId(): string | undefined {
+        return this.credentials.machineId;
+    }
+
+    public getLicenseStatus(): 'beta' | 'trial' | 'paid' | 'expired' {
+        return this.credentials.licenseStatus || 'trial';
+    }
+
+    public getBetaRegisteredAt(): string | undefined {
+        return this.credentials.betaRegisteredAt;
     }
 
     // =========================================================================
@@ -363,6 +385,29 @@ export class CredentialsManager {
         this.credentials.airGapMode = enabled;
         this.saveCredentials();
         console.log(`[CredentialsManager] Air-Gap Mode set to: ${enabled}`);
+    }
+
+    // License setters
+    public setLicenseKey(key: string): void {
+        this.credentials.gumroadLicenseKey = key;
+        this.saveCredentials();
+        console.log('[CredentialsManager] License key updated');
+    }
+
+    public setMachineId(id: string): void {
+        this.credentials.machineId = id;
+        this.saveCredentials();
+    }
+
+    public setLicenseStatus(status: 'beta' | 'trial' | 'paid' | 'expired'): void {
+        this.credentials.licenseStatus = status;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] License status set to: ${status}`);
+    }
+
+    public setBetaRegisteredAt(date: string): void {
+        this.credentials.betaRegisteredAt = date;
+        this.saveCredentials();
     }
 
     public saveCustomProvider(provider: CustomProvider): void {

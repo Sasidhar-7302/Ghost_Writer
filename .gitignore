@@ -169,6 +169,13 @@ native-module/*.node
 build_log.txt
 native-module/errors.txt
 test-electron.js
+out.log
+
+# Scratch scripts
+check_userData.js
+tmp/
+/tmp/
+/env.txt
 
 # Test scripts and artifacts
 test_*.js
