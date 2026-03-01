@@ -231,11 +231,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ currentModel, onSe
                                 )}
 
                                 {credentials && !credentials.hasGeminiKey && !credentials.hasOpenaiKey && !credentials.hasClaudeKey && !credentials.hasGroqKey && (
-                                    <div className="text-center py-6 text-text-tertiary">
-                                        <p className="text-xs mb-2">No cloud API keys set.</p>
+                                    <div className="text-center py-5 text-text-tertiary">
+                                        <p className="text-xs mb-1.5 font-medium text-text-secondary">No cloud API keys set.</p>
+                                        <p className="text-[10px] opacity-70 mb-3 px-4 leading-relaxed">
+                                            If you don't use local Ollama models, add a <strong className="text-text-primary">free Gemini or Groq</strong> API key to get started.
+                                        </p>
                                         <button
                                             onClick={() => window.electronAPI.invoke('toggle-settings-window')}
-                                            className="text-[10px] text-accent-primary hover:underline"
+                                            className="text-[10px] text-accent-primary hover:text-accent-primary/80 hover:underline font-bold px-3 py-1.5 bg-accent-primary/10 rounded-lg transition-colors"
                                         >
                                             Add Keys in Settings
                                         </button>

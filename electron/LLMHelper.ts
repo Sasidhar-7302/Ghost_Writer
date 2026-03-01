@@ -165,12 +165,12 @@ export class LLMHelper extends EventEmitter {
     try {
       const { CredentialsManager } = require('./services/CredentialsManager');
       airGapMode = CredentialsManager.getInstance().getAirGapMode();
-    } catch(e) {}
+    } catch (e) { }
 
     if (airGapMode && !modelId.startsWith('ollama-')) {
-       console.warn(`[LLMHelper] Air-Gap Mode is ON. Refusing to set cloud model: ${modelId}`);
-       // Force back to Ollama
-       modelId = `ollama-${this.ollamaModel}`;
+      console.warn(`[LLMHelper] Air-Gap Mode is ON. Refusing to set cloud model: ${modelId}`);
+      // Force back to Ollama
+      modelId = `ollama-${this.ollamaModel}`;
     }
 
     // Map UI short codes to internal Model IDs
@@ -253,11 +253,11 @@ export class LLMHelper extends EventEmitter {
     try {
       const { CredentialsManager } = require('./services/CredentialsManager');
       airGapMode = CredentialsManager.getInstance().getAirGapMode();
-    } catch(e) {}
+    } catch (e) { }
 
     // Air Gap Mode overrides all cloud keys
     if (airGapMode) {
-        return `ollama-${this.ollamaModel}`;
+      return `ollama-${this.ollamaModel}`;
     }
 
     if (this.apiKey) return GEMINI_FLASH_MODEL;
@@ -268,7 +268,12 @@ export class LLMHelper extends EventEmitter {
     if (this.nvidiaApiKey) return NVIDIA_MODEL;
     if (this.useOllama) return `ollama-${this.ollamaModel}`;
 
-    return GEMINI_FLASH_MODEL; // Final hard default
+    // Auto-fallback to local Ollama model if ABSOLUTELY NO cloud keys are set
+    if (!this.apiKey && !this.groqApiKey && !this.deepseekApiKey && !this.openaiApiKey && !this.claudeApiKey && !this.nvidiaApiKey) {
+      return `ollama-${this.ollamaModel}`;
+    }
+
+    return GEMINI_FLASH_MODEL; // Final hard default if keys exist but mismatch (extremely rare)
   }
 
   private cleanJsonResponse(text: string): string {
@@ -2042,7 +2047,7 @@ ANSWER DIRECTLY:`;
       } catch (e) { }
     }
 
-    const combinedMessageWithSystem = systemPrompt 
+    const combinedMessageWithSystem = systemPrompt
       ? `${systemPrompt}\n\n${context ? `${context}\n\n` : ""}${message}`
       : (context ? `${context}\n\n${message}` : message);
 
