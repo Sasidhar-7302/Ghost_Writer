@@ -218,6 +218,36 @@ export class WhisperModelManager {
             return false;
         }
 
+        // Try extracting bundled binary first (which includes the high-speed whisper-server)
+        const isPackaged = app.isPackaged;
+        const assetsPath = isPackaged
+            ? path.join(process.resourcesPath, 'assets')
+            : path.join(app.getAppPath(), 'assets');
+        const bundledBinPath = path.join(assetsPath, 'whisper-bin');
+
+        if (fs.existsSync(bundledBinPath)) {
+            console.log(`[WhisperModelManager] Copying bundled high-speed whisper binaries from ${bundledBinPath}...`);
+            this.isDownloading = true;
+            try {
+                fs.cpSync(bundledBinPath, this.binDir, { recursive: true });
+
+                if (process.platform !== 'win32') {
+                    const cliPath = path.join(this.binDir, 'whisper-cli');
+                    const serverPath = path.join(this.binDir, 'whisper-server');
+                    if (fs.existsSync(cliPath)) fs.chmodSync(cliPath, 0o755);
+                    if (fs.existsSync(serverPath)) fs.chmodSync(serverPath, 0o755);
+                }
+
+                console.log(`[WhisperModelManager] Bundled binary ready: ${this.getBinaryPath()}`);
+                return true;
+            } catch (err) {
+                console.error('[WhisperModelManager] Failed to copy bundled binary:', err);
+                // Fall back to GitHub download if local extraction fails
+            } finally {
+                this.isDownloading = false;
+            }
+        }
+
         console.log(`[WhisperModelManager] Downloading whisper.cpp binary (${WHISPER_CPP_VERSION})...`);
         this.isDownloading = true;
 
