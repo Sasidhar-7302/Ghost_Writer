@@ -11,8 +11,8 @@
 [![Rust](https://img.shields.io/badge/Rust-Native-DEA584?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 
-**Ghost Writer** is a professional-grade AI assistant for high-stakes interviews and meetings with **flexible privacy**.  
-Run 100% locally with a capable GPU for ultimate privacy, or leverage lightning-fast cloud providers (Groq, Deepgram, etc.) for seamless performance on any hardware.
+**Ghost Writer** is the ultimate stealth, local-first meeting & interview assistant built for professionals. High-stakes interviews and meetings, mastered.  
+Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Groq) or run 100% air-gapped via Ollama for absolute control over your intelligence data.
 
 [Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](ARCHITECTURE.md) · [Support](https://paypal.me/sasidhar7302) · [Changelog](CHANGELOG.md)
 
@@ -41,12 +41,11 @@ Run 100% locally with a capable GPU for ultimate privacy, or leverage lightning-
 </td>
 <td width="50%">
 
-- ### 🧠 Smart Intelligence Engine
-- **Flexible Privacy & Hybrid LLMs**: Choose between free cloud top-tier models (Groq, Gemini, DeepSeek) or private local models (Ollama). Automatically detects GPU VRAM to optimize local execution.
+### 🧠 Universal Intelligence Engine
+- **Bring Your Own API / Locality**: Seamlessly route intelligence through industry-leading cloud providers (OpenAI, Claude, DeepSeek, Gemini, Groq) or switch to 100% local, air-gapped Ollama models. If you don't want data leaving your hardware, it simply doesn't.
 - **Visual Model Feedback**: Real-time "Ready" tickmarks and active model indicators in the UI so you always know which model is answering.
-- **Multi-Provider LLM**: Claude 3.5, GPT-4o, Gemini 1.5 Flash, Groq, DeepSeek, Ollama (local).
-- **RAG Pipeline**: Semantic search over conversation history using local embeddings.
-- **Document Grounding**: Upload resume + job description for personalized responses.
+- **Intelligent Meeting Grounding**: Answers are deeply rooted in your provided Resume and the ongoing context of your meeting.
+- **Temporal RAG Memory**: The system tracks the rolling window of conversational turns, flawlessly navigating complex follow-up questions without repetition.
 
 </td>
 </tr>
@@ -77,9 +76,18 @@ Run 100% locally with a capable GPU for ultimate privacy, or leverage lightning-
 
 ## 🏗️ Architecture
 
-<div align="center">
-<img src="assets/docs/architecture.png" width="85%" alt="Ghost Writer Architecture">
-</div>
+```mermaid
+graph TD
+    A[Microphone in] --> |Rust WASAPI| C[Audio Buffer Pipeline]
+    B[System Audio Loopback] --> |Rust WASAPI| C
+    C --> |16kHz PCM| D[Whisper STT Server]
+    D --> |Text Chunk| E{Intelligence Router}
+    E --> |Local Mode| F[Ollama]
+    E --> |Cloud APIs| G[Groq/OpenAI/Claude/DeepSeek]
+    F --> H[Stealth Overlay UI]
+    G --> H
+    H --> |Real-time Display| I[Electron Renderer]
+```
 
 Ghost Writer uses a layered architecture with clear separation of concerns:
 
@@ -102,7 +110,7 @@ Ghost Writer uses a layered architecture with clear separation of concerns:
 Ghost Writer is designed for **one-click deployment**. You don't need to be a developer to use it.
 
 ### 1. Download & Install
-1. **[Download the Latest Release](https://github.com/Sasidhar-7302/Ghost_Writer/releases)** (`Ghost.Writer.Setup.exe`).
+1. **[Download the Latest Release](https://github.com/Sasidhar-7302/Ghost_Writer/releases)** (`GhostWriter-Setup.exe`).
 2. Run the installer.
 3. The **Setup Wizard** will launch automatically to guide you through hardware diagnosis and AI configuration.
 
