@@ -16,6 +16,7 @@ import { registerIntelligenceHandlers } from "./ipc/intelligenceHandlers"
 import { registerRAGHandlers } from "./ipc/ragHandlers"
 import { registerCalendarEmailHandlers } from "./ipc/calendarEmailHandlers"
 import { registerCostHandlers } from "./ipc/costHandlers"
+import { registerLicenseHandlers } from "./ipc/licenseHandlers"
 
 let ipcHandlersInitialized = false;
 
@@ -48,6 +49,7 @@ export function initializeIpcHandlers(appState: AppState): void {
   registerRAGHandlers(appState);
   registerCalendarEmailHandlers(appState);
   registerCostHandlers(appState);
+  registerLicenseHandlers();
   safeIpcHandle("get-recognition-languages", async () => {
     return ENGLISH_VARIANTS;
   });

@@ -49,6 +49,7 @@ import { LocalWhisperSTT } from "./audio/LocalWhisperSTT"
 import { WhisperModelManager } from "./audio/WhisperModelManager"
 
 import { ContextDocumentManager } from "./services/ContextDocumentManager"
+import { AnalyticsManager } from "./services/AnalyticsManager"
 
 export class AppState {
   private static instance: AppState | null = null
@@ -64,6 +65,7 @@ export class AppState {
   private ragManager: RAGManager | null = null
   public contextManager: ContextDocumentManager // Added Context Manager
   public credentialsManager: CredentialsManager // Added Credentials Manager
+  private analyticsManager: AnalyticsManager // Added Analytics Manager
   private tray: Tray | null = null
   private updateAvailable: boolean = false
   private disguiseMode: 'terminal' | 'settings' | 'activity' | 'none' = 'none'
@@ -139,6 +141,10 @@ export class AppState {
     // --- NEW SYSTEM AUDIO PIPELINE (SOX + NODE GOOGLE STT) ---
     // LAZY INIT: Do not setup pipeline here to prevent launch volume surge.
     // this.setupSystemAudioPipeline()
+
+    // Initialize Analytics
+    this.analyticsManager = AnalyticsManager.getInstance();
+    this.analyticsManager.startTracking();
 
     // Initialize Auto-Updater
     this.setupAutoUpdater()
@@ -774,6 +780,9 @@ export class AppState {
       }
     }
 
+    // Track meeting start
+    this.analyticsManager.onMeetingStarted();
+
     // Emit session reset to clear UI state
     this.getWindowHelper().getOverlayWindow()?.webContents.send('session-reset');
     this.getWindowHelper().getLauncherWindow()?.webContents.send('session-reset');
@@ -793,6 +802,9 @@ export class AppState {
   public async endMeeting(): Promise<void> {
     console.log('[Main] Ending Meeting...');
     this.isMeetingActive = false; // Block new data immediately
+
+    // Track meeting end
+    this.analyticsManager.onMeetingEnded();
 
     // 3. Stop System Audio
     this.systemAudioCapture?.stop();

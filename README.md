@@ -63,12 +63,12 @@ Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Gr
 </td>
 <td width="50%">
 
-### 🏢 Enterprise-Grade
-- **Cost Tracking**: Real-time API usage monitoring with breakdowns by provider/model
-- **Structured Logging**: Production-grade logging with optional Sentry integration
-- **Rate Limiting**: Prevents API overuse with intelligent debouncing
-- **Setup Wizard**: Guided first-run onboarding for new users
-- **CI/CD**: Automated testing and builds via GitHub Actions
+### 🏢 Enterprise-Grade Control
+- **Monetization Engine**: Integrated Gumroad-powered licensing with atomic beta-user counting and 3-day automated trials.
+- **Global Kill Switch**: Absolute remote control via Supabase to enable/disable service or enter maintenance mode instantly.
+- **Usage Analytics**: Hardware-aware periodic heartbeats track application opens, active usage minutes, and meeting durations.
+- **Cost Tracking**: Real-time API usage monitoring with breakdowns by provider/model.
+- **Setup Wizard**: Guided first-run onboarding for hardware diagnosis and AI configuration.
 
 </td>
 </tr>
@@ -108,7 +108,8 @@ Ghost Writer uses a layered architecture with clear separation of concerns:
 | **RAG Engine** | all-MiniLM-L6-v2 + SQLite FTS | Local semantic search and conversation memory |
 | **Whisper STT** | whisper.cpp server (CUDA) | GPU-accelerated speech-to-text with persistent model loading |
 | **Audio Capture** | Rust (N-API) | Native microphone + system audio loopback with DSP pipeline |
-| **Database** | SQLite (better-sqlite3) | Meeting history, embeddings, credentials (encrypted) |
+| **Database (Local)** | SQLite (better-sqlite3) | Meeting history, embeddings, credentials (encrypted) |
+| **Cloud Backend** | Supabase (PostgreSQL + Edge Functions) | Global licensing, usage analytics, and remote master control |
 
 > 📖 For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md)
 
