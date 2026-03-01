@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Writer | Enterprise Meeting & Interview Copilot</title>
+
+    <!-- Meta Tags -->
+    <meta name="description"
+        content="The ultimate stealth, local-first meeting assistant built for professionals. High-stakes interviews and meetings, mastered.">
+    <meta name="theme-color" content="#000000">
+
+    <!-- Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind CSS (CDN for zero-build setup) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            black: '#000000',
+                            white: '#ffffff',
+                            gray: '#18181b',      /* zinc-900 */
+                            darkGray: '#09090b',  /* zinc-950 */
+                            purple: '#4c1d95',    /* violet-900 */
+                            blue: '#38bdf8',      /* sky-400 */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body
+    class="bg-brand-black text-brand-white font-sans antialiased overflow-x-hidden relative selection:bg-brand-blue selection:text-brand-black">
+
+    <!-- Ambient Background Blobs for specific minimal color hints -->
+    <div class="blob blob-purple"></div>
+    <div class="blob blob-blue" style="top: 40%; right: -10%;"></div>
+    <div class="blob blob-purple" style="top: 80%; left: 10%; width: 500px; height: 500px;"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="#" class="text-2xl font-bold tracking-tighter flex items-center gap-3">
+                <i class="fa-solid fa-ghost text-brand-white"></i>
+                Ghost Writer
+            </a>
+            <div class="hidden md:flex gap-8 items-center text-sm font-medium text-gray-400">
+                <a href="#features" class="hover:text-brand-white transition-colors">Features</a>
+                <a href="#privacy" class="hover:text-brand-white transition-colors">Architecture</a>
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/GhostWriter-Setup.exe"
+                    class="bg-brand-white text-brand-black px-6 py-2.5 rounded-full hover:bg-gray-200 transition-colors cursor-pointer font-semibold shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+                    Download .exe
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="min-h-screen flex items-center justify-center pt-20 px-4 relative z-10">
+        <div class="max-w-4xl mx-auto text-center">
+            <div
+                class="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full border border-gray-800 bg-brand-darkGray/80 backdrop-blur-sm text-sm text-gray-300 reveal">
+                <span class="w-2 h-2 rounded-full bg-brand-blue animate-pulse-fast"></span>
+                v2.0 Enterprise Release Available
+            </div>
+
+            <h1 class="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 reveal delay-100">
+                The Stealth Copilot for <br>
+                <span class="text-gradient">Interviews & Meetings.</span>
+            </h1>
+
+            <p class="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto reveal delay-200 leading-relaxed">
+                Real-time audio pipelines. Seamless multi-modal vision. Ghost Writer listens and gives you undetectable
+                suggestions on what to speak. Bring your own keys or run 100% locally if you don't want data to ever
+                leave your hardware.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-5 justify-center reveal delay-300">
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/GhostWriter-Setup.exe"
+                    class="group relative px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-lg overflow-hidden transition-transform active:scale-95 flex items-center justify-center gap-3 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                    <i class="fa-brands fa-windows text-xl"></i>
+                    Download for Windows
+                </a>
+                <a href="#features"
+                    class="px-8 py-4 bg-transparent border border-gray-700 text-brand-white font-semibold rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center">
+                    Explore Features
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="py-24 px-4 relative z-10 filter-overlay">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-20 reveal">
+                <h2 class="text-3xl md:text-5xl font-bold mb-6">Enterprise-Grade Intelligence</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto text-lg">Built from the ground up to be the most responsive,
+                    private, and context-aware meeting assistant available.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Feature 1 -->
+                <div
+                    class="glass-panel p-8 rounded-2xl reveal delay-100 group hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 bg-brand-darkGray border border-gray-800 rounded-lg flex items-center justify-center mb-6 text-brand-blue group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-bolt text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Sub-1.5s Latency</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Advanced interim transcript injection processes
+                        partial speech in real-time, delivering actionable suggestions before the interviewer finishes
+                        their sentence.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div
+                    class="glass-panel p-8 rounded-2xl reveal delay-200 group hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 bg-brand-darkGray border border-gray-800 rounded-lg flex items-center justify-center mb-6 text-brand-purple group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-shield-halved text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Bring Your Own API & Local LLMs</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Add your own API keys for top cloud providers
+                        (OpenAI, Claude, Deepseek, Gemini) or run 100% locally via Ollama. You have complete control: if
+                        you don't want data leaving your hardware, it simply doesn't.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div
+                    class="glass-panel p-8 rounded-2xl reveal delay-300 group hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 bg-brand-darkGray border border-gray-800 rounded-lg flex items-center justify-center mb-6 text-brand-white group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-eye text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Seamless Screen Vision</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Hit <kbd
+                            class="px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs ml-1 font-mono">Ctrl+H</kbd>
+                        to silently capture UI/code context. Ghost Writer dynamically shifts to local vision models to
+                        read your screen securely.</p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div
+                    class="glass-panel p-8 rounded-2xl reveal delay-100 group hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 bg-brand-darkGray border border-gray-800 rounded-lg flex items-center justify-center mb-6 text-gray-300 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-file-contract text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Intelligent Meeting Grounding & Summarization</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">Answers are deeply rooted in your provided Resume
+                        and the ongoing context of your meeting. Receive factual, aligned suggestions in real-time and
+                        let the copilot automatically generate a comprehensive summary when the meeting concludes.</p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div
+                    class="glass-panel p-8 rounded-2xl reveal delay-200 group hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 bg-brand-darkGray border border-gray-800 rounded-lg flex items-center justify-center mb-6 text-brand-white group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-brain text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Temporal RAG Memory</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">The system tracks the rolling window of the last 10
+                        conversational turns, perfectly navigating complex, multi-part follow-up questions without
+                        repetition.</p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div
+                    class="glass-panel p-8 rounded-2xl reveal delay-300 group hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 bg-brand-darkGray border border-gray-800 rounded-lg flex items-center justify-center mb-6 text-brand-blue group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-laptop-code text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Undetectable Overlay</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm">A specialized glassmorphic overlay sits invisibly
+                        atop your meeting windows, delivering discreet hints and full answers exactly when you need
+                        them.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- UI Showcase / Architecture -->
+    <section id="privacy" class="py-24 px-4 relative z-10">
+        <div
+            class="max-w-5xl mx-auto glass-panel rounded-3xl p-1 md:p-8 reveal border border-gray-800 bg-brand-darkGray/60">
+            <div class="flex items-center justify-between mb-8 px-4 pt-4">
+                <div class="flex gap-2">
+                    <div class="w-3 h-3 rounded-full bg-gray-600"></div>
+                    <div class="w-3 h-3 rounded-full bg-gray-600"></div>
+                    <div class="w-3 h-3 rounded-full bg-gray-600"></div>
+                </div>
+                <div class="text-xs font-mono text-gray-500">SYSTEM ARCHITECTURE // OFFLINE</div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-12 p-4 pb-8">
+                <div>
+                    <h3 class="text-3xl font-bold mb-4">Built for Absolute Stealth.</h3>
+                    <p class="text-gray-400 mb-6 leading-relaxed">Ghost Writer is engineered to be entirely
+                        undetectable. By leveraging local AI inference and advanced audio hooks, data never leaves your
+                        machine unless you want it to.</p>
+                    <ul class="space-y-4">
+                        <li class="flex items-start gap-4">
+                            <i class="fa-solid fa-check text-brand-white mt-1"></i>
+                            <span class="text-gray-300">No telemetry or analytics.</span>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <i class="fa-solid fa-check text-brand-white mt-1"></i>
+                            <span class="text-gray-300">Universal LLM bridging (Cloud APIs & Local Ollama).</span>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <i class="fa-solid fa-check text-brand-white mt-1"></i>
+                            <span class="text-gray-300">Versatile Audio Routing (Mic, System, Virtual Cables).</span>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <i class="fa-solid fa-check text-brand-white mt-1"></i>
+                            <span class="text-gray-300">Invisible overlay rendering layer.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div
+                    class="relative rounded-xl overflow-hidden border border-gray-800 bg-brand-black flex items-center justify-center p-8">
+                    <!-- Abstract Terminal/Code Representation -->
+                    <div class="font-mono text-sm text-gray-500 text-left w-full">
+                        <div class="mb-2"><span class="text-brand-purple">import</span> CoreIntelligence</div>
+                        <div class="mb-2"><span class="text-brand-purple">const</span> engine = initIntelligenceBridge({
+                            <div class="pl-4">llm: <span class="text-brand-blue">['deepseek', 'ollama',
+                                    'openai']</span>,</div>
+                            <div class="pl-4">audio_in: <span class="text-brand-blue">'VB-Audio_Cable'</span></div>
+                            });
+                        </div>
+                        <div class="mb-2"><span class="text-brand-white">await</span> GhostWriter.intercept({</div>
+                        <div class="pl-4 mb-2">audio: <span class="text-brand-blue">true</span>,</div>
+                        <div class="pl-4 mb-2">screen: <span class="text-brand-blue">true</span>,</div>
+                        <div class="pl-4 mb-2">stealth: <span class="text-brand-blue">true</span></div>
+                        <div class="mb-2">});</div>
+                        <div class="mt-4 animate-pulse-fast text-brand-white">>> system armed and listening_</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="py-32 px-4 relative z-10 border-t border-gray-900 bg-brand-darkGray/30">
+        <div class="max-w-4xl mx-auto text-center reveal">
+            <h2 class="text-4xl md:text-5xl font-bold mb-6">Gain the Edge.</h2>
+            <p class="text-xl text-gray-400 mb-10 max-w-xl mx-auto">Experience the most technically advanced copilot
+                built for professionals. Ready to launch.</p>
+            <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/GhostWriter-Setup.exe"
+                class="inline-flex items-center gap-3 px-10 py-5 bg-brand-white text-brand-black font-semibold rounded-lg hover:bg-gray-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.15)] text-lg">
+                <i class="fa-solid fa-download"></i>
+                Download Ghost Writer
+            </a>
+            <p class="mt-6 text-sm text-gray-600 font-mono">Version 2.0.0 • Windows x64</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-900 py-12 text-center text-gray-500 relative z-10 bg-brand-black">
+        <div class="flex justify-center items-center gap-2 mb-4">
+            <i class="fa-solid fa-ghost text-brand-white"></i>
+            <span class="font-bold text-brand-white tracking-widest uppercase text-sm">Ghost Writer</span>
+        </div>
+        <p class="text-sm">&copy; 2026 Ghost Writer Application. Designed for stealth.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

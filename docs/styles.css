@@ -1,0 +1,121 @@
+/* Base Styles & Utilities */
+:root {
+    --color-purple: #4c1d95;
+    --color-blue: #38bdf8;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000000;
+    color: #ffffff;
+}
+
+/* Glassmorphism */
+.glass-panel {
+    background: rgba(24, 24, 27, 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-nav {
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Animation Utilities */
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+}
+
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.delay-100 {
+    transition-delay: 100ms;
+}
+
+.delay-200 {
+    transition-delay: 200ms;
+}
+
+.delay-300 {
+    transition-delay: 300ms;
+}
+
+/* Blob Animations - Smooth organic floating */
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        transform: translateY(-20px) scale(1.05);
+    }
+}
+
+.blob {
+    position: absolute;
+    filter: blur(80px);
+    /* Aggressive blur for ambient glow */
+    z-index: -1;
+    opacity: 0.15;
+    /* Minimal opacity as requested */
+    animation: float 10s ease-in-out infinite;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.blob-purple {
+    background: var(--color-purple);
+    width: 400px;
+    height: 400px;
+    top: -10%;
+    left: -5%;
+}
+
+.blob-blue {
+    background: var(--color-blue);
+    width: 300px;
+    height: 300px;
+    animation-delay: -5s;
+}
+
+/* Text Gradients */
+.text-gradient {
+    background: linear-gradient(to right, #ffffff, #a1a1aa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Base Pulse */
+@keyframes pulseFast {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse-fast {
+    animation: pulseFast 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Overlay filter for depth */
+.filter-overlay {
+    background-image: radial-gradient(circle at center, transparent 0%, #000000 100%);
+}
