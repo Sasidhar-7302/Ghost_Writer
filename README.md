@@ -58,10 +58,7 @@ Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Gr
 - **Disguise Mode**: Masquerade as common utility apps (Terminal, etc.)
 - **Content Protection**: Prevents screenshots and screen recording of the overlay
 
-<div align="center">
-<br>
-<img src="assets/docs/overlay_showcase.png" width="100%" alt="Ghost Writer Invisible Overlay">
-</div>
+
 
 </td>
 <td width="50%">
@@ -76,6 +73,13 @@ Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Gr
 </td>
 </tr>
 </table>
+
+<br>
+
+<div align="center">
+<h3>👻 Live Transparent Overlay</h3>
+<img src="assets/docs/overlay_showcase.png" width="90%" alt="Ghost Writer Invisible Overlay">
+</div>
 
 ---
 
