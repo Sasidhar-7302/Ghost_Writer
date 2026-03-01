@@ -1124,7 +1124,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                             <p className="text-xs text-text-secondary mb-5">Choose the engine that transcribes audio to text.</p>
 
                                             <div className="space-y-4">
-                                                <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4 space-y-3">
+                                                <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4 space-y-3 relative z-[60]">
                                                     <label className="text-xs font-medium text-text-secondary block">Speech Provider</label>
                                                     <div className="relative">
                                                         <ProviderSelect
