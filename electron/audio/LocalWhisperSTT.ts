@@ -35,10 +35,14 @@ const SILENCE_RMS_THRESHOLD = 50;
 
 // Default whisper.cpp arguments for speed + accuracy balance
 // NOTE: whisper-cli auto-detects CUDA GPUs, no --device flag needed
+// Thread count: use most CPU cores for CPU-only systems, leave headroom for GPU systems
+const CPU_COUNT = os.cpus().length;
+const OPTIMAL_THREADS = Math.max(2, CPU_COUNT - 2); // Leave 2 cores for the OS / Electron
+
 const WHISPER_ARGS = [
     '--language', 'en',
     '--no-timestamps',
-    '--threads', '4',
+    '--threads', String(OPTIMAL_THREADS),
 ];
 
 // Whisper server configuration
@@ -52,6 +56,8 @@ let sharedServerProcess: ChildProcess | null = null;
 let sharedServerReady = false;
 let sharedServerModelPath: string | null = null;
 let sharedServerRefCount = 0;
+let sharedServerStarting = false; // True while server is booting (model loading)
+let sharedServerFailed = false;  // True if server startup definitively failed
 
 export class LocalWhisperSTT extends EventEmitter {
     private whisperBinaryPath: string;
@@ -176,8 +182,12 @@ export class LocalWhisperSTT extends EventEmitter {
 
         if (!fs.existsSync(this.serverBinaryPath)) {
             console.warn(`[LocalWhisperSTT] whisper-server.exe not found at ${this.serverBinaryPath}, falling back to CLI mode`);
+            sharedServerFailed = true;
             return;
         }
+
+        sharedServerStarting = true;
+        sharedServerFailed = false;
 
         const args = [
             '--model', this.modelPath,
@@ -222,9 +232,17 @@ export class LocalWhisperSTT extends EventEmitter {
             // Wait for server to become ready by polling the health endpoint
             await this.waitForServerReady();
 
+            if (!sharedServerReady) {
+                console.warn('[LocalWhisperSTT] Server did not become ready, marking as failed');
+                sharedServerFailed = true;
+            }
+
         } catch (err: any) {
             console.error(`[LocalWhisperSTT] Failed to start whisper-server: ${err?.message || err}`);
+            sharedServerFailed = true;
             this.killServer();
+        } finally {
+            sharedServerStarting = false;
         }
     }
 
@@ -290,6 +308,8 @@ export class LocalWhisperSTT extends EventEmitter {
             sharedServerReady = false;
             sharedServerModelPath = null;
             sharedServerRefCount = 0;
+            sharedServerStarting = false;
+            sharedServerFailed = false;
         }
     }
 
@@ -322,14 +342,27 @@ export class LocalWhisperSTT extends EventEmitter {
         this.chunks = [];
         this.totalBufferedBytes = 0;
 
-        // Start the server in the background (don't block the timer)
-        this.startServer().catch((err) => {
-            console.warn('[LocalWhisperSTT] Server startup failed, will use CLI fallback:', err);
-        });
-
-        this.processTimer = setInterval(() => {
-            this.flushAndProcess();
-        }, PROCESS_INTERVAL_MS);
+        // CRITICAL: Start the server and WAIT for it before processing audio.
+        // Previously, the timer fired at 800ms while the server took 5-15s to load
+        // the 1.46GB model into RAM, causing every transcription to fall back to
+        // the slow CLI mode (cold-booting the model every time = 15s per call).
+        this.startServer()
+            .then(() => {
+                if (!this.isActive) return; // User may have stopped during server boot
+                console.log('[LocalWhisperSTT] Server startup phase complete, starting audio processing timer');
+                this.processTimer = setInterval(() => {
+                    this.flushAndProcess();
+                }, PROCESS_INTERVAL_MS);
+            })
+            .catch((err) => {
+                console.warn('[LocalWhisperSTT] Server startup failed, starting timer with CLI fallback:', err);
+                sharedServerFailed = true;
+                if (!this.isActive) return;
+                // Only start the timer with CLI fallback if server definitively failed
+                this.processTimer = setInterval(() => {
+                    this.flushAndProcess();
+                }, PROCESS_INTERVAL_MS);
+            });
     }
 
     /**
@@ -399,6 +432,13 @@ export class LocalWhisperSTT extends EventEmitter {
                 let transcript: string;
                 if (sharedServerReady && sharedServerProcess) {
                     transcript = await this.transcribeViaServer(tempFile);
+                } else if (sharedServerStarting && !sharedServerFailed) {
+                    // Server is still booting — skip this chunk rather than cold-booting CLI
+                    // The audio will be lost but the next chunk will use the fast server
+                    console.log('[LocalWhisperSTT] Server still loading model, skipping chunk (waiting for fast server)...');
+                    this.isProcessing = false;
+                    try { fs.unlinkSync(tempFile); } catch { }
+                    return;
                 } else {
                     transcript = await this.transcribeViaCli(tempFile);
                 }

@@ -48,8 +48,12 @@ const WHISPER_MODELS: Record<string, { url: string; size: string }> = {
     },
 };
 
-// Default model - medium offers best accuracy for interview transcription (~92% vs ~85% for small)
-const DEFAULT_MODEL = 'medium';
+// Default model depends on hardware:
+//   - NVIDIA GPU: 'medium' (best accuracy, 1.5GB loads into VRAM in ~2s)
+//   - CPU-only:   'tiny'   (fastest CPU inference, 74MB loads in <1s)
+const GPU_DEFAULT_MODEL = 'medium';
+const CPU_DEFAULT_MODEL = 'tiny';
+const DEFAULT_MODEL = 'medium'; // Fallback before GPU detection runs
 
 export interface WhisperPaths {
     binaryPath: string;
@@ -66,6 +70,7 @@ export class WhisperModelManager {
     private isDownloading: boolean = false;
     private downloadProgress: number = 0;
     private downloadingModelName: string | null = null;
+    private hasUserExplicitlyChosen: boolean = false;
 
     constructor(model: string = DEFAULT_MODEL) {
         this.selectedModel = model;
@@ -84,17 +89,55 @@ export class WhisperModelManager {
         if (!WhisperModelManager.instance) {
             // Load saved model from credentials if not provided
             let initialModel = model;
+            let explicitChoice = false;
             if (!initialModel) {
                 try {
                     const { CredentialsManager } = require('../services/CredentialsManager');
-                    initialModel = CredentialsManager.getInstance().getLocalWhisperModel();
+                    const saved = CredentialsManager.getInstance().getLocalWhisperModel();
+                    if (saved) {
+                        initialModel = saved;
+                        explicitChoice = true;
+                    }
                 } catch (e) {
                     console.error('Failed to load saved whisper model:', e);
                 }
+            } else {
+                explicitChoice = true;
             }
             WhisperModelManager.instance = new WhisperModelManager(initialModel);
+            WhisperModelManager.instance.hasUserExplicitlyChosen = explicitChoice;
+
+            // Auto-detect optimal model based on GPU if user hasn't explicitly chosen
+            if (!explicitChoice) {
+                WhisperModelManager.instance.autoSelectModel();
+            }
         }
         return WhisperModelManager.instance;
+    }
+
+    /**
+     * Auto-detect GPU and select the optimal whisper model.
+     * Only called when the user hasn't explicitly chosen a model.
+     */
+    private async autoSelectModel(): Promise<void> {
+        try {
+            const { GPUHelper } = require('../utils/GPUHelper');
+            const gpu = await GPUHelper.detectGPU();
+
+            if (gpu.isNvidia && gpu.vramGB >= 4) {
+                // GPU user: use medium for best accuracy
+                if (this.selectedModel !== GPU_DEFAULT_MODEL) {
+                    console.log(`[WhisperModelManager] NVIDIA GPU detected (${gpu.name}, ${gpu.vramGB}GB). Auto-selecting '${GPU_DEFAULT_MODEL}' model for best accuracy.`);
+                    this.selectedModel = GPU_DEFAULT_MODEL;
+                }
+            } else {
+                // CPU-only or low VRAM: use tiny for fast inference
+                console.log(`[WhisperModelManager] No NVIDIA GPU detected (${gpu.name}). Auto-selecting '${CPU_DEFAULT_MODEL}' model for fast CPU inference.`);
+                this.selectedModel = CPU_DEFAULT_MODEL;
+            }
+        } catch (e) {
+            console.warn('[WhisperModelManager] GPU detection failed, keeping default model:', e);
+        }
     }
 
     public setModel(model: string): void {
@@ -208,25 +251,28 @@ export class WhisperModelManager {
      * Returns true if download was successful or binary already exists
      */
     public async ensureBinary(): Promise<boolean> {
-        if (this.hasBinary()) {
-            console.log('[WhisperModelManager] Binary already exists');
-            return true;
-        }
-
-        if (this.isDownloading) {
-            console.log('[WhisperModelManager] Download already in progress');
-            return false;
-        }
-
         // Try extracting bundled binary first (which includes the high-speed whisper-server)
         const isPackaged = app.isPackaged;
         const assetsPath = isPackaged
             ? path.join(process.resourcesPath, 'assets')
             : path.join(app.getAppPath(), 'assets');
         const bundledBinPath = path.join(assetsPath, 'whisper-bin');
+        const serverExePath = process.platform === 'win32' ? 'whisper-server.exe' : 'whisper-server';
 
-        if (fs.existsSync(bundledBinPath)) {
-            console.log(`[WhisperModelManager] Copying bundled high-speed whisper binaries from ${bundledBinPath}...`);
+        const bundledServerPath = path.join(bundledBinPath, serverExePath);
+        const destinationServerPath = path.join(this.binDir, serverExePath);
+        const destinationCudaDll = path.join(this.binDir, 'cublas64_12.dll');
+        const bundledCudaDll = path.join(bundledBinPath, 'cublas64_12.dll');
+
+        // Force re-extraction if:
+        // 1. Bundled server exists but isn't installed in UserData, OR
+        // 2. Bundled CUDA DLLs exist but aren't installed (CPU-only fallback active)
+        const needsServerExtraction = fs.existsSync(bundledServerPath) && !fs.existsSync(destinationServerPath);
+        const needsCudaExtraction = fs.existsSync(bundledCudaDll) && !fs.existsSync(destinationCudaDll);
+
+        if (fs.existsSync(bundledBinPath) && (needsServerExtraction || needsCudaExtraction)) {
+            const reason = needsCudaExtraction ? 'Missing CUDA DLLs (GPU acceleration)' : 'Missing high-speed server';
+            console.log(`[WhisperModelManager] ${reason} in UserData. Forcing bundled extraction from ${bundledBinPath}...`);
             this.isDownloading = true;
             try {
                 fs.cpSync(bundledBinPath, this.binDir, { recursive: true });
@@ -242,11 +288,23 @@ export class WhisperModelManager {
                 return true;
             } catch (err) {
                 console.error('[WhisperModelManager] Failed to copy bundled binary:', err);
-                // Fall back to GitHub download if local extraction fails
             } finally {
                 this.isDownloading = false;
             }
         }
+
+        // If already extracted or we have any acceptable binary, return true
+        if (this.hasBinary()) {
+            console.log('[WhisperModelManager] Binary already exists');
+            return true;
+        }
+
+        if (this.isDownloading) {
+            console.log('[WhisperModelManager] Download already in progress');
+            return false;
+        }
+
+
 
         console.log(`[WhisperModelManager] Downloading whisper.cpp binary (${WHISPER_CPP_VERSION})...`);
         this.isDownloading = true;

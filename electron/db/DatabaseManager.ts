@@ -545,13 +545,9 @@ export class DatabaseManager {
         // Check if demo meeting already exists
         const existing = this.db.prepare('SELECT id FROM meetings WHERE id = ?').get('demo-meeting');
         if (existing) {
-            console.log('[DatabaseManager] Demo meeting already exists, skipping seed.');
-            return;
+            console.log('[DatabaseManager] Demo meeting already exists, overwriting with latest version.');
+            this.deleteMeeting('demo-meeting');
         }
-
-        // Do NOT flush all meetings. Preserving user data is critical.
-        // If we really need to clean up old demo data, we should delete only that ID.
-        // this.deleteMeeting('demo-meeting'); // Optional safety if we wanted to force update
 
         const demoId = 'demo-meeting';
 
@@ -690,11 +686,19 @@ ghostwriter.contact@gmail.com`;
             title: "Ghost Writer Demo & Guide",
             date: today.toISOString(),
             duration: "5:00",
-            summary: "Complete guide to using Ghost Writer - your real-time AI meeting assistant.",
+            summary: "An interactive demonstration showcasing Ghost Writer's core functionality, including stealth overlays, live transcription, and actionable insights.",
             detailedSummary: {
                 overview: summaryMarkdown,
-                actionItems: [],
-                keyPoints: []
+                actionItems: [
+                    "Navigate to Settings and add a free Gemini or Groq API key, or install Ollama.",
+                    "Verify your Microphone and System Audio inputs in the Audio tab.",
+                    "Trigger 'What to answer' or 'Recap' during a mock session to test latency."
+                ],
+                keyPoints: [
+                    "Ghost Writer uses Temporal RAG to track conversational history and avoid repetitive answers.",
+                    "The glassmorphic overlay sits invisibly atop your other windows.",
+                    "Real-time interim transcripts enable suggestion generation before the speaker finishes their sentence."
+                ]
             },
             transcript: [
                 { speaker: 'interviewer', text: "Welcome to Ghost Writer! Let me show you how it works.", timestamp: 0 },

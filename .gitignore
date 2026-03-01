@@ -174,3 +174,9 @@ test-electron.js
 test_*.js
 test_*.wav
 audit_report.md
+
+# CUDA runtime DLLs (too large for GitHub, bundled from local at build time)
+assets/whisper-bin/cublas64_12.dll
+assets/whisper-bin/cublasLt64_12.dll
+assets/whisper-bin/cudart64_12.dll
+assets/whisper-bin/nvblas64_12.dll

@@ -39,7 +39,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ label, icon, value, options
     const selectedLabel = options.find(o => o.deviceId === value)?.label || placeholder;
 
     return (
-        <div className="bg-bg-card rounded-xl p-4 border border-border-subtle" ref={containerRef}>
+        <div className={`bg-bg-card flex flex-col rounded-xl p-4 border border-border-subtle relative ${isOpen ? 'z-[100]' : 'z-10'}`} ref={containerRef}>
             {label && (
                 <div className="flex items-center gap-2 mb-3">
                     <span className="text-text-secondary">{icon}</span>
@@ -124,7 +124,7 @@ const ProviderSelect: React.FC<ProviderSelectProps> = ({ value, options, onChang
     };
 
     return (
-        <div ref={containerRef} className="relative z-20 font-sans">
+        <div ref={containerRef} className="relative font-sans" style={{ zIndex: isOpen ? 100 : 20 }}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`w-full group bg-bg-input border border-border-subtle hover:border-border-muted shadow-sm rounded-xl p-2.5 pr-3.5 flex items-center justify-between transition-all duration-200 outline-none focus:ring-2 focus:ring-accent-primary/20 ${isOpen ? 'ring-2 ring-accent-primary/20 border-accent-primary/50' : 'hover:shadow-md'}`}
@@ -160,7 +160,7 @@ const ProviderSelect: React.FC<ProviderSelectProps> = ({ value, options, onChang
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 4, scale: 0.98 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute top-full left-0 w-full mt-2 bg-bg-elevated/90 backdrop-blur-xl border border-border-subtle rounded-xl shadow-2xl overflow-hidden ring-1 ring-black/5"
+                        className="absolute top-full left-0 w-full mt-2 bg-bg-elevated border border-border-subtle rounded-xl shadow-2xl overflow-hidden ring-1 ring-black/5"
                     >
                         <div className="max-h-[320px] overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
                             {options.map(option => {
@@ -1124,7 +1124,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                             <p className="text-xs text-text-secondary mb-5">Choose the engine that transcribes audio to text.</p>
 
                                             <div className="space-y-4">
-                                                <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4 space-y-3 relative z-[60]">
+                                                <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4 space-y-3 relative" style={{ zIndex: 90 }}>
                                                     <label className="text-xs font-medium text-text-secondary block">Speech Provider</label>
                                                     <div className="relative">
                                                         <ProviderSelect
@@ -1146,7 +1146,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                                 {/* Local Whisper Settings */}
                                                 {sttProvider === 'local-whisper' && (
-                                                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4">
+                                                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4 relative" style={{ zIndex: 80 }}>
                                                         <div className="flex items-start justify-between mb-4">
                                                             <div>
                                                                 <label className="text-xs font-medium text-text-secondary block mb-1">Local Whisper Status</label>
@@ -1407,7 +1407,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                                 {/* Groq Model Selector */}
                                                 {sttProvider === 'groq' && (
-                                                    <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+                                                    <div className="bg-bg-card rounded-xl border border-border-subtle p-4 relative" style={{ zIndex: 80 }}>
                                                         <label className="text-xs font-medium text-text-secondary mb-2.5 block">Whisper Model</label>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             {[
@@ -1441,7 +1441,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                                 {/* Google Cloud Service Account */}
                                                 {sttProvider === 'google' && (
-                                                    <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+                                                    <div className="bg-bg-card rounded-xl border border-border-subtle p-4 relative" style={{ zIndex: 70 }}>
                                                         <label className="text-xs font-medium text-text-secondary mb-2 block">Service Account JSON</label>
                                                         <div className="flex gap-2">
                                                             <div className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-xs text-text-secondary font-mono truncate">
@@ -1470,7 +1470,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                                 {/* API Key Input (non-Google providers) */}
                                                 {sttProvider !== 'google' && sttProvider !== 'local-whisper' && (
-                                                    <div className="bg-bg-card rounded-xl border border-border-subtle p-4 space-y-3">
+                                                    <div className="bg-bg-card rounded-xl border border-border-subtle p-4 space-y-3 relative" style={{ zIndex: 70 }}>
                                                         <label className="text-xs font-medium text-text-secondary block">
                                                             {sttProvider === 'groq' ? 'Groq' : sttProvider === 'openai' ? 'OpenAI' : sttProvider === 'elevenlabs' ? 'ElevenLabs' : sttProvider === 'azure' ? 'Azure' : sttProvider === 'ibmwatson' ? 'IBM Watson' : 'Deepgram'} API Key
                                                         </label>
@@ -1604,15 +1604,17 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                 )}
 
                                                 {/* Accent Preference */}
-                                                <CustomSelect
-                                                    label="Preferred English Accent"
-                                                    icon={null}
-                                                    value={recognitionLanguage}
-                                                    options={languageOptions}
-                                                    onChange={handleLanguageChange}
-                                                    placeholder="Select Accent"
-                                                />
-                                                <div className="flex gap-2 items-center -mt-2 px-1">
+                                                <div className="relative" style={{ zIndex: 60 }}>
+                                                    <CustomSelect
+                                                        label="Preferred English Accent"
+                                                        icon={null}
+                                                        value={recognitionLanguage}
+                                                        options={languageOptions}
+                                                        onChange={handleLanguageChange}
+                                                        placeholder="Select Accent"
+                                                    />
+                                                </div>
+                                                <div className="flex gap-2 items-center -mt-2 px-1 relative" style={{ zIndex: 50 }}>
                                                     <Info size={14} className="text-text-secondary shrink-0" />
                                                     <p className="text-xs text-text-secondary whitespace-nowrap">
                                                         Improves accuracy by prioritizing your accent. Other English accents are still supported.
