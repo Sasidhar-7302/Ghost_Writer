@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Writer | Easy Onboarding Guide</title>
+
+    <meta name="description"
+        content="A simple, non-technical guide to setting up and using Ghost Writer for your next interview or meeting.">
+    <meta name="theme-color" content="#000000">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            black: '#000000',
+                            white: '#ffffff',
+                            gray: '#18181b',
+                            darkGray: '#09090b',
+                            purple: '#8b5cf6',
+                            blue: '#3b82f6',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body
+    class="bg-brand-black text-brand-white font-sans antialiased overflow-x-hidden relative selection:bg-brand-blue selection:text-brand-white">
+
+    <!-- Ambient Glowing Background -->
+    <div class="ambient-glow" style="top: -10%; left: -10%;"></div>
+    <div class="ambient-glow blue" style="top: 50%; right: -15%;"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 px-6 py-4 animate-in">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="index.html"
+                class="text-2xl font-bold tracking-tighter flex items-center gap-3 hover:text-gray-300 transition-colors">
+                <i class="fa-solid fa-arrow-left text-lg"></i>
+                <i class="fa-solid fa-ghost text-brand-white"></i>
+                Ghost Writer
+            </a>
+            <div class="hidden md:flex gap-8 items-center text-sm font-medium text-gray-400">
+                <a href="#quick-start" class="hover:text-brand-white transition-colors">Quick Start</a>
+                <a href="#meeting-tips" class="hover:text-brand-white transition-colors">Meeting Tips</a>
+                <a href="#troubleshooting" class="hover:text-brand-white transition-colors">Help</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="pt-32 pb-16 px-4 relative z-10 border-b border-white/10">
+        <div class="max-w-3xl mx-auto text-center">
+            <h1 class="text-5xl font-bold tracking-tight mb-6 animate-in delay-100">
+                Non-Tech <span class="text-gradient">Onboarding Guide</span>
+            </h1>
+            <p class="text-xl text-gray-400 font-light leading-relaxed animate-in delay-200">
+                You don't need to be a programmer to use Ghost Writer. Follow these three simple steps to have the
+                ultimate AI assistant ready for your next big interview.
+            </p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <section class="py-16 px-4 relative z-10 max-w-4xl mx-auto">
+
+        <!-- Step 1 -->
+        <div id="quick-start" class="mb-16 animate-in delay-300 glass-card p-8 md:p-12 relative overflow-hidden group">
+            <div
+                class="absolute top-0 right-0 w-32 h-32 bg-brand-blue/10 rounded-bl-full -z-10 group-hover:scale-110 transition-transform">
+            </div>
+            <div class="flex items-center gap-4 mb-6">
+                <div
+                    class="w-12 h-12 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-xl shadow-[0_0_20px_rgba(59,130,246,0.5)]">
+                    1</div>
+                <h2 class="text-3xl font-bold">Installation & Setup</h2>
+            </div>
+            <div class="space-y-4 text-gray-300 font-light leading-relaxed">
+                <p><strong class="text-white">Windows Users:</strong> Download the <code>.exe</code> file from the home
+                    page. Double-click it to install. If Windows shows a "Windows protected your PC" popup, click "More
+                    info" and then "Run anyway" (this just means we are a new app).</p>
+                <p><strong class="text-white">Mac Users:</strong> Download the <code>.dmg</code> file. Open it, and drag
+                    the Ghost Writer icon into your Applications folder.</p>
+                <p>When you open the app for the first time, you will see a <strong
+                        class="text-white text-gradient-accent">Settings Menu</strong>. You just need to paste in an
+                    "API Key" to give the AI its brain. We recommend getting a free "Groq" API key or an "OpenAI"
+                    (ChatGPT) API key. Just paste the long string of text into the settings box and hit Save!</p>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="mb-16 animate-in delay-400 glass-card p-8 md:p-12 relative overflow-hidden group">
+            <div
+                class="absolute top-0 right-0 w-32 h-32 bg-brand-purple/10 rounded-bl-full -z-10 group-hover:scale-110 transition-transform">
+            </div>
+            <div class="flex items-center gap-4 mb-6">
+                <div
+                    class="w-12 h-12 rounded-full bg-brand-purple text-white flex items-center justify-center font-bold text-xl shadow-[0_0_20px_rgba(139,92,246,0.5)]">
+                    2</div>
+                <h2 class="text-3xl font-bold">Uploading Your Resume</h2>
+            </div>
+            <div class="space-y-4 text-gray-300 font-light leading-relaxed">
+                <p>Ghost Writer is incredibly smart, but it needs to know who you are to give good answers!</p>
+                <p>Click the <strong class="text-white"><i class="fa-solid fa-gear"></i> Settings</strong> icon in the
+                    app, and find the "Context / Resume" section.</p>
+                <ul class="list-disc pl-6 space-y-2 mt-4 text-gray-400">
+                    <li>Copy and paste the text from your <strong>Resume</strong> into the box.</li>
+                    <li>If you are interviewing for a specific job, paste the <strong>Job Description</strong> in the
+                        job description box.</li>
+                </ul>
+                <p class="mt-4">Now, when the interviewer asks, <em class="text-gray-400">"Tell me about a time you
+                        showed leadership,"</em> the AI will look at your actual past jobs and write an answer specific
+                    to your life!</p>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div id="meeting-tips" class="mb-16 animate-in delay-500 glass-card p-8 md:p-12 relative overflow-hidden group">
+            <div
+                class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full -z-10 group-hover:scale-110 transition-transform">
+            </div>
+            <div class="flex items-center gap-4 mb-6">
+                <div
+                    class="w-12 h-12 rounded-full bg-gray-700 text-white flex items-center justify-center font-bold text-xl shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                    3</div>
+                <h2 class="text-3xl font-bold">During the Interview</h2>
+            </div>
+            <div class="space-y-4 text-gray-300 font-light leading-relaxed">
+                <p>Before jumping on your Zoom, Google Meet, or Microsoft Teams call, simply click <strong
+                        class="text-white px-3 py-1 bg-brand-blue rounded border border-brand-blue/50 text-sm">Start
+                        Meeting</strong> inside Ghost Writer.</p>
+
+                <div class="bg-black/50 p-6 rounded-xl border border-white/5 mt-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white"><i
+                            class="fa-solid fa-ear-listen text-brand-purple mr-2"></i> How it listons</h3>
+                    <p class="text-sm">Ghost Writer automatically listens to the speakers coming through your headphones
+                        and your own microphone. It types out the transcript in real-time. You don't need to change any
+                        Zoom settings—it just works.</p>
+                </div>
+
+                <div class="bg-black/50 p-6 rounded-xl border border-white/5 mt-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white"><i
+                            class="fa-solid fa-magic-wand-sparkles text-brand-blue mr-2"></i> Automatic Answers</h3>
+                    <p class="text-sm">As soon as the interviewer finishes asking a question, a glowing box will appear
+                        on your screen with a perfectly crafted answer in bullet points. Just read it naturally!</p>
+                </div>
+
+                <div class="bg-black/50 p-6 rounded-xl border border-white/5 mt-6">
+                    <h3 class="text-xl font-semibold mb-3 text-white"><i
+                            class="fa-solid fa-camera text-gray-400 mr-2"></i> The Magic Screenshot Button</h3>
+                    <p class="text-sm">If the interviewer shares their screen to show you a chart, a block of code, or a
+                        presentation, press <kbd
+                            class="px-2 py-1 bg-white/10 rounded font-mono text-white text-xs mx-1">Ctrl+H</kbd> on your
+                        keyboard. Ghost Writer will silently take a screenshot of your screen, read the image, and tell
+                        you what to say about it!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div id="troubleshooting" class="mb-16 animate-in delay-[600ms]">
+            <h2 class="text-3xl font-bold mb-8 text-center">Frequently Asked Questions</h2>
+            <div class="space-y-4">
+                <div class="glass-card p-6">
+                    <h4 class="font-bold text-lg mb-2 text-white">Can the interviewer see Ghost Writer on my screen?
+                    </h4>
+                    <p class="text-gray-400 text-sm font-light leading-relaxed">No. Ghost Writer uses special "stealth"
+                        windows. If you share your screen on Zoom, Teams, or Meet, Ghost Writer becomes completely
+                        invisible to the other person. Only you can see it.</p>
+                </div>
+                <div class="glass-card p-6">
+                    <h4 class="font-bold text-lg mb-2 text-white">It's not hearing the audio. What do I do?</h4>
+                    <p class="text-gray-400 text-sm font-light leading-relaxed">Make sure you aren't wearing Bluetooth
+                        headphones that are rapidly switching between devices. If audio fails, go to the Settings gear,
+                        find the Audio tab, and change your microphone/speaker to specifically match the ones you are
+                        using.</p>
+                </div>
+                <div class="glass-card p-6">
+                    <h4 class="font-bold text-lg mb-2 text-white">Is it safe to type my Resume in?</h4>
+                    <p class="text-gray-400 text-sm font-light leading-relaxed">Yes. Everything is saved locally on your
+                        own computer. Ghost Writer does not upload your resume to a central database.</p>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/5 py-12 text-center text-gray-600 relative z-10 bg-black">
+        <a href="index.html"
+            class="inline-block px-6 py-3 glass-card text-brand-white font-medium hover:bg-white/10 transition-colors mb-8">
+            <i class="fa-solid fa-arrow-left mr-2"></i> Back to Home
+        </a>
+        <p class="text-xs font-light">Ghost Writer &copy; 2026. Built for everyone.</p>
+    </footer>
+
+</body>
+
+</html>
