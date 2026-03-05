@@ -134,8 +134,15 @@ body {
 }
 
 .animate-in {
-    animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    opacity: 0;
+    animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-in {
+        animation: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
 }
 
 /* Animation Delays mapped for direct html usage */
