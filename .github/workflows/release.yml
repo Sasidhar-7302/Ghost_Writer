@@ -43,7 +43,7 @@ jobs:
         run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
 
       - name: Build and Publish Windows Installer
-        run: npm run dist -- --win --publish always -c.extraMetadata.version=${{ github.event.inputs.version }}
+        run: npm run dist -- --win -p always -c.extraMetadata.version=${{ github.event.inputs.version }}
 
   # ─── macOS Build ─────────────────────────────────────────────────────────────
   build-macos:
@@ -97,4 +97,4 @@ jobs:
           echo "Whisper binary setup complete."
 
       - name: Build and Publish macOS .dmg
-        run: npm run dist -- --mac --arm64 --publish always -c.extraMetadata.version=${{ github.event.inputs.version }}
+        run: npm run dist -- --mac --arm64 -p always -c.extraMetadata.version=${{ github.event.inputs.version }}
