@@ -12,6 +12,7 @@ import { AIProvidersSettings } from './settings/AIProvidersSettings';
 import { AIModelsSettings } from './settings/AIModelsSettings';
 import { SessionSettings } from './settings/SessionSettings';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WebAudioFallback } from '../lib/audio/WebAudioFallback';
 
 interface CustomSelectProps {
     label: string;
@@ -207,6 +208,8 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
     const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system');
     const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
     const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'uptodate' | 'error'>('idle');
+    const [gpuInfo, setGpuInfo] = useState<{ name: string; vramGB: number; isNvidia: boolean; tier: string } | null>(null);
+    const [audioFallbackActive, setAudioFallbackActive] = useState(false);
     const themeDropdownRef = React.useRef<HTMLDivElement>(null);
 
     // Close dropdown when clicking outside
@@ -227,6 +230,26 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
             });
             return () => unsubscribe();
         }
+    }, []);
+
+    useEffect(() => {
+        if (window.electronAPI?.onAudioCaptureFallback) {
+            const unsubscribe = window.electronAPI.onAudioCaptureFallback((data: { reason: string }) => {
+                console.warn('[Settings] Native audio fallback triggered:', data.reason);
+                setAudioFallbackActive(true);
+            });
+            return () => unsubscribe();
+        }
+    }, []);
+
+    useEffect(() => {
+        const loadGpuInfo = async () => {
+            if (window.electronAPI?.getGpuInfo) {
+                const res = await window.electronAPI.getGpuInfo();
+                if (res.success) setGpuInfo(res.info);
+            }
+        };
+        loadGpuInfo();
     }, []);
 
     useEffect(() => {
@@ -1118,6 +1141,61 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                 {activeTab === 'audio' && (
                                     <div className="space-y-6 animated fadeIn">
+                                        {/* ── Native Module Status ── */}
+                                        <div className="bg-bg-card rounded-xl border border-border-subtle p-4 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-lg ${audioFallbackActive ? 'bg-amber-500/10 text-amber-500' : 'bg-green-500/10 text-green-500'}`}>
+                                                        {audioFallbackActive ? <Activity size={18} /> : <BadgeCheck size={18} />}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-sm font-bold text-text-primary">Native Audio Module</h4>
+                                                        <p className="text-[11px] text-text-secondary">
+                                                            {audioFallbackActive ? 'Running in Web Audio Fallback mode' : 'High-performance native capture active'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {audioFallbackActive && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                await WebAudioFallback.getInstance().startSystemCapture();
+                                                                // Also start mic just in case
+                                                                await WebAudioFallback.getInstance().startMicCapture();
+                                                            } catch (e) {
+                                                                console.error('[Settings] Fallback activation failed:', e);
+                                                            }
+                                                        }}
+                                                        className="px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary text-[11px] font-bold rounded-lg transition-all"
+                                                    >
+                                                        Activate Fallback UI
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* ── GPU Information ── */}
+                                        <div className="bg-bg-card rounded-xl border border-border-subtle p-4 space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-lg ${gpuInfo?.isNvidia ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                                    <Cpu size={18} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="text-sm font-bold text-text-primary">GPU Detection</h4>
+                                                        {gpuInfo?.tier && (
+                                                            <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border ${gpuInfo.tier === 'high' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                                                                {gpuInfo.tier} tier
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-text-secondary">
+                                                        {gpuInfo?.isNvidia ? `${gpuInfo.name} (${gpuInfo.vramGB}GB VRAM)` : 'No NVIDIA GPU detected. Using CPU mode.'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         {/* ── Speech Provider Section ── */}
                                         <div>
                                             <h3 className="text-lg font-bold text-text-primary mb-1">Speech Provider</h3>
@@ -1154,7 +1232,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                     <div className={`w-2 h-2 rounded-full ${whisperStatus?.hasBinary && whisperStatus?.hasModel ? 'bg-green-500' : 'bg-amber-500'}`} />
                                                                     <span className="text-sm font-medium text-text-primary">
                                                                         {whisperStatus?.isDownloading
-                                                                            ? 'Downloading components...'
+                                                                            ? (whisperStatus.downloadingModel === 'binary' ? 'Downloading Engine...' : `Downloading ${whisperStatus.downloadingModel || 'model'}...`)
                                                                             : whisperStatus?.hasBinary && whisperStatus?.hasModel
                                                                                 ? 'Ready to transcribe'
                                                                                 : 'Setup required'}
@@ -1166,7 +1244,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                     <span className="text-[10px] font-bold text-accent-primary animate-pulse">
                                                                         {whisperStatus.progress && whisperStatus.progress > 0
                                                                             ? `${whisperStatus.progress}%`
-                                                                            : 'Connecting...'}
+                                                                            : 'Initializing...'}
                                                                     </span>
                                                                     <Loader2 size={16} className="animate-spin text-accent-primary" />
                                                                 </div>

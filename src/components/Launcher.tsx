@@ -39,6 +39,7 @@ interface Meeting {
 interface LauncherProps {
     onStartMeeting: () => void;
     onOpenSettings: () => void;
+    onRefresh: () => Promise<void>;
 }
 
 // Helper to format date groups
@@ -66,7 +67,7 @@ const formatTime = (dateStr: string) => {
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
 };
 
-const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) => {
+const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onRefresh }) => {
     const [meetings, setMeetings] = useState<Meeting[]>([]);
     const [isDetectable, setIsDetectable] = useState(false);
     const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
@@ -76,6 +77,10 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
     const [isCalendarConnected, setIsCalendarConnected] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showNotification, setShowNotification] = useState(false);
+    const [notificationConfig, setNotificationConfig] = useState<{ title: string, sub: string }>({
+        title: 'Refreshed',
+        sub: 'Everything is up to date'
+    });
 
     // Global search state (for AI chat overlay)
     const [isGlobalChatOpen, setIsGlobalChatOpen] = useState(false);
@@ -95,19 +100,17 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
-        analytics.trackCommandExecuted('refresh_calendar');
+        analytics.trackCommandExecuted('refresh_app');
         try {
-            if (window.electronAPI && window.electronAPI.calendarRefresh) {
-                setShowNotification(true);
-                await window.electronAPI.calendarRefresh();
-                // fetchEvents();
-                fetchMeetings();
-                setTimeout(() => {
-                    setShowNotification(false);
-                }, 3000);
-            } else {
-                console.warn("electronAPI.calendarRefresh not found");
-            }
+            await onRefresh();
+            setNotificationConfig({
+                title: 'Refreshed',
+                sub: 'Everything is up to date'
+            });
+            setShowNotification(true);
+            setTimeout(() => {
+                setShowNotification(false);
+            }, 3000);
         } catch (e) {
             console.error("Refresh failed in handleRefresh:", e);
         } finally {
@@ -150,9 +153,21 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
         // Simple polling for events every minute
         // const interval = setInterval(fetchEvents, 60000);
 
+        // Listen for screenshots
+        const removeScreenshotListener = window.electronAPI.onScreenshotTaken((data) => {
+            console.log('[Launcher] Screenshot captured:', data.path);
+            setNotificationConfig({
+                title: 'Image Attached',
+                sub: 'Ready for Global Intelligence'
+            });
+            setShowNotification(true);
+            setTimeout(() => setShowNotification(false), 3000);
+        });
+
         return () => {
             if (removeMeetingsListener) removeMeetingsListener();
             if (removeUndetectableListener) removeUndetectableListener();
+            if (removeScreenshotListener) removeScreenshotListener();
             // clearInterval(interval);
         };
     }, []);
@@ -418,7 +433,7 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
                                                 onClick={handleRefresh}
                                                 disabled={isRefreshing}
                                                 className={`p-2 text-text-tertiary hover:text-text-primary transition-all hover:bg-bg-item-surface rounded-xl border border-transparent hover:border-border-subtle ${isRefreshing ? 'animate-spin text-text-primary' : ''}`}
-                                                title="Sync Calendar"
+                                                title="Refresh"
                                             >
                                                 <RefreshCw size={18} />
                                             </button>
@@ -698,8 +713,8 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings }) =
 
                             {/* Text Content */}
                             <div className="flex flex-col">
-                                <span className="text-[12px] font-black text-text-primary uppercase tracking-[0.2em]">Synchronized</span>
-                                <span className="text-[9px] text-text-tertiary font-bold uppercase tracking-widest opacity-60">Meeting core updated</span>
+                                <span className="text-[12px] font-black text-text-primary uppercase tracking-[0.2em]">{notificationConfig.title}</span>
+                                <span className="text-[9px] text-text-tertiary font-bold uppercase tracking-widest opacity-60">{notificationConfig.sub}</span>
                             </div>
                         </motion.div>
                     )

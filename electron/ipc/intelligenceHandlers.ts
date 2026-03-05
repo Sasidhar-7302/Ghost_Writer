@@ -5,7 +5,12 @@ import { ipcMain } from "electron";
 import type { AppState } from "../main";
 import { rateLimiter } from "../utils/rateLimiter";
 
+let intelligenceHandlersInitialized = false;
+
 export function registerIntelligenceHandlers(appState: AppState): void {
+  if (intelligenceHandlersInitialized) return;
+  intelligenceHandlersInitialized = true;
+
   // MODE 1: Assist (Passive observation)
   ipcMain.handle("generate-assist", async () => {
     return rateLimiter.wrap('generate-assist', async () => {

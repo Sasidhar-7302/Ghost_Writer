@@ -5,7 +5,12 @@ import { ipcMain, dialog } from "electron";
 import type { AppState } from "../main";
 import { AudioDevices } from "../audio/AudioDevices";
 
+let sttHandlersInitialized = false;
+
 export function registerSTTHandlers(appState: AppState): void {
+  if (sttHandlersInitialized) return;
+  sttHandlersInitialized = true;
+
   // ==========================================
   // STT Provider Management
   // ==========================================
@@ -365,5 +370,25 @@ export function registerSTTHandlers(appState: AppState): void {
   ipcMain.handle("set-recognition-language", async (_, key: string) => {
     appState.setRecognitionLanguage(key);
     return { success: true };
+  });
+
+  // ==========================================
+  // Web Audio Fallback IPC
+  // ==========================================
+
+  ipcMain.on("raw-audio-stream", (event, buffer: Buffer) => {
+    // Pipe this buffer to all active STT providers in AppState
+    // This is the bridge between renderer capture and server-side STT
+    const stt = appState.getGoogleSTT();
+    const sttUser = appState.getGoogleSTTUser();
+
+    if (stt) {
+      stt.write(buffer);
+    }
+    if (sttUser) {
+      sttUser.write(buffer);
+    }
+    // Deepgram, Azure, etc. usually use their own streaming logic or REST.
+    // Here we ensure the core streaming engine receives the raw PCM.
   });
 }

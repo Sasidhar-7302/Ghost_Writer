@@ -17,17 +17,24 @@ export class SystemAudioCapture extends EventEmitter {
     private isRecording: boolean = false;
     private deviceId: string | null = null;
     private detectedSampleRate: number = 16000;
+    private static isNativeAvailable: boolean = !!RustAudioCapture;
 
     constructor(deviceId?: string | null) {
         super();
         this.deviceId = deviceId || null;
         if (!RustAudioCapture) {
             console.error('[SystemAudioCapture] Rust class implementation not found.');
+            SystemAudioCapture.isNativeAvailable = false;
         } else {
             // LAZY INIT: Don't create native monitor here - it causes 1-second audio mute + quality drop
             // The monitor will be created in start() when the meeting actually begins
-            console.log(`[SystemAudioCapture] Initialized (lazy). Device ID: ${this.deviceId || 'default'}`);
+            const platform = process.platform === 'darwin' ? 'macOS' : 'Windows';
+            console.log(`[SystemAudioCapture] Initialized (lazy) for ${platform}. Device ID: ${this.deviceId || 'default'}`);
         }
+    }
+
+    public static isAvailable(): boolean {
+        return this.isNativeAvailable;
     }
 
     public getSampleRate(): number {

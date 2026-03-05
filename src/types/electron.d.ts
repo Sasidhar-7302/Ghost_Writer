@@ -78,8 +78,13 @@ export interface ElectronAPI {
   getRecognitionLanguages: () => Promise<Record<string, any>>
 
   getNativeAudioStatus: () => Promise<{ connected: boolean }>
-  getWhisperStatus: () => Promise<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string }>
-  setupWhisper: () => Promise<boolean>
+  getWhisperStatus: () => Promise<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string; installedModels?: Record<string, boolean>; progress?: number; downloadingModel?: string | null; customBinaryPath?: string; customModelPath?: string }>
+  setupWhisper: (model?: string) => Promise<boolean>
+  downloadWhisperModel: (model: string) => Promise<{ success: boolean; status: any }>
+  onWhisperDownloadProgress: (callback: (data: { model: string; progress: number }) => void) => () => void
+  setLocalWhisperModel: (model: string) => Promise<{ success: boolean; status: any }>
+  setLocalWhisperPaths: (binaryPath?: string, modelPath?: string) => Promise<{ success: boolean; status: any }>
+  selectLocalFile: (prompt: string, filters: any[]) => Promise<string | null>
 
   // Audio Test
   startAudioTest: (deviceId?: string) => Promise<void>
@@ -95,6 +100,8 @@ export interface ElectronAPI {
   submitManualQuestion: (question: string) => Promise<{ answer: string | null; question: string }>
   getIntelligenceContext: () => Promise<{ context: string; lastAssistantMessage: string | null; activeMode: string }>
   resetIntelligence: () => Promise<{ success: boolean; error?: string }>
+  onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => () => void
+  sendRawAudio: (data: Buffer) => void
 
   // Meeting Lifecycle
   startMeeting: (metadata?: any) => Promise<{ success: boolean; error?: string }>
@@ -131,6 +138,7 @@ export interface ElectronAPI {
   on: (channel: string, callback: (...args: any[]) => void) => () => void;
 
   onUndetectableChanged: (callback: (state: boolean) => void) => () => void;
+  onLicenseStatusUpdated: (callback: (state: any) => void) => () => void;
 
   onMeetingsUpdated: (callback: () => void) => () => void
 
@@ -189,8 +197,7 @@ export interface ElectronAPI {
   getSttProvider: () => Promise<string>
   getAirGapMode: () => Promise<boolean>
   setAirGapMode: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
-  getWhisperStatus: () => Promise<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string }>
-  setupWhisper: () => Promise<boolean>
+
 
   // Customizable Prompts
   getCustomPrompts: () => Promise<{ interviewPrompt: string | null; meetingPrompt: string | null }>

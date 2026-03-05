@@ -1,6 +1,6 @@
 {
   "name": "ghost-writer",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "main": "./dist-electron/main.js",
   "description": "Professional-grade, privacy-first AI assistant for high-stakes interviews and meetings featuring real-time local transcription and hardware-aware intelligence.",
   "scripts": {
@@ -9,8 +9,8 @@
     "build": "npm run clean && tsc && vite build",
     "preview": "vite preview",
     "postinstall": "cross-env SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm rebuild sharp",
-    "electron:dev": "set ELECTRON_RUN_AS_NODE=&& tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron dist-electron/main.js",
-    "electron:build": "set ELECTRON_RUN_AS_NODE=&& tsc -p electron/tsconfig.json && cross-env NODE_ENV=production electron .",
+    "electron:dev": "cross-env ELECTRON_RUN_AS_NODE= tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron dist-electron/main.js",
+    "electron:build": "cross-env ELECTRON_RUN_AS_NODE= tsc -p electron/tsconfig.json && cross-env NODE_ENV=production electron .",
     "app:dev": "concurrently \"npm run dev -- --port 5180\" \"wait-on http://localhost:5180 && npm run electron:dev\"",
     "app:build": "npm run build && tsc -p electron/tsconfig.json && electron-builder",
     "watch": "tsc -p electron/tsconfig.json --watch",
@@ -19,11 +19,13 @@
     "build:native": "cd native-module && napi build --platform --release",
     "lint": "eslint . --max-warnings 1000 || true",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
-    "test": "npm run test:accuracy && npm run test:e2e && npm run test:system-audio && npm run test:electron",
+    "test": "npm run test:accuracy && npm run test:e2e && npm run test:system-audio && npm run test:electron && npm run test:fallback",
     "test:accuracy": "node tests/test_accuracy.js",
     "test:e2e": "node tests/test_e2e.js",
     "test:system-audio": "node tests/test_system_audio.js",
-    "test:electron": "node tests/test-electron.js"
+    "test:electron": "node tests/test-electron.js",
+    "test:fallback": "node tests/test_audio_fallback.js",
+    "test:benchmark": "node tests/benchmark_audio.js"
   },
   "build": {
     "appId": "com.electron.ghost-writer",
@@ -67,6 +69,23 @@
       "icon": "assets/icons/win/icon.ico",
       "requestedExecutionLevel": "asInvoker"
     },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/mac/icon.png",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "type": "distribution",
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -97,6 +116,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/screenshot-desktop": "^1.12.3",
+    "@types/three": "^0.182.0",
     "@types/uuid": "^9.0.8",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.14.0",
@@ -107,12 +127,12 @@
     "cross-env": "^7.0.3",
     "electron": "^32.3.3",
     "electron-builder": "^25.1.8",
-    "electron-is-dev": "^3.0.1",
     "electron-rebuild": "^3.2.9",
     "node-addon-api": "^8.5.0",
     "postcss": "^8.4.49",
     "rimraf": "^6.0.1",
     "tailwindcss": "^3.4.15",
+    "tap": "^21.5.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.28.8",
@@ -129,7 +149,6 @@
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-toast": "^1.2.2",
     "@supabase/supabase-js": "^2.98.0",
-    "@types/three": "^0.182.0",
     "@xenova/transformers": "^2.17.2",
     "axios": "^1.7.7",
     "better-sqlite3": "12.6.2",
@@ -160,9 +179,7 @@
     "remark-math": "^6.0.0",
     "screenshot-desktop": "^1.15.0",
     "sharp": "^0.33.5",
-    "sqlite3": "^5.1.7",
     "tailwind-merge": "^2.5.4",
-    "tap": "^21.5.0",
     "tesseract.js": "^5.0.5",
     "three": "^0.182.0",
     "uuid": "^11.0.3",

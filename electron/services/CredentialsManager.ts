@@ -49,6 +49,8 @@ export interface StoredCredentials {
     localWhisperBinaryPath?: string;
     localWhisperModelPath?: string;
     localWhisperModel?: string;
+    // Ollama settings
+    ollamaModel?: string;
     // Security
     airGapMode?: boolean;
     // Licensing
@@ -56,6 +58,7 @@ export interface StoredCredentials {
     machineId?: string;
     licenseStatus?: 'beta' | 'trial' | 'paid' | 'expired';
     betaRegisteredAt?: string;
+    modelPreference?: string;
 }
 
 export class CredentialsManager {
@@ -78,6 +81,8 @@ export class CredentialsManager {
      * Must be called after app.whenReady()
      */
     public init(): void {
+        console.log(`[CredentialsManager] Data path: ${app.getPath('userData')}`);
+        console.log(`[CredentialsManager] Loading from: ${CREDENTIALS_PATH}`);
         this.loadCredentials();
         log.info('Initialized');
     }
@@ -108,6 +113,14 @@ export class CredentialsManager {
 
     public getDeepseekApiKey(): string | undefined {
         return this.credentials.deepseekApiKey;
+    }
+
+    public getOllamaModel(): string | undefined {
+        return this.credentials.ollamaModel;
+    }
+
+    public getModelPreference(): string | undefined {
+        return this.credentials.modelPreference;
     }
 
     public getResumePath(): string | undefined {
@@ -249,6 +262,18 @@ export class CredentialsManager {
         this.credentials.deepseekApiKey = key;
         this.saveCredentials();
         console.log('[CredentialsManager] DeepSeek API Key updated');
+    }
+
+    public setOllamaModel(model: string): void {
+        this.credentials.ollamaModel = model;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Ollama model set to: ${model}`);
+    }
+
+    public setModelPreference(modelId: string): void {
+        this.credentials.modelPreference = modelId;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Model preference set to: ${modelId}`);
     }
 
     public setResumePath(filePath: string): void {
@@ -469,6 +494,8 @@ export class CredentialsManager {
                 const encrypted = fs.readFileSync(CREDENTIALS_PATH);
                 const decrypted = safeStorage.decryptString(encrypted);
                 this.credentials = JSON.parse(decrypted);
+                console.log(`[CredentialsManager] Model preference loaded: ${this.credentials.modelPreference || 'none'}`);
+                console.log(`[CredentialsManager] Ollama model loaded: ${this.credentials.ollamaModel || 'none'}`);
                 log.info('Loaded encrypted credentials');
                 return;
             }

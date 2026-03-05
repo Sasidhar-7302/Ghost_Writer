@@ -3,12 +3,7 @@ import { BrowserWindow, screen, app } from "electron"
 import { AppState } from "./main"
 import path from "node:path"
 
-const isEnvDev = process.env.NODE_ENV === "development"
-const isPackaged = app.isPackaged;
-// Windows-only: no .app bundle check needed
-
-// Force production mode if running as packaged app or inside app bundle
-const isDev = isEnvDev && !isPackaged;
+const isDev = process.env.NODE_ENV === "development" && !app.isPackaged;
 
 const startUrl = isDev
   ? "http://localhost:5180"
@@ -140,7 +135,7 @@ export class WindowHelper {
       resizable: true,
       movable: true,
       center: true,
-      icon: isPackaged
+      icon: !isDev
         ? path.join(process.resourcesPath, "assets/icons/win/icon.ico")
         : path.resolve(__dirname, "../assets/icons/win/icon.ico")
     }

@@ -82,7 +82,7 @@ export const AIModelsSettings: React.FC = () => {
     const [selectedModel, setSelectedModel] = useState<string>('gemini');
     const [isApplying, setIsApplying] = useState(false);
     const [showApplied, setShowApplied] = useState(false);
-    const [gpuInfo, setGpuInfo] = useState<{name: string, vramGB: number, tier: string} | null>(null);
+    const [gpuInfo, setGpuInfo] = useState<{ name: string, vramGB: number, tier: string } | null>(null);
 
     // Load Data
     useEffect(() => {
@@ -186,10 +186,10 @@ export const AIModelsSettings: React.FC = () => {
                 }
 
                 if (window.electronAPI?.getGpuInfo) {
-                     const gpu = await window.electronAPI.getGpuInfo();
-                     if (gpu.success && gpu.info) {
-                         setGpuInfo(gpu.info);
-                     }
+                    const gpu = await window.electronAPI.getGpuInfo();
+                    if (gpu.success && gpu.info) {
+                        setGpuInfo(gpu.info);
+                    }
                 }
 
             } catch (e) {
@@ -270,20 +270,59 @@ export const AIModelsSettings: React.FC = () => {
 
                     {(() => {
                         const modelName = selectedModel.replace('ollama-', '');
-                        
-                        // Heuristic VRAM calculation (rough estimates)
-                        let requiredVRAM = 4.5; // default 7B
-                        if (modelName.includes('32b')) requiredVRAM = 18;
-                        else if (modelName.includes('14b')) requiredVRAM = 9;
-                        else if (modelName.includes('8b')) requiredVRAM = 5.5;
-                        else if (modelName.includes('7b')) requiredVRAM = 4.5;
-                        else if (modelName.includes('3b')) requiredVRAM = 2.5;
-                        else if (modelName.includes('1.5b')) requiredVRAM = 1.5;
+
+                        // Heuristic VRAM calculation (rough estimates based on 4-bit quantization overhead)
+                        let requiredVRAM: number | null = null;
+                        const sizeMatch = modelName.match(/(\d+(?:\.\d+)?)b/i);
+
+                        if (sizeMatch) {
+                            const size = parseFloat(sizeMatch[1]);
+                            if (size >= 70) requiredVRAM = 40;
+                            else if (size >= 32) requiredVRAM = 18;
+                            else if (size >= 14) requiredVRAM = 9;
+                            else if (size >= 12) requiredVRAM = 8;
+                            else if (size >= 9) requiredVRAM = 6.5;
+                            else if (size >= 8) requiredVRAM = 5.5;
+                            else if (size >= 7) requiredVRAM = 4.5;
+                            else if (size >= 3) requiredVRAM = 2.5;
+                            else if (size >= 1.5) requiredVRAM = 1.5;
+                            else requiredVRAM = Math.max(1, Math.ceil(size * 0.8 * 10) / 10);
+                        } else if (modelName.includes('mixtral')) {
+                            // 8x7b defaults
+                            requiredVRAM = 26;
+                        } else if (modelName.includes('command-r-plus')) {
+                            requiredVRAM = 60;
+                        } else if (modelName.includes('command-r')) {
+                            requiredVRAM = 20;
+                        }
 
                         const totalVRAM = gpuInfo.vramGB;
                         // For non-NVIDIA/AMD discrete GPUs or generic, totalVRAM might be 0, assume minimum shared.
                         const effectiveVRAM = totalVRAM > 0 ? totalVRAM : 8; // fallback assuming shared memory
-                        
+
+                        if (requiredVRAM === null) {
+                            return (
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[11px] font-medium">
+                                            <span className="text-gray-400">
+                                                Estimated Usage: Unknown
+                                            </span>
+                                            <span className="text-text-secondary">Capacity: {totalVRAM > 0 ? `${totalVRAM} GB` : 'Shared Memory'}</span>
+                                        </div>
+                                        <div className="w-full h-1.5 bg-bg-input rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-500 bg-gray-500/50 w-full"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-text-secondary italic">
+                                        Could not determine parameter size from model name.
+                                    </div>
+                                </div>
+                            );
+                        }
+
                         const usedRatio = Math.min((requiredVRAM / effectiveVRAM) * 100, 100);
                         const isWarning = usedRatio > 85;
                         const isDanger = usedRatio > 100 || effectiveVRAM < requiredVRAM;
@@ -298,7 +337,7 @@ export const AIModelsSettings: React.FC = () => {
                                         <span className="text-text-secondary">Capacity: {totalVRAM > 0 ? `${totalVRAM} GB` : 'Shared Memory'}</span>
                                     </div>
                                     <div className="w-full h-1.5 bg-bg-input rounded-full overflow-hidden">
-                                        <div 
+                                        <div
                                             className={`h-full rounded-full transition-all duration-500 ${isDanger ? 'bg-red-500' : isWarning ? 'bg-orange-500' : 'bg-emerald-500'}`}
                                             style={{ width: `${usedRatio}%` }}
                                         />

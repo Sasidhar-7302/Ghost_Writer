@@ -15,6 +15,7 @@ import TrialBanner from "./components/ui/TrialBanner"
 import Maintenance from "./components/Maintenance"
 import { analytics } from "./lib/analytics/analytics.service"
 import { ErrorBoundary } from "./components/ErrorBoundary"
+import { WhisperDownloadProgress } from "./components/WhisperDownloadProgress"
 
 const queryClient = new QueryClient()
 
@@ -92,16 +93,36 @@ const App: React.FC = () => {
     }
   }, [showStartup, isLauncherWindow, isDefault]);
 
-  const handlePaywallUnlocked = async () => {
-    // Re-fetch full state from server/cache to get license keys, etc.
-    try {
-      const state = await window.electronAPI.invoke('get-license-status');
+  // Listen for global license updates (Instant Unlock from anywhere)
+  useEffect(() => {
+    if (!isLauncherWindow && !isDefault) return;
+
+    const unsubscribe = window.electronAPI.onLicenseStatusUpdated((state: any) => {
+      console.log('[App] 🚀 Global license update received:', state.status);
       setLicenseStatus(state.status);
       setTrialDaysRemaining(state.remainingDays || 0);
       setIsServiceActive(state.isServiceActive ?? true);
       setMaintenanceMessage(state.maintenanceMessage || '');
-    } catch {
-      setLicenseStatus('paid');
+    });
+
+    return () => unsubscribe();
+  }, [isLauncherWindow, isDefault]);
+
+  const handlePaywallUnlocked = async () => {
+    // Optimistically set to paid to clear the paywall immediately
+    setLicenseStatus('paid');
+
+    // Then re-fetch full state from server/cache to sync details
+    try {
+      const state = await window.electronAPI.invoke('get-license-status');
+      if (state.status) {
+        setLicenseStatus(state.status);
+        setTrialDaysRemaining(state.remainingDays || 0);
+        setIsServiceActive(state.isServiceActive ?? true);
+        setMaintenanceMessage(state.maintenanceMessage || '');
+      }
+    } catch (err) {
+      console.error('[App] handlePaywallUnlocked state sync failed:', err);
     }
   };
 
@@ -160,6 +181,27 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Failed to end meeting:", err);
       window.electronAPI.setWindowMode('launcher');
+    }
+  };
+
+  const handleRefreshApp = async () => {
+    console.log('[App] 🔄 Manual refresh triggered');
+    try {
+      // 1. Refresh license
+      const state = await window.electronAPI.invoke('get-license-status');
+      if (state.status) {
+        setLicenseStatus(state.status);
+        setTrialDaysRemaining(state.remainingDays || 0);
+        setIsServiceActive(state.isServiceActive ?? true);
+        setMaintenanceMessage(state.maintenanceMessage || '');
+      }
+
+      // 2. Refresh meetings/calendar (Backend task)
+      if (window.electronAPI.calendarRefresh) {
+        await window.electronAPI.calendarRefresh();
+      }
+    } catch (err) {
+      console.error('[App] Refresh failed:', err);
     }
   };
 
@@ -255,6 +297,7 @@ const App: React.FC = () => {
                   <Launcher
                     onStartMeeting={handleStartMeetingTrigger}
                     onOpenSettings={() => setIsSettingsOpen(true)}
+                    onRefresh={handleRefreshApp}
                   />
                   <ModeSelectionModal
                     isOpen={showModeSelection}
@@ -272,6 +315,7 @@ const App: React.FC = () => {
           )}
         </AnimatePresence>
         <UpdateBanner />
+        <WhisperDownloadProgress />
       </div>
     </ErrorBoundary>
   )

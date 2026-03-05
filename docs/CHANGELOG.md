@@ -5,6 +5,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [2.1.0] - 2026-03-02
+
+### 🛡️ Production Hardening & Audio Robustness
+
+#### Added
+- **Native Audio Fallback System** — Automatic, seamless transition to Web Audio API (`getDisplayMedia`) if the Rust native loopback module fails or is unavailable.
+- **Hardware-Aware Status Reporting** — Real-time GPU detection with performance tiering (High/Medium/Low) and VRAM reporting directly in the Settings UI.
+- **IPC Audio Streaming** — High-performance bridge for piping raw PCM data from renderer capture back to the STT engines.
+- **Audio Troubleshooting Guide** — Comprehensive documentation for common WASAPI errors and device access issues.
+- **Enhanced Unit Testing** — New test suites for fallback logic and audio routing.
+- **Performance Benchmarking** — Diagnostic tools to compare processing overhead between native and fallback capture paths.
+
+#### Fixed
+- **STT Private Access** — Resolved TypeScript lint errors by exposing STT engines through safe public getters.
+- **IPC Reliability** — Hardened the bridge for streaming large buffers of raw audio data without UI blocking.
+
+---
+
+## [2.0.1] - 2026-03-01
+
+### 🍎 MacBook Compatibility Overhaul
+
+#### Added
+- **macOS System Audio Capture** — Integrated Apple's **ScreenCaptureKit** for driver-less, high-quality system audio loopback on macOS.
+- **Apple Silicon (M1/M2/M3) Optimization** — Native support for Metal and CoreML acceleration in the Whisper engine for near-instant transcription.
+- **Universal Darwin Build** — Native module cross-compilation for both Intel (x64) and Apple Silicon (arm64) architectures.
+- **Automated Release Pipeline** — Expanded CI/CD to automatically generate and release Windows `.exe` and macOS `.dmg` installers.
+- **macOS Professional Assets** — Full 1024px icon set and optimized distribution configuration.
+- **macOS Security Entitlements** — Configured sandbox entitlements for microphone and ScreenCaptureKit permissions.
+
+#### Fixed
+- **Version Reporting** — Resolved an issue where the app reported the Electron framework version instead of the application version (`2.0.1`) to Supabase.
+- **Platform Awareness** — Sanitized all core services to remove hardcoded `.exe` suffixes, ensuring cross-platform stability.
+
+---
+
 ## [2.0.0] - 2026-02-25
 
 ### 🚀 Major Release — Whisper Server & Enterprise Features

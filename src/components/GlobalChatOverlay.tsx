@@ -119,6 +119,7 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
     const [chatState, setChatState] = useState<ChatState>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [query, setQuery] = useState('');
+    const [attachedImage, setAttachedImage] = useState<{ path: string; preview: string } | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatWindowRef = useRef<HTMLDivElement>(null);
@@ -156,6 +157,26 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
+    // Listen for screenshots
+    useEffect(() => {
+        if (!window.electronAPI) return;
+
+        const removeListener = window.electronAPI.onScreenshotTaken((data) => {
+            console.log('[GlobalChat] Screenshot received:', data.path);
+            setAttachedImage(data);
+        });
+
+        const removeAttachedListener = window.electronAPI.onScreenshotAttached((data) => {
+            console.log('[GlobalChat] Screenshot attached manually:', data.path);
+            setAttachedImage(data);
+        });
+
+        return () => {
+            removeListener();
+            removeAttachedListener();
+        };
+    }, []);
+
     // Click outside handler
     const handleBackdropClick = useCallback((e: React.MouseEvent) => {
         if (e.target === e.currentTarget) {
@@ -168,6 +189,7 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
             e.preventDefault();
             submitQuestion(query);
             setQuery('');
+            setAttachedImage(null); // Clear image after submission
         }
     };
 
@@ -273,7 +295,7 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
                 });
 
                 // Call standard chat
-                await window.electronAPI?.streamGeminiChat(question, undefined, undefined, { skipSystemPrompt: false });
+                await window.electronAPI?.streamGeminiChat(question, attachedImage?.path, undefined, { skipSystemPrompt: false });
             }
 
         } catch (error) {
@@ -311,28 +333,28 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
                     />
 
                     {/* Chat Window */}
-                        <motion.div
-                            ref={chatWindowRef}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "85vh", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{
-                                height: { type: "spring", stiffness: 300, damping: 30, mass: 0.8 },
-                                opacity: { duration: 0.2 }
-                            }}
-                            className="relative mx-auto w-full max-w-[680px] mb-0 bg-bg-main/90 border-t border-x border-white/10 rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col backdrop-blur-3xl"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
-                                        <img src={ghostWriterIcon} className="w-3.5 h-3.5 opacity-50" alt="logo" />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-text-primary">Global Intelligence</span>
-                                        <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Metadata Synthesis</span>
-                                    </div>
+                    <motion.div
+                        ref={chatWindowRef}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "85vh", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{
+                            height: { type: "spring", stiffness: 300, damping: 30, mass: 0.8 },
+                            opacity: { duration: 0.2 }
+                        }}
+                        className="relative mx-auto w-full max-w-[680px] mb-0 bg-bg-main/90 border-t border-x border-white/10 rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col backdrop-blur-3xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+                                    <img src={ghostWriterIcon} className="w-3.5 h-3.5 opacity-50" alt="logo" />
                                 </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-text-primary">Global Intelligence</span>
+                                    <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Metadata Synthesis</span>
+                                </div>
+                            </div>
                             <button
                                 onClick={onClose}
                                 className="p-2 transition-colors group"
@@ -376,11 +398,42 @@ const GlobalChatOverlay: React.FC<GlobalChatOverlayProps> = ({
                                     placeholder="Global semantic query..."
                                     className="w-full pl-6 pr-14 py-4 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-2xl text-[14px] text-white placeholder-text-tertiary/40 focus:outline-none focus:border-white/20 transition-all duration-500 shadow-2xl font-medium"
                                 />
+
+                                {/* Image Preview */}
+                                <AnimatePresence>
+                                    {attachedImage && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                            className="absolute bottom-full mb-4 left-0 group/img"
+                                        >
+                                            <div className="relative p-1 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-xl shadow-2xl overflow-hidden">
+                                                <img
+                                                    src={attachedImage.preview}
+                                                    alt="Attached"
+                                                    className="w-32 h-20 object-cover rounded-lg"
+                                                />
+                                                <button
+                                                    onClick={() => setAttachedImage(null)}
+                                                    className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                                <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-emerald-500 text-[8px] font-black text-white uppercase tracking-widest rounded-md shadow-lg border border-emerald-400/50">
+                                                    Attached
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
                                 <button
                                     onClick={() => {
                                         if (query.trim()) {
                                             submitQuestion(query);
                                             setQuery('');
+                                            setAttachedImage(null);
                                         }
                                     }}
                                     className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all duration-500 border border-white/10 ${query.trim() ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'bg-white/5 text-text-tertiary hover:bg-white/10'

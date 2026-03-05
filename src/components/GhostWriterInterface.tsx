@@ -39,6 +39,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { analytics, detectProviderType } from '../lib/analytics/analytics.service';
+import { WhisperDownloadProgress } from './WhisperDownloadProgress';
 
 interface Message {
     id: string;
@@ -70,6 +71,7 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
         const stored = localStorage.getItem('ghost_writer_interviewer_transcript');
         return stored !== 'false';
     });
+    const [activeShortcut, setActiveShortcut] = useState<string>("Ctrl+H");
 
     // Analytics State
     const requestStartTimeRef = useRef<number | null>(null);
@@ -135,6 +137,21 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
         // Fetch initial state
         if (window.electronAPI?.getUndetectable) {
             window.electronAPI.getUndetectable().then(setIsUndetectable);
+        }
+
+        if (window.electronAPI?.getActiveShortcut) {
+            window.electronAPI.getActiveShortcut().then((shortcut: string) => {
+                // Determine display based on what was successfully bound
+                if (shortcut === "CommandOrControl+Shift+H") {
+                    setActiveShortcut("Ctrl+Shift+H")
+                } else if (shortcut === "CommandOrControl+Alt+H") {
+                    setActiveShortcut("Ctrl+Alt+H")
+                } else if (shortcut === "Unbound") {
+                    setActiveShortcut("❌ Unbound")
+                } else {
+                    setActiveShortcut("Ctrl+H")
+                }
+            });
         }
 
         if (window.electronAPI?.onUndetectableChanged) {
@@ -1499,7 +1516,7 @@ Provide only the answer, nothing else.`;
                                     focus:border-white/10
                                     focus:ring-1 focus:ring-white/10
                                     rounded-xl 
-                                    pl-3 pr-10 py-2.5 
+                                    pl-3 pr-[4.5rem] py-2.5 
                                     text-slate-200 
                                     focus:outline-none 
                                     transition-all duration-200 ease-sculpted
@@ -1513,19 +1530,46 @@ Provide only the answer, nothing else.`;
                                         <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none text-[13px] text-slate-400">
                                             <span>Ask anything, or</span>
                                             <div className="flex items-center gap-1 opacity-80">
-                                                <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] font-sans">Ctrl</kbd>
-                                                <span className="text-[10px]">+</span>
-                                                <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] font-sans">H</kbd>
+                                                {activeShortcut.split('+').map((key, index, arr) => (
+                                                    <React.Fragment key={index}>
+                                                        <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] font-sans">
+                                                            {key === "Ctrl" ? "Ctrl" : key === "Shift" ? "⇧" : key === "Alt" ? "Alt" : key}
+                                                        </kbd>
+                                                        {index < arr.length - 1 && <span className="text-[10px]">+</span>}
+                                                    </React.Fragment>
+                                                ))}
                                             </div>
                                             <span>for screenshot</span>
                                         </div>
                                     )}
 
-                                    {!inputValue && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none opacity-20">
-                                            <span className="text-[10px]">↵</span>
-                                        </div>
-                                    )}
+
+                                    {/* Camera / Screenshot Button — always visible on the right */}
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        <button
+                                            id="screenshot-camera-btn"
+                                            title={`Take screenshot (${activeShortcut})`}
+                                            onClick={async (e) => {
+                                                e.preventDefault();
+                                                try {
+                                                    await window.electronAPI.takeScreenshot();
+                                                } catch (err) {
+                                                    console.error('[GhostWriter] Screenshot failed:', err);
+                                                }
+                                            }}
+                                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/10 transition-all active:scale-90"
+                                        >
+                                            <Camera className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                            id="overlay-send-btn"
+                                            onClick={handleManualSubmit}
+                                            disabled={!inputValue.trim() && !attachedContext}
+                                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/10 disabled:opacity-30 transition-all active:scale-90"
+                                        >
+                                            <CornerDownLeft className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Bottom Row */}

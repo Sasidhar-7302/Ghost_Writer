@@ -2,10 +2,16 @@
 
 import path from "node:path"
 import fs from "node:fs"
+import { exec as execCb } from "node:child_process"
+import { promisify } from "node:util"
 import { app } from "electron"
 import { v4 as uuidv4 } from "uuid"
 import screenshot from "screenshot-desktop"
-import util from "util"
+
+const isDev = process.env.NODE_ENV === "development" && !app.isPackaged;
+
+const exec = promisify(execCb)
+
 export class ScreenshotHelper {
   private screenshotQueue: string[] = []
   private extraScreenshotQueue: string[] = []
@@ -83,12 +89,10 @@ export class ScreenshotHelper {
     try {
       hideMainWindow()
 
-      // Add a small delay to ensure window is hidden
-      await new Promise(resolve => setTimeout(resolve, 50))
+      // Add a small delay to ensure window is fully hidden before capturing
+      await new Promise(resolve => setTimeout(resolve, 150))
 
       let screenshotPath = ""
-
-      const exec = util.promisify(require('child_process').exec)
 
       const captureScreen = async (filepath: string) => {
         if (process.platform === "darwin") {
@@ -110,7 +114,7 @@ export class ScreenshotHelper {
             try {
               await fs.promises.unlink(removedPath)
             } catch (error) {
-              console.error("Error removing old screenshot:", error)
+              if (isDev) console.error("Error removing old screenshot:", error)
             }
           }
         }
@@ -125,7 +129,7 @@ export class ScreenshotHelper {
             try {
               await fs.promises.unlink(removedPath)
             } catch (error) {
-              console.error("Error removing old screenshot:", error)
+              if (isDev) console.error("Error removing old screenshot:", error)
             }
           }
         }
@@ -148,11 +152,10 @@ export class ScreenshotHelper {
     try {
       hideMainWindow()
 
-      // Add a small delay to ensure window is hidden
-      await new Promise(resolve => setTimeout(resolve, 50))
+      // Add a small delay to ensure window is fully hidden before capturing
+      await new Promise(resolve => setTimeout(resolve, 150))
 
       let screenshotPath = ""
-      const exec = util.promisify(require('child_process').exec)
 
       // Always use the standard queue directory for this temporary context
       screenshotPath = path.join(this.screenshotDir, `selective-${uuidv4()}.png`)

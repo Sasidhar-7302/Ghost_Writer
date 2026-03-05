@@ -22,14 +22,15 @@ export class ProcessingHelper {
 
     // Check if user wants to use Ollama
     const useOllama = process.env.USE_OLLAMA === "true"
-    const ollamaModel = process.env.OLLAMA_MODEL // Don't set default here, let LLMHelper auto-detect
+    const ollamaModel = process.env.OLLAMA_MODEL || undefined // Ensure we don't pick up a stale default if empty string
     const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434"
 
     if (useOllama) {
-      this.llmHelper = new LLMHelper(undefined, true, ollamaModel, ollamaUrl)
+      this.llmHelper = new LLMHelper()
+      this.llmHelper.switchToOllama(ollamaModel, ollamaUrl)
     } else {
       // Try environment first (for development)
-      let apiKey = process.env.GEMINI_API_KEY
+      let apiKey = process.env.GEMINI_API_KEY || ""
       let groqApiKey = process.env.GROQ_API_KEY
       let openaiApiKey = process.env.OPENAI_API_KEY
       let claudeApiKey = process.env.CLAUDE_API_KEY
@@ -41,7 +42,12 @@ export class ProcessingHelper {
         console.warn("[ProcessingHelper] GEMINI_API_KEY not found in env. Will try CredentialsManager after ready.")
       }
 
-      this.llmHelper = new LLMHelper(apiKey, false, undefined, undefined, groqApiKey, openaiApiKey, claudeApiKey, nvidiaApiKey, deepseekApiKey)
+      this.llmHelper = new LLMHelper(apiKey)
+      if (groqApiKey) this.llmHelper.setGroqApiKey(groqApiKey)
+      if (openaiApiKey) this.llmHelper.setOpenaiApiKey(openaiApiKey)
+      if (claudeApiKey) this.llmHelper.setClaudeApiKey(claudeApiKey)
+      if (nvidiaApiKey) this.llmHelper.setNvidiaApiKey(nvidiaApiKey)
+      if (deepseekApiKey) this.llmHelper.setDeepseekApiKey(deepseekApiKey)
     }
   }
 
@@ -83,9 +89,37 @@ export class ProcessingHelper {
       this.llmHelper.setDeepseekApiKey(deepseekKey);
     }
 
+    // Load saved model preference if it exists
+    const modelPreference = credManager.getModelPreference();
+    const savedOllamaModel = credManager.getOllamaModel();
+    const airGapMode = credManager.getAirGapMode();
+
+    this.llmHelper.setAirGapMode(airGapMode);
+
+    console.log(`[ProcessingHelper] Checking stored preference: ${modelPreference || 'MISSING'}`);
+    if (savedOllamaModel) {
+      console.log(`[ProcessingHelper] Found saved Ollama model: ${savedOllamaModel}`);
+    }
+
+    if (modelPreference) {
+      console.log(`[ProcessingHelper] Applying saved model preference: ${modelPreference}`);
+      if (modelPreference.startsWith('ollama-')) {
+        const ollamaModelName = modelPreference.replace('ollama-', '');
+        this.llmHelper.switchToOllama(ollamaModelName);
+      } else {
+        const customProviders = credManager.getCustomProviders();
+        this.llmHelper.setModel(modelPreference, customProviders);
+      }
+    } else if (savedOllamaModel) {
+      // Support for older settings where only ollamaModel was set
+      console.log(`[ProcessingHelper] Falling back to saved Ollama model: ${savedOllamaModel}`);
+      this.llmHelper.switchToOllama(savedOllamaModel);
+    } else {
+      // Default fallback if no preference saved
+      this.llmHelper.setModel(this.llmHelper.getBestAvailableModel());
+    }
+
     // CRITICAL: Re-initialize IntelligenceManager now that keys are loaded
-    // This fixes the issue where buttons don't work in production because of late key loading
-    this.llmHelper.setModel(this.llmHelper.getBestAvailableModel());
     this.appState.getIntelligenceManager().initializeLLMs();
 
     // CRITICAL: Initialize RAGManager (Embeddings) with loaded key

@@ -37,8 +37,8 @@ Ghost Writer is an Electron desktop application with a multi-layered architectur
 ├─────────────────────────────────────────────────────────────────┤
 │               Native Audio Module (Rust)                        │
 │  ┌────────────────────┐  ┌────────────────────────────────────┐ │
-│  │ Microphone Capture │  │ System Audio Loopback (WASAPI)    │ │
-│  │ (WASAPI, 48kHz)    │  │ (Speaker → PCM capture)          │ │
+│  │ Microphone Capture │  │ System Audio Loopback              │ │
+│  │ (WASAPI/CoreAudio) │  │ (WASAPI/ScreenCaptureKit)          │ │
 │  └────────────────────┘  └────────────────────────────────────┘ │
 │  ┌────────────────────┐  ┌────────────────────────────────────┐ │
 │  │ Streaming Resampler│  │ Silence Suppressor                │ │
@@ -56,18 +56,28 @@ Ghost Writer is an Electron desktop application with a multi-layered architectur
 The audio pipeline captures both microphone and system audio using a Rust native module compiled via N-API.
 
 **Key files:**
-- `native-module/src/microphone.rs` — WASAPI microphone capture
-- `native-module/src/speaker/windows.rs` — WASAPI loopback capture (system audio)
+- `native-module/src/microphone.rs` — Microphone capture (WASAPI/CoreAudio)
+- `native-module/src/speaker/windows.rs` — Windows loopback capture (WASAPI)
+- `native-module/src/speaker/macos.rs` — macOS loopback capture (ScreenCaptureKit)
 - `electron/audio/MicrophoneCapture.ts` — TypeScript wrapper for mic
 - `electron/audio/SystemAudioCapture.ts` — TypeScript wrapper for loopback
 
 **DSP Pipeline (Rust):**
-1. **Capture** — WASAPI exclusive/shared mode at native sample rate (typically 48kHz)
+1. **Capture** — Platform-native capture at native sample rate (typically 48kHz)
 2. **Resample** — Linear interpolation from 48kHz → 16kHz (Whisper's expected input)
 3. **Silence Suppression** — RMS threshold with hangover period to avoid cutting off speech
 4. **Emit** — Sends 16kHz PCM chunks to JavaScript via N-API callbacks
+5. **Fallback Flow** — If N-API fails to initialize (e.g., missing dependencies, WASAPI access denied), `AppState` triggers the Web Audio Fallback system.
 
-### 2. Whisper STT (`LocalWhisperSTT.ts`)
+### 2. Audio Fallback Management (`WebAudioFallback.ts`)
+
+When native capture is unavailable, the system switches to a renderer-side fallback:
+- **System Audio**: Utilizes `navigator.mediaDevices.getDisplayMedia` with `systemAudio: 'include'`.
+- **Microphone**: Utilizes `navigator.mediaDevices.getUserMedia(audio: true)`.
+- **Processing**: PCM data is captured at 16kHz, converted from Float32 to Int16 in the renderer, and streamed to the main process via the `raw-audio-stream` IPC channel.
+- **Integration**: The main process receives these buffers and writes them directly to the active STT engine, bypassing the native Rust loop.
+
+### 3. Whisper STT (`LocalWhisperSTT.ts`)
 
 The speech-to-text engine uses `whisper.cpp` for GPU-accelerated transcription.
 
@@ -75,14 +85,14 @@ The speech-to-text engine uses `whisper.cpp` for GPU-accelerated transcription.
 
 | Mode | How it works | Latency | When used |
 |------|-------------|---------|-----------|
-| **Server Mode** | Persistent `whisper-server.exe` HTTP process on port 8178 | ~1-2s | Default (when server starts OK) |
-| **CLI Fallback** | Spawns `whisper-cli.exe` per chunk | ~15s | If server fails to start |
+| **Server Mode** | Persistent `whisper-server` HTTP process | ~1-2s | Default (when server starts OK) |
+| **CLI Fallback** | Spawns `whisper-cli` per chunk | ~15s | If server fails to start |
 
 **Server lifecycle:**
-1. `start()` → Spawns `whisper-server.exe` with model path
-2. Polls `http://127.0.0.1:8178/` until the server responds (model loaded in VRAM)
+1. `start()` → Spawns `whisper-server` with model path
+2. Polls `http://127.0.0.1:8178/health` until the server responds (model loaded in VRAM)
 3. `transcribeViaServer()` → HTTP POST multipart WAV to `/inference`
-4. `stop()` → Kills server process, releases GPU VRAM
+4. `stop()` → Kills server process, releases GPU/NPU VRAM
 
 **Shared server:** Multiple `LocalWhisperSTT` instances (mic + system audio) share one server via reference counting.
 
@@ -95,6 +105,8 @@ Transcript → Intent Classifier → Prompt Builder → LLM Call → Post-Proces
 ```
 
 **Components:**
+- **LLMOrchestrator** — The central router and fallback manager processing all AI requests
+- **Providers (`GroqProvider`, `OpenAIProvider`, `OllamaProvider`, etc.)** — Isolated API integrations handling specific network/inference protocols
 - **IntentClassifier** — Categorizes questions (technical, behavioral, situational, leadership)
 - **TemporalContextBuilder** — Prevents answer repetition by tracking recent responses
 - **Prompt System** — Dynamic prompts with persona, resume context, and conversation history
@@ -118,16 +130,15 @@ The RAG (Retrieval-Augmented Generation) engine provides semantic search over co
 
 - `electron/rag/LocalEmbeddingManager.ts` — Transformer pipeline wrapper
 
-### 5. Hardware-Aware Intelligence Engine
+### 6. Hardware-Aware Status & Optimization
 
-Ghost Writer features a sophisticated hardware-aware model management layer that optimizes for local GPU resources (e.g., dedicated GPUs with 8GB+ VRAM).
+Ghost Writer features a sophisticated hardware-aware layer (`GPUHelper.ts`) that manages local resources:
+- **Detection**: Uses `nvidia-smi` or DirectX/Metal queries to identify active GPUs.
+- **Tiering**: Classifies hardware into High (>=10GB VRAM), Medium (>=6GB VRAM), and Low (CPU/Mobile) tiers.
+- **Optimization**: Automatically adjusts `num_thread` and context windows based on target hardware tier.
+- **Pre-loading**: Models are warmed in VRAM background upon selection to minimize start-up delay.
 
-**Key Capabilities:**
-- **Tiered Optimization**: Automatically detects VRAM and assigns performance profiles. "High Tier" (>=10GB VRAM) enables 32k context windows and 8-thread processing.
-- **Background Pre-loading**: Uses an `EventEmitter` pattern to signal model loading states. Triggered upon model selection to "warm up" VRAM before use.
-- **Smart Task Switching**: In `LLMHelper.generateMeetingSummary`, the system detects if the active model is Vision-heavy (e.g., `llava`) and automatically switches to a high-speed text model (e.g., `qwen2.5:7b`) for summarization to avoid context hangs.
-
-### 6. Database Layer
+### 7. Database Layer
 
 SQLite database (`ghost-writer.db`) with automatic migrations:
 
@@ -163,8 +174,8 @@ Ghost Writer uses a hybrid approach for enterprise-grade management:
 
 ```
 1. User clicks "Start Meeting"
-2. MicrophoneCapture.start() → Rust WASAPI capture begins
-3. SystemAudioCapture.start() → Rust loopback capture begins
+2. MicrophoneCapture.start() → Native capture begins
+3. SystemAudioCapture.start() → Native loopback capture begins
 4. Both emit 16kHz PCM chunks every ~20ms
 5. LocalWhisperSTT buffers chunks for 800ms
 6. Buffer → WAV file → whisper-server HTTP POST
@@ -175,6 +186,16 @@ Ghost Writer uses a hybrid approach for enterprise-grade management:
 11. LLM Pipeline processes full conversation context
 12. AI response displayed in overlay
 ```
+
+### Dynamic Shortcut Fallbacks (`shortcuts.ts`)
+
+Ghost Writer relies on global shortcuts (e.g., `Ctrl+H`) for rapid screenshot analysis. Because other robust applications often hook into the same keys, the system initializes an automatic fallback chain:
+1. Try `Ctrl+H` (Primary)
+2. Fallback `Ctrl+Shift+H` if Primary is claimed
+3. Fallback `Ctrl+Alt+H` if both are claimed
+4. `Unbound` (if all fail to register)
+
+The successfully bound key is exposed over IPC (`get-active-shortcut`) so the React frontend dynamically renders the correct keys in the UI overlay tooltips.
 
 ### Whisper Server Flow
 
@@ -213,8 +234,8 @@ transcribe() ──→ POST /inference ──→ ~1-2s ──→ JSON response
 |--------|-------|
 | Startup time | ~3-5 seconds |
 | Audio capture latency | <10ms (Rust WASAPI) |
-| Whisper transcription (server mode) | ~1-2s per chunk |
-| Whisper transcription (CLI fallback) | ~15s per chunk |
+| Whisper transcription (server mode) | ~1-2s per chunk | (optimized for CUDA/Metal) |
+| Whisper transcription (CLI fallback) | ~15s per chunk | (cold boot per chunk) |
 | LLM response (Groq/Flash) | ~0.5s - 1s |
 | LLM response (Local 8b GPU) | ~1-2s (8GB+ VRAM) |
 | VRAM warm-up (Cold start) | ~10-15s (Model pre-loading) |

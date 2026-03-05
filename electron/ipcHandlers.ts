@@ -85,14 +85,30 @@ export function initializeIpcHandlers(appState: AppState): void {
 
   safeIpcHandle("take-screenshot", async () => {
     try {
+      console.log("[IPC] take-screenshot called")
       const screenshotPath = await appState.takeScreenshot()
       const preview = await appState.getImagePreview(screenshotPath)
+
+      // Broadcast screenshot-taken event to ALL windows after a short delay
+      // so the overlay is fully restored before it receives the event
+      setTimeout(() => {
+        const windowHelper = appState.getWindowHelper()
+        const windows = [windowHelper.getLauncherWindow(), windowHelper.getOverlayWindow()]
+        for (const win of windows) {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("screenshot-taken", { path: screenshotPath, preview })
+          }
+        }
+        console.log("[IPC] screenshot-taken event broadcast to all windows")
+      }, 150)
+
       return { path: screenshotPath, preview }
     } catch (error) {
-      // console.error("Error taking screenshot:", error)
+      console.error("[IPC] Error taking screenshot:", error)
       throw error
     }
   })
+
 
   safeIpcHandle("get-screenshots", async () => {
     // console.log({ view: appState.getView() })
@@ -127,6 +143,10 @@ export function initializeIpcHandlers(appState: AppState): void {
     } catch (error) {
       throw error;
     }
+  })
+
+  safeIpcHandle("get-active-shortcut", async () => {
+    return appState.shortcutsHelper.getActiveScreenshotShortcut();
   })
 
   safeIpcHandle("toggle-window", async () => {
@@ -882,43 +902,10 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
-  safeIpcHandle("set-model-preference", (_, type: "flash" | "pro") => {
-    try {
-      const im = appState.getIntelligenceManager();
-      const model = type === 'pro' ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
-      im.setModel(model);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  });
-
-  safeIpcHandle("set-model", async (_, modelId: string) => {
-    try {
-      const llmHelper = appState.processingHelper.getLLMHelper();
-      const { CredentialsManager } = require('./services/CredentialsManager');
-      const customProviders = CredentialsManager.getInstance().getCustomProviders();
-      llmHelper.setModel(modelId, customProviders);
-      return { success: true };
-    } catch (error: any) {
-      console.error("Error setting model:", error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  safeIpcHandle("test-llm-connection", async (_, provider?: string, apiKey?: string) => {
-    try {
-      const llmHelper = appState.processingHelper.getLLMHelper();
-      if (provider && apiKey) {
-        return await llmHelper.testSpecificConnection(provider, apiKey);
-      }
-      const result = await llmHelper.testConnection();
-      return result;
-    } catch (error: any) {
-      // console.error("Error testing LLM connection:", error);
-      return { success: false, error: error.message };
-    }
-  });
+  // LLM and STT Handlers are now primarily managed in focused modules:
+  // - electron/ipc/credentialHandlers.ts
+  // - electron/ipc/sttHandlers.ts
+  // - electron/ipc/intelligenceHandlers.ts
 
   // Native Audio Service Handlers
   // Native Audio handlers removed as part of migration to driverless architecture

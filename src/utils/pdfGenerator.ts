@@ -122,5 +122,16 @@ export const generateMeetingPDF = (meeting: Meeting) => {
 
     // Save
     const safeTitle = meeting.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+    // --- Viral Growth Footer ---
+    addVerticalSpace(20);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor('#888888');
+    const footerText = "Transcribed and summarized instantly by Ghost Writer. Get it here.";
+    const footerWidth = doc.getTextWidth(footerText);
+    const centerX = (pageWidth - footerWidth) / 2;
+    doc.text(footerText, centerX, doc.internal.pageSize.getHeight() - 15);
+
     doc.save(`${safeTitle}.pdf`);
 };

@@ -4,6 +4,8 @@
 import { ipcMain, dialog } from "electron";
 import type { AppState } from "../main";
 
+let credentialHandlersInitialized = false;
+
 /**
  * Helper: Set an API key for a provider with standard pattern
  * - Save to CredentialsManager
@@ -37,6 +39,9 @@ function makeApiKeySetter(
 }
 
 export function registerCredentialHandlers(appState: AppState): void {
+  if (credentialHandlersInitialized) return;
+  credentialHandlersInitialized = true;
+
   // ==========================================
   // LLM Provider Config
   // ==========================================
@@ -67,6 +72,12 @@ export function registerCredentialHandlers(appState: AppState): void {
     try {
       const llmHelper = appState.processingHelper.getLLMHelper();
       await llmHelper.switchToOllama(model, url);
+
+      if (model) {
+        const { CredentialsManager } = require('../services/CredentialsManager');
+        CredentialsManager.getInstance().setOllamaModel(model);
+      }
+
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -219,9 +230,13 @@ export function registerCredentialHandlers(appState: AppState): void {
 
   ipcMain.handle("set-model-preference", (_, type: "flash" | "pro") => {
     try {
-      const { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL } = require('../IntelligenceManager');
+      const { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL } = require('../llm/prompts');
       const im = appState.getIntelligenceManager();
       const model = type === 'pro' ? GEMINI_PRO_MODEL : GEMINI_FLASH_MODEL;
+
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      CredentialsManager.getInstance().setModelPreference(model);
+
       im.setModel(model);
       return { success: true };
     } catch (error: any) {
@@ -233,7 +248,15 @@ export function registerCredentialHandlers(appState: AppState): void {
     try {
       const llmHelper = appState.processingHelper.getLLMHelper();
       const { CredentialsManager } = require('../services/CredentialsManager');
-      const customProviders = CredentialsManager.getInstance().getCustomProviders();
+      const creds = CredentialsManager.getInstance();
+
+      // Persist model selection to disk
+      creds.setModelPreference(modelId);
+      if (modelId.startsWith('ollama-')) {
+        creds.setOllamaModel(modelId.replace('ollama-', ''));
+      }
+
+      const customProviders = creds.getCustomProviders();
       llmHelper.setModel(modelId, customProviders);
       return { success: true };
     } catch (error: any) {
@@ -250,7 +273,9 @@ export function registerCredentialHandlers(appState: AppState): void {
       }
       return await llmHelper.testConnection();
     } catch (error: any) {
-      return { success: false, error: error.message };
+      const msg = error?.response?.data?.error?.message || error?.response?.data?.message || error.message || 'Connection failed';
+      console.error("LLM connection test failed:", msg);
+      return { success: false, error: msg };
     }
   });
 
@@ -369,6 +394,10 @@ export function registerCredentialHandlers(appState: AppState): void {
     try {
       const { CredentialsManager } = require('../services/CredentialsManager');
       CredentialsManager.getInstance().setAirGapMode(enabled);
+
+      const llmHelper = appState.processingHelper.getLLMHelper();
+      llmHelper.setAirGapMode(enabled);
+
       return { success: true };
     } catch (error: any) {
       console.error("Error setting air gap mode:", error);
