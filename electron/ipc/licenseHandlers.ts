@@ -1,7 +1,7 @@
 /**
  * License IPC Handlers — Bridge between React UI and LicenseManager
  */
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { LicenseManager } from '../services/LicenseManager';
 
 export function registerLicenseHandlers(): void {
@@ -17,11 +17,17 @@ export function registerLicenseHandlers(): void {
 
     const license = LicenseManager.getInstance();
 
-    // Get the current license state
+    // Notify all windows when license is activated
+    license.setOnLicenseActivated((state) => {
+        BrowserWindow.getAllWindows().forEach((win) => {
+            if (!win.isDestroyed()) {
+                win.webContents.send('license-status-updated', state);
+            }
+        });
+    });
+
+    // Get the current license state (always refreshed from cloud/cache)
     safeHandle('get-license-status', async () => {
-        const state = license.getState();
-        if (state) return state;
-        // If not checked yet, do a full check
         return await license.checkLicense();
     });
 

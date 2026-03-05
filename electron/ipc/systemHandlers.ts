@@ -2,7 +2,12 @@ import { ipcMain } from 'electron';
 import { GPUHelper } from '../utils/GPUHelper';
 import axios from 'axios';
 
+let systemHandlersInitialized = false;
+
 export function setupSystemHandlers() {
+    if (systemHandlersInitialized) return;
+    systemHandlersInitialized = true;
+
     // 1. GPU Information
     ipcMain.handle('get-gpu-info', async () => {
         try {

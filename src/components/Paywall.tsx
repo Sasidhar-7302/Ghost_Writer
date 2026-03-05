@@ -67,6 +67,12 @@ const Paywall: React.FC<PaywallProps> = ({ onUnlocked }) => {
                         <div style={styles.checkmark}>✅</div>
                         <h1 style={styles.successTitle}>Welcome to Ghost Writer Pro!</h1>
                         <p style={styles.successSubtitle}>Your access has been activated.</p>
+                        <button
+                            style={styles.continueButton}
+                            onClick={() => onUnlocked()}
+                        >
+                            Continue to Ghost Writer
+                        </button>
                     </div>
                 ) : (
                     <>
@@ -286,7 +292,18 @@ const styles: Record<string, React.CSSProperties> = {
     successSubtitle: {
         fontSize: 16,
         color: 'rgba(255,255,255,0.6)',
-        margin: 0,
+        margin: '0 0 32px 0',
+    },
+    continueButton: {
+        padding: '14px 32px',
+        fontSize: 16,
+        fontWeight: 700,
+        color: '#fff',
+        background: 'rgba(255,255,255,0.1)',
+        border: '1px solid rgba(255,255,255,0.2)',
+        borderRadius: 10,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
     },
 };
 

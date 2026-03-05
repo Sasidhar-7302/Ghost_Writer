@@ -4,8 +4,8 @@
 
 <br>
 
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=for-the-badge)](docs/LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?style=for-the-badge&logo=apple)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
 [![Electron](https://img.shields.io/badge/Electron-29-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
 [![Rust](https://img.shields.io/badge/Rust-Native-DEA584?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
@@ -14,7 +14,7 @@
 **Ghost Writer** is the ultimate stealth, local-first meeting & interview assistant built for professionals. High-stakes interviews and meetings, mastered.  
 Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Groq) or run 100% air-gapped via Ollama for absolute control over your intelligence data.
 
-[Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](ARCHITECTURE.md) · [Support](https://paypal.me/sasidhar7302) · [Changelog](CHANGELOG.md)
+[Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Support](https://paypal.me/sasidhar7302) · [Changelog](docs/CHANGELOG.md)
 
 </div>
 
@@ -33,9 +33,10 @@ Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Gr
 <td width="50%">
 
 ### 🎙️ Real-Time Transcription
-- **Hybrid Audio Pipeline**: Choose GPU-accelerated local transcription via `whisper.cpp` for ultimate privacy, or lightning-fast cloud STT (Deepgram, Groq, OpenAI) for lower-end hardware.
+- **Hybrid Audio Pipeline**: Choose GPU-accelerated local transcription via `whisper.cpp` for ultimate privacy, or lightning-fast cloud STT (Deepgram, Groq, OpenAI).
+- **Native Audio Fallback**: Intelligent, automatic fallback to Web Audio API (`getDisplayMedia`) if the Rust native loopback module fails or is unavailable.
 - **Persistent Server Mode**: Model stays loaded in GPU VRAM for **~1-2s** latency
-- **Dual Audio Capture**: Simultaneous microphone + system audio (loopback) via native Rust module
+- **Dual Audio Capture**: Simultaneous microphone + system audio loopback (WASAPI on Windows, ScreenCaptureKit on macOS) via native Rust module
 - **Smart Silence Detection**: Skips processing during silence to save GPU cycles
 
 </td>
@@ -64,6 +65,7 @@ Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Gr
 <td width="50%">
 
 ### 🏢 Enterprise-Grade Control
+- **Hardware-Aware Status**: Real-time GPU detection with performance tiering (High/Medium/Low) and VRAM reporting in the UI.
 - **Monetization Engine**: Integrated Gumroad-powered licensing with atomic beta-user counting and 3-day automated trials.
 - **Global Kill Switch**: Absolute remote control via Supabase to enable/disable service or enter maintenance mode instantly.
 - **Usage Analytics**: Hardware-aware periodic heartbeats track application opens, active usage minutes, and meeting durations.
@@ -87,8 +89,12 @@ Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Gr
 
 ```mermaid
 graph TD
-    A[Microphone in] --> |Rust WASAPI| C[Audio Buffer Pipeline]
-    B[System Audio Loopback] --> |Rust WASAPI| C
+    subgraph Capture
+        A[Microphone in] --> |Rust Native| C[Audio Buffer Pipeline]
+        B[System Audio Loopback] --> |Rust Native| C
+        C --> |Fallback Trigger| B2[Web Audio API Fallback]
+        B2 --> |IPC Raw Stream| C
+    end
     C --> |16kHz PCM| D[Whisper STT Server]
     D --> |Text Chunk| E{Intelligence Router}
     E --> |Local Mode| F[Ollama]
@@ -106,12 +112,13 @@ Ghost Writer uses a layered architecture with clear separation of concerns:
 | **IPC Bridge** | Electron IPC (context-isolated) | Secure communication between renderer and main process |
 | **LLM Pipeline** | TypeScript | Intent classification, prompt engineering, post-processing |
 | **RAG Engine** | all-MiniLM-L6-v2 + SQLite FTS | Local semantic search and conversation memory |
-| **Whisper STT** | whisper.cpp server (CUDA) | GPU-accelerated speech-to-text with persistent model loading |
-| **Audio Capture** | Rust (N-API) | Native microphone + system audio loopback with DSP pipeline |
+| **Whisper STT** | whisper.cpp server (CUDA/Metal) | GPU-accelerated speech-to-text (NVIDIA/Apple Silicon) |
+| **Audio Capture** | Rust (N-API) | Native microphone + system audio loopback (WASAPI/ScreenCaptureKit) |
 | **Database (Local)** | SQLite (better-sqlite3) | Meeting history, embeddings, credentials (encrypted) |
 | **Cloud Backend** | Supabase (PostgreSQL + Edge Functions) | Global licensing, usage analytics, and remote master control |
 
-> 📖 For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md)
+> 📖 For detailed architecture documentation, see [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+> 🆘 For audio-specific issues, see the [Troubleshooting Guide](docs/troubleshooting_audio.md)
 
 ---
 
@@ -120,8 +127,9 @@ Ghost Writer uses a layered architecture with clear separation of concerns:
 Ghost Writer is designed for **one-click deployment**. You don't need to be a developer to use it.
 
 ### 1. Download & Install
-1. **[Download the Latest Release](https://github.com/Sasidhar-7302/Ghost_Writer/releases)** (`GhostWriter-Setup.exe`).
+1. **[Download the Latest Release](https://github.com/Sasidhar-7302/Ghost_Writer/releases)** (`.exe` for Windows, `.dmg` for macOS).
 2. Run the installer.
+   - **macOS Note**: If you see a security warning, Right-Click -> Open the app (unnotarized build).
 3. The **Setup Wizard** will launch automatically to guide you through hardware diagnosis and AI configuration.
 
 ### 2. Prerequisites (Recommendations)
@@ -140,9 +148,9 @@ Ghost Writer is designed for **one-click deployment**. You don't need to be a de
 If you want to build Ghost Writer from source:
 
 ### Prerequisites
-- **Node.js**: 18+
-- **Rust**: Latest stable (for N-API native module)
-- **NVIDIA GPU**: Required for local Whisper acceleration
+- **Node.js**: 20+
+- **Rust**: Latest stable (with `x86_64-pc-windows-msvc` or `aarch64-apple-darwin` targets)
+- **GPU**: NVIDIA (CUDA) or Apple Silicon (Metal) for acceleration
 
 ### Build Instructions
 ```bash
@@ -249,7 +257,16 @@ Ghost_Writer/
 │   │   ├── WhisperModelManager.ts  # Model download & management
 │   │   ├── MicrophoneCapture.ts    # Native mic capture wrapper
 │   │   └── SystemAudioCapture.ts   # System audio loopback wrapper
-│   ├── llm/                    # LLM processing pipeline
+│   ├── llm/                    # Modular LLM processing pipeline
+│   │   ├── LLMOrchestrator.ts  # Main router & fallback manager
+│   │   ├── providers/          # Isolated API integrations
+│   │   │   ├── GroqProvider.ts
+│   │   │   ├── OpenAIProvider.ts
+│   │   │   ├── OllamaProvider.ts
+│   │   │   ├── AnthropicProvider.ts
+│   │   │   ├── GeminiProvider.ts
+│   │   │   ├── DeepSeekProvider.ts
+│   │   │   └── CustomProvider.ts
 │   │   ├── IntentClassifier.ts # Interview question type detection
 │   │   ├── WhatToAnswerLLM.ts  # Core AI response generation
 │   │   ├── prompts.ts          # System prompts & persona
@@ -383,7 +400,8 @@ SENTRY_DSN=your_sentry_dsn     # Optional crash reporting
 - [x] Hardware-aware model selection & optimization
 - [x] Visual model status & active use indicators
 - [x] Professional transcript summarization pipeline
-- [ ] macOS support with CoreAudio loopback
+- [x] macOS support with ScreenCaptureKit loopback
+- [x] Apple Silicon (Metal) acceleration support
 - [ ] Multi-language transcription support
 - [ ] Shareable meeting notes with polished exports
 
@@ -395,7 +413,7 @@ Ghost Writer is developed for the community. If you find it helpful, please cons
 
 - **[Support on PayPal](https://paypal.me/sasidhar7302)**: Support independent development.
 - **[Star the Repository](https://github.com/Sasidhar-7302/Ghost_Writer)**: Help more people discover the project.
-- **[Contribute](CONTRIBUTING.md)**: Open an issue or submit a pull request.
+- **[Contribute](docs/CONTRIBUTING.md)**: Open an issue or submit a pull request.
 
 ---
 **Quick overview:**
@@ -408,7 +426,7 @@ Ghost Writer is developed for the community. If you find it helpful, please cons
 
 ## ⚖️ License
 
-Ghost Writer is open-source software licensed under the **[AGPL-3.0 License](LICENSE)**.  
+Ghost Writer is open-source software licensed under the **[AGPL-3.0 License](docs/LICENSE)**.  
 This ensures that any modifications to the codebase remain open source.
 
 ---

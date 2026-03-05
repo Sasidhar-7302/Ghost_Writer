@@ -49,6 +49,8 @@ export class LicenseManager {
     private machineId: string = '';
     private currentState: LicenseState | null = null;
     private realtimeChannel: RealtimeChannel | null = null;
+    private pollInterval: NodeJS.Timeout | null = null;
+    private onLicenseActivated: ((state: LicenseState) => void) | null = null;
 
     private constructor() {
         this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -60,6 +62,10 @@ export class LicenseManager {
             LicenseManager.instance = new LicenseManager();
         }
         return LicenseManager.instance;
+    }
+
+    public setOnLicenseActivated(callback: (state: LicenseState) => void): void {
+        this.onLicenseActivated = callback;
     }
 
     /**
@@ -154,11 +160,19 @@ export class LicenseManager {
             throw new Error('Failed to create checkout session');
         }
 
-        // Open Gumroad checkout in default browser with session_id as URL param
-        // Gumroad includes URL params in the webhook payload under 'url_params'
-        const checkoutUrl = `https://sasiwave04.gumroad.com/l/${GUMROAD_PRODUCT_PERMALINK}?wanted=true&session_id=${sessionId}`;
+        // Open Gumroad checkout in default browser with session_id and machine_id as URL params
+        // We use both standard params and select_ fields for triple redundancy
+        const checkoutUrl = `https://sasiwave04.gumroad.com/l/${GUMROAD_PRODUCT_PERMALINK}?wanted=true&session_id=${sessionId}&machine_id=${this.machineId}&select_session_id=${sessionId}&select_machine_id=${this.machineId}`;
         console.log(`[LicenseManager] Opening checkout: ${checkoutUrl}`);
         await shell.openExternal(checkoutUrl);
+
+        // Start background monitoring automatically so that banners/buttons 
+        // outside the Paywall component still trigger an instant unlock.
+        this.subscribeToCheckout(sessionId, (licenseKey) => {
+            if (licenseKey) {
+                console.log('[LicenseManager] Background checkout auto-unlock successful');
+            }
+        });
 
         return sessionId;
     }
@@ -169,11 +183,16 @@ export class LicenseManager {
      * which triggers this callback.
      */
     public subscribeToCheckout(sessionId: string, onComplete: (licenseKey: string) => void): void {
-        // Clean up any existing subscription
-        if (this.realtimeChannel) {
-            this.supabase.removeChannel(this.realtimeChannel);
-        }
+        this.stopCheckoutMonitoring();
 
+        // Safety timeout - 2 mins total
+        const timeout = setTimeout(() => {
+            console.warn(`[LicenseManager] Checkout monitoring timed out for ${sessionId}`);
+            this.stopCheckoutMonitoring();
+            onComplete('');
+        }, 120000);
+
+        // 1. Realtime (Instant)
         this.realtimeChannel = this.supabase
             .channel(`checkout-${sessionId}`)
             .on(
@@ -187,25 +206,62 @@ export class LicenseManager {
                 (payload: any) => {
                     const { status, license_key } = payload.new;
                     if (status === 'completed' && license_key) {
-                        console.log('[LicenseManager] ✅ Checkout completed! License key received.');
+                        console.log('[LicenseManager] ✅ Checkout completed (via Realtime)!');
+                        clearTimeout(timeout);
+                        this.stopCheckoutMonitoring();
                         this.activateLicense(license_key);
                         onComplete(license_key);
                     }
                 }
             )
-            .subscribe();
+            .subscribe((subStatus) => {
+                console.log(`[LicenseManager] Realtime status for ${sessionId}: ${subStatus}`);
+            });
 
-        console.log(`[LicenseManager] Listening for checkout completion: ${sessionId}`);
+        // 2. Polling (Reliable Fallback - every 5s)
+        this.pollInterval = setInterval(async () => {
+            console.log(`[LicenseManager] Polling session: ${sessionId.substring(0, 8)}...`);
+            try {
+                const { data, error } = await this.supabase
+                    .from('checkout_sessions')
+                    .select('status, license_key')
+                    .eq('session_id', sessionId)
+                    .maybeSingle();
+
+                if (!error && data && data.status === 'completed' && data.license_key) {
+                    console.log('[LicenseManager] ✅ Checkout completed (via Polling)!');
+                    clearTimeout(timeout);
+                    this.stopCheckoutMonitoring();
+                    this.activateLicense(data.license_key);
+                    onComplete(data.license_key);
+                }
+            } catch (err) {
+                console.error('[LicenseManager] Polling error:', err);
+            }
+        }, 5000);
+
+        console.log(`[LicenseManager] Monitoring checkout: ${sessionId}`);
     }
 
     /**
-     * Unsubscribe from Realtime updates
+     * Stop all checkout monitoring (Realtime + Polling)
      */
-    public unsubscribeFromCheckout(): void {
+    private stopCheckoutMonitoring(): void {
         if (this.realtimeChannel) {
             this.supabase.removeChannel(this.realtimeChannel);
             this.realtimeChannel = null;
         }
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+    }
+
+    /**
+     * Unsubscribe from Realtime updates (legacy compatibility)
+     */
+    public unsubscribeFromCheckout(): void {
+        this.stopCheckoutMonitoring();
     }
 
     /**
@@ -241,6 +297,12 @@ export class LicenseManager {
             };
 
             console.log('[LicenseManager] ✅ License activated successfully');
+
+            // Notify callback if registered
+            if (this.onLicenseActivated && this.currentState) {
+                this.onLicenseActivated(this.currentState);
+            }
+
             return true;
         } catch (err: any) {
             console.error('[LicenseManager] License activation error:', err?.message);
@@ -279,7 +341,7 @@ export class LicenseManager {
      */
     private async checkCloudLicense(): Promise<LicenseState> {
         // Force version to 2.0.1 to avoid Electron-version reporting in dev
-        const appVersion = '2.0.1';
+        const appVersion = app.getVersion();
         const osInfo = `${process.platform}-${process.arch}`;
 
         const { data, error } = await this.supabase.rpc('register_beta_user', {
@@ -289,6 +351,7 @@ export class LicenseManager {
         });
 
         if (error) {
+            console.error('[LicenseManager] Supabase RPC failed:', error.message);
             throw new Error(`Supabase RPC failed: ${error.message}`);
         }
 
@@ -309,6 +372,7 @@ export class LicenseManager {
             registered_during_beta,
             is_service_active,
             maintenance_message,
+            license_key,
         } = result;
 
         // Determine status — corrected business logic:
@@ -316,19 +380,20 @@ export class LicenseManager {
         // - Once beta ends, ALL users (including 1-1000) must pay
         // - Post-beta users get 3-day trial before paywall
         let status: LicenseState['status'];
+        let reportedRemainingDays = parseFloat(remaining_days) || 0;
+
         if (has_license) {
             status = 'paid';
         } else if (is_beta_period) {
-            // Beta is still running — free for everyone
+            // Beta is still running — full free access for everyone
             status = 'beta';
-        } else if (registered_during_beta) {
-            // Beta user but beta ended — must pay (no trial, direct paywall)
-            status = 'expired';
-        } else if (remaining_days > 0) {
-            // Post-beta user with trial days remaining
+            reportedRemainingDays = 3;
+        } else if (reportedRemainingDays > 0) {
+            // Beta ended, or they are a new user. 
+            // Give them the standard 3-day trial period.
             status = 'trial';
         } else {
-            // Post-beta user with trial expired
+            // Trial has fully expired, show paywall
             status = 'expired';
         }
 
@@ -339,10 +404,11 @@ export class LicenseManager {
 
         return {
             status,
-            remainingDays: parseFloat(remaining_days) || 0,
+            remainingDays: reportedRemainingDays,
             isBetaUser: registered_during_beta || false,
             betaUsersCount: beta_users_count || 0,
             machineId: this.machineId,
+            licenseKey: license_key,
             isServiceActive: is_service_active ?? true,
             maintenanceMessage: maintenance_message || 'Service is currently unavailable.'
         };

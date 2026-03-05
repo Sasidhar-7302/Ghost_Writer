@@ -22,39 +22,69 @@ serve(async (req: Request) => {
     }
 
     try {
-        // Gumroad sends form-urlencoded data
-        const formData = await req.formData();
+        // Gumroad sends form-urlencoded OR JSON data
+        let body: any = {};
+        const contentType = req.headers.get('content-type') || '';
+
+        if (contentType.includes('application/json')) {
+            body = await req.json();
+        } else {
+            const formData = await req.formData();
+            formData.forEach((value, key) => {
+                body[key] = value;
+            });
+        }
 
         // Extract license key (always present in webhook)
-        const licenseKey = formData.get('license_key') as string;
+        const licenseKey = body.license_key;
 
-        // Session ID can come from:
-        // 1. url_params field (JSON string with URL query params)
-        // 2. Direct custom field named session_id
+        // Session ID & Machine ID can come from url_params or direct fields
         let sessionId: string | null = null;
+        let machineId: string | null = null;
 
-        // Try url_params first (our URL param approach)
-        const urlParamsRaw = formData.get('url_params') as string;
+        // 1. Try url_params field (our primary URL param approach)
+        const urlParamsRaw = body.url_params;
+        console.log(`[gumroad-webhook] Raw url_params type: ${typeof urlParamsRaw}, value:`, urlParamsRaw);
+
         if (urlParamsRaw) {
-            try {
-                const urlParams = JSON.parse(urlParamsRaw);
-                sessionId = urlParams.session_id || null;
-            } catch {
-                // Not JSON, try as query string
-                const params = new URLSearchParams(urlParamsRaw);
-                sessionId = params.get('session_id');
+            if (typeof urlParamsRaw === 'object') {
+                sessionId = urlParamsRaw.session_id || null;
+                machineId = urlParamsRaw.machine_id || null;
+            } else {
+                try {
+                    const urlParams = JSON.parse(urlParamsRaw);
+                    sessionId = urlParams.session_id || null;
+                    machineId = urlParams.machine_id || null;
+                } catch {
+                    const params = new URLSearchParams(urlParamsRaw);
+                    sessionId = params.get('session_id');
+                    machineId = params.get('machine_id');
+                }
             }
         }
 
-        // Fallback: try direct field
-        if (!sessionId) {
-            sessionId = formData.get('session_id') as string;
+        // 2. Try direct custom_fields
+        if (!sessionId || !machineId) {
+            const customFieldsRaw = body.custom_fields;
+            if (customFieldsRaw) {
+                try {
+                    const customFields = JSON.parse(customFieldsRaw);
+                    if (!sessionId) sessionId = customFields.session_id || null;
+                    if (!machineId) machineId = customFields.machine_id || null;
+                } catch { /* ignore */ }
+            }
         }
 
-        // Log all form data keys for debugging
-        const allKeys: string[] = [];
-        formData.forEach((_, key) => allKeys.push(key));
-        console.log(`[gumroad-webhook] Keys received: ${allKeys.join(', ')}`);
+        // 3. Fallback: try direct fields
+        // Gumroad often flattens custom fields or custom URL params into the root body
+        if (!sessionId) sessionId = body.session_id || body.select_session_id;
+        if (!machineId) machineId = body.machine_id || body.select_machine_id;
+
+        // 4. Log for debugging
+        const email = body.email;
+        const isTest = body.test === 'true' || body.test === true;
+
+        console.log(`[gumroad-webhook] Purchase received: email=${email}, test=${isTest}`);
         console.log(`[gumroad-webhook] license_key=${licenseKey}, session_id=${sessionId}`);
 
         if (!licenseKey) {
@@ -63,29 +93,41 @@ serve(async (req: Request) => {
         }
 
         if (!sessionId) {
-            // Sale happened but no session_id — maybe direct Gumroad purchase
-            // Still valid, just can't auto-unlock desktop app
-            console.warn('[gumroad-webhook] No session_id found. Direct purchase — manual activation needed.');
-            return new Response(JSON.stringify({ success: true, note: 'No session_id, manual activation required' }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            if (machineId) {
+                console.log(`[gumroad-webhook] session_id missing, attempting machine_id recovery for: ${machineId}`);
+            } else {
+                // Sale happened but no session_id — maybe direct Gumroad purchase
+                // Still valid, just can't auto-unlock desktop app
+                console.warn('[gumroad-webhook] No session_id or machine_id found. Direct purchase — manual activation needed.');
+                return new Response(JSON.stringify({ success: true, note: 'No IDs, manual activation required' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
         }
 
         // Create Supabase client with service role key (bypasses RLS)
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
         // Update the checkout session → triggers Realtime to desktop app
-        const { data, error } = await supabase
+        // We match by session_id IF we have it, OR by machine_id (healing/recovery)
+        let query = supabase
             .from('checkout_sessions')
             .update({
                 status: 'completed',
                 license_key: licenseKey,
                 completed_at: new Date().toISOString(),
-            })
-            .eq('session_id', sessionId)
-            .eq('status', 'pending')
-            .select();
+            });
+
+        if (sessionId) {
+            query = query.eq('session_id', sessionId);
+        } else {
+            // Recovery: match by machine_id and ensure it's pending
+            // This heals the session if the session_id was stripped by Gumroad
+            query = query.eq('machine_id', machineId).eq('status', 'pending');
+        }
+
+        const { data, error } = await query.select().order('created_at', { ascending: false }).limit(1);
 
         if (error) {
             console.error('[gumroad-webhook] DB update failed:', error.message);
@@ -93,20 +135,20 @@ serve(async (req: Request) => {
         }
 
         if (!data || data.length === 0) {
-            console.warn('[gumroad-webhook] No matching pending session:', sessionId);
+            console.warn('[gumroad-webhook] No matching session found for:', { sessionId, machineId });
             return new Response('Session not found', { status: 404 });
         }
 
         // Also mark the installation as paid
-        const machineId = data[0].machine_id;
-        if (machineId) {
+        const finalMachineId = data[0].machine_id;
+        if (finalMachineId) {
             await supabase
                 .from('installations')
                 .update({ has_paid_license: true })
-                .eq('machine_id', machineId);
+                .eq('machine_id', finalMachineId);
         }
 
-        console.log(`[gumroad-webhook] ✅ Checkout completed for session ${sessionId}`);
+        console.log(`[gumroad-webhook] ✅ Checkout completed for session ${data[0].session_id}`);
         return new Response(JSON.stringify({ success: true }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },

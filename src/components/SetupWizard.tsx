@@ -44,31 +44,10 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         },
         {
             id: 'diagnosis',
-            title: 'Diagnosis',
-            description: 'Optimizing for your specific hardware architecture.',
+            title: 'Diagnosis & Setup',
+            description: 'Optimizing and downloading models for your hardware.',
             icon: <Monitor className="w-5 h-5" />,
             required: true
-        },
-        {
-            id: 'api-keys',
-            title: 'Intelligence',
-            description: 'Connect cloud brains or stick to local privacy.',
-            icon: <Brain className="w-5 h-5" />,
-            required: false
-        },
-        {
-            id: 'microphone',
-            title: 'Audio',
-            description: 'Configuring secure system audio capture.',
-            icon: <Mic className="w-5 h-5" />,
-            required: false
-        },
-        {
-            id: 'context',
-            title: 'Context',
-            description: 'Feed the AI your background for better answers.',
-            icon: <FileText className="w-5 h-5" />,
-            required: false
         },
         {
             id: 'ready',
@@ -93,7 +72,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             if (gpu?.success && gpu.info && whisper) {
                 const vram = gpu.info.vramGB;
                 let recommended = whisper.selectedModel;
-                
+
                 if (vram >= 8) recommended = 'medium';
                 else if (vram >= 4) recommended = 'small';
                 else if (vram > 0) recommended = 'base';
@@ -113,27 +92,33 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     };
 
     useEffect(() => {
+        let pollInterval: NodeJS.Timeout;
+
         if (currentStep === 1) {
-            performDiagnosis();
+            performDiagnosis().then(() => {
+                // Poll status to auto-proceed when models finish downloading
+                pollInterval = setInterval(async () => {
+                    const status = await window.electronAPI.getWhisperStatus();
+                    if (status) {
+                        setSystemInfo(prev => ({ ...prev, whisper: status }));
+                        if (!status.isDownloading && status.hasModel && status.hasBinary) {
+                            clearInterval(pollInterval);
+                            setTimeout(() => {
+                                setCurrentStep(2);
+                                setCompletedSteps(prev => new Set([...prev, 1]));
+                            }, 2000); // Small delay to let user see the green checks
+                        }
+                    }
+                }, 2000);
+            });
         }
+
+        return () => {
+            if (pollInterval) clearInterval(pollInterval);
+        };
     }, [currentStep]);
 
     const handleNext = async () => {
-        if (currentStep === 2) {
-            const promises = [];
-            if (apiKeys.groq) promises.push(window.electronAPI.setGroqApiKey(apiKeys.groq));
-            if (apiKeys.openai) promises.push(window.electronAPI.setOpenaiApiKey(apiKeys.openai));
-            if (apiKeys.claude) promises.push(window.electronAPI.setClaudeApiKey(apiKeys.claude));
-            if (apiKeys.deepseek) promises.push(window.electronAPI.setDeepseekApiKey(apiKeys.deepseek));
-            if (apiKeys.gemini) promises.push(window.electronAPI.setGeminiApiKey(apiKeys.gemini));
-
-            try {
-                await Promise.all(promises);
-            } catch (error) {
-                console.error('Failed to save API keys:', error);
-            }
-        }
-
         if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
             setCompletedSteps(prev => new Set([...prev, currentStep]));
@@ -151,7 +136,9 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
     const canProceed = () => {
         switch (currentStep) {
-            case 1: return !isChecking;
+            case 1:
+                // Don't allow manual proceed if still downloading (unless it explicitly failed/timed out)
+                return systemInfo.whisper && !systemInfo.whisper.isDownloading && systemInfo.whisper.hasModel && systemInfo.whisper.hasBinary;
             default: return true;
         }
     };
@@ -190,7 +177,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         </div>
                         <h2 className="text-3xl font-light tracking-tight text-text-primary mb-4 italic">Ghost Writer</h2>
                         <p className="text-text-secondary max-w-sm mx-auto leading-relaxed mb-12">
-                            High-fidelity meeting and interview assistance. 
+                            High-fidelity meeting and interview assistance.
                             Built for professionals who require discretion and accuracy.
                         </p>
                         <div className="grid grid-cols-3 gap-6 opacity-80 max-w-lg mx-auto border-t border-white/5 pt-12">
@@ -241,127 +228,9 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
             case 2:
                 return (
-                    <div className="space-y-8 text-left max-w-sm mx-auto py-2">
-                        <div className="space-y-2">
-                            <label className="block text-[10px] uppercase tracking-widest text-text-tertiary font-bold">Cloud Provider</label>
-                            <select 
-                                value={primaryProvider}
-                                onChange={(e) => setPrimaryProvider(e.target.value as any)}
-                                className="w-full h-11 px-4 bg-white/5 border border-white/10 rounded-xl text-text-primary text-xs focus:outline-none focus:border-white/30 transition-all cursor-pointer appearance-none"
-                            >
-                                <option value="gemini" className="bg-bg-main">Google Gemini (Free / Pro)</option>
-                                <option value="groq" className="bg-bg-main">Groq Inference (Free / Fast)</option>
-                            </select>
-                        </div>
-
-                        {primaryProvider === 'gemini' ? (
-                            <div className="space-y-2">
-                                <label className="block text-[10px] uppercase tracking-widest text-text-tertiary font-bold">Gemini API Key</label>
-                                <input
-                                    type="password"
-                                    value={apiKeys.gemini}
-                                    onChange={(e) => setApiKeys(prev => ({ ...prev, gemini: e.target.value }))}
-                                    placeholder="AIzaSy..."
-                                    className="w-full h-11 px-4 bg-white/5 border border-white/10 rounded-xl text-text-primary text-xs focus:outline-none focus:border-white/30 transition-all placeholder:text-text-tertiary/30"
-                                />
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <label className="block text-[10px] uppercase tracking-widest text-text-tertiary font-bold">Groq API Key</label>
-                                <input
-                                    type="password"
-                                    value={apiKeys.groq}
-                                    onChange={(e) => setApiKeys(prev => ({ ...prev, groq: e.target.value }))}
-                                    placeholder="gsk_..."
-                                    className="w-full h-11 px-4 bg-white/5 border border-white/10 rounded-xl text-text-primary text-xs focus:outline-none focus:border-white/30 transition-all placeholder:text-text-tertiary/30"
-                                />
-                            </div>
-                        )}
-
-                        <div className="flex gap-4">
-                            <div className="flex-1 space-y-2">
-                                <label className="block text-[10px] uppercase tracking-widest text-text-tertiary font-bold">OpenAI</label>
-                                <input
-                                    type="password"
-                                    value={apiKeys.openai}
-                                    onChange={(e) => setApiKeys(prev => ({ ...prev, openai: e.target.value }))}
-                                    placeholder="sk-..."
-                                    className="w-full h-11 px-4 bg-white/5 border border-white/10 rounded-xl text-text-primary text-xs focus:outline-none focus:border-white/30 transition-all placeholder:text-text-tertiary/30"
-                                />
-                            </div>
-                            <div className="flex-1 space-y-2">
-                                <label className="block text-[10px] uppercase tracking-widest text-text-tertiary font-bold">Claude</label>
-                                <input
-                                    type="password"
-                                    value={apiKeys.claude}
-                                    onChange={(e) => setApiKeys(prev => ({ ...prev, claude: e.target.value }))}
-                                    placeholder="sk-ant-..."
-                                    className="w-full h-11 px-4 bg-white/5 border border-white/10 rounded-xl text-text-primary text-xs focus:outline-none focus:border-white/30 transition-all placeholder:text-text-tertiary/30"
-                                />
-                            </div>
-                        </div>
-
-                        {!apiKeys.gemini && !apiKeys.groq && !apiKeys.openai && (
-                            <p className="text-[10px] text-center text-text-tertiary italic opacity-60">
-                                Leave blank to use local Ollama exclusively.
-                            </p>
-                        )}
-                    </div>
-                );
-
-            case 3:
-                return (
-                    <div className="text-center space-y-8 py-6">
-                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-white/10">
-                            <Mic className="w-8 h-8 text-text-primary" />
-                        </div>
-                        <p className="text-text-secondary max-w-sm mx-auto leading-relaxed">
-                            Ghost Writer captures system audio buffers locally for zero-latency transcription. 
-                            Everything stays on your machine.
-                        </p>
-                        <div className="max-w-xs mx-auto text-left space-y-3 pt-6 border-t border-white/5 font-mono text-[10px] uppercase tracking-tighter text-text-tertiary">
-                            <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 bg-white/40 rounded-full" />
-                                <span>WASAPI Loopback Capture</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 bg-white/40 rounded-full" />
-                                <span>Rust-Native Resampling</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 bg-white/40 rounded-full" />
-                                <span>Undetectable Logic Agent</span>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 4:
-                return (
-                    <div className="text-center space-y-8 py-4">
-                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto border border-white/10">
-                            <FileText className="w-6 h-6 text-text-primary" />
-                        </div>
-                        <h3 className="text-xl font-light text-text-primary">Career Intelligence</h3>
-                        <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-                            <div className="bg-white/5 p-5 rounded-2xl border border-white/5 text-left group hover:border-white/20 transition-all">
-                                <span className="block text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Portfolio</span>
-                                <p className="text-xs text-text-secondary leading-normal">Feed resume and personal projects.</p>
-                            </div>
-                            <div className="bg-white/5 p-5 rounded-2xl border border-white/5 text-left group hover:border-white/20 transition-all">
-                                <span className="block text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Directives</span>
-                                <p className="text-xs text-text-secondary leading-normal">Meeting goals and interviewer notes.</p>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-text-tertiary italic">Skip now, customize in Settings later.</p>
-                    </div>
-                );
-
-            case 5:
-                return (
                     <div className="text-center space-y-12 py-10">
                         <div className="relative w-24 h-24 mx-auto">
-                            <motion.div 
+                            <motion.div
                                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }}
                                 transition={{ repeat: Infinity, duration: 3 }}
                                 className="absolute inset-0 bg-white/20 rounded-full blur-2xl"
@@ -373,7 +242,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         <div className="space-y-4">
                             <h2 className="text-3xl font-light tracking-tight text-text-primary">Deployment Ready</h2>
                             <p className="text-text-secondary max-w-sm mx-auto leading-relaxed">
-                                Ghost Writer is optimized for your hardware. <br/>Discretion is now enabled.
+                                Ghost Writer is 100% offline and optimized for your hardware. <br />Discretion is now enabled.
                             </p>
                         </div>
                         <div className="flex justify-center gap-6 font-mono text-[9px] uppercase tracking-widest text-text-tertiary opacity-40">
@@ -408,12 +277,10 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 <div className="px-10 pt-10 pb-4 flex items-center justify-between gap-2">
                     {steps.map((step, index) => (
                         <div key={step.id} className="flex-1 flex flex-col gap-2">
-                            <div className={`h-[2px] rounded-full transition-all duration-700 ${
-                                index <= currentStep ? 'bg-text-primary h-[3px]' : 'bg-white/10'
-                            }`} />
-                            <span className={`text-[8px] uppercase tracking-widest font-bold transition-opacity duration-500 ${
-                                index === currentStep ? 'opacity-100 text-text-primary' : 'opacity-0'
-                            }`}>{step.title}</span>
+                            <div className={`h-[2px] rounded-full transition-all duration-700 ${index <= currentStep ? 'bg-text-primary h-[3px]' : 'bg-white/10'
+                                }`} />
+                            <span className={`text-[8px] uppercase tracking-widest font-bold transition-opacity duration-500 ${index === currentStep ? 'opacity-100 text-text-primary' : 'opacity-0'
+                                }`}>{step.title}</span>
                         </div>
                     ))}
                 </div>

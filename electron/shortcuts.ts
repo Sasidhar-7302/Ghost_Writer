@@ -3,9 +3,14 @@ import { AppState } from "./main" // Adjust the import path if necessary
 
 export class ShortcutsHelper {
   private appState: AppState
+  private activeScreenshotShortcut: string = "CommandOrControl+H"
 
   constructor(appState: AppState) {
     this.appState = appState
+  }
+
+  public getActiveScreenshotShortcut(): string {
+    return this.activeScreenshotShortcut
   }
 
   public registerGlobalShortcuts(): void {
@@ -15,44 +20,57 @@ export class ShortcutsHelper {
       this.appState.centerAndShowWindow()
     })
 
-    globalShortcut.register("CommandOrControl+H", async () => {
-      const mainWindow = this.appState.getMainWindow()
-      if (mainWindow) {
-        // Taking screenshot
-        try {
-          const screenshotPath = await this.appState.takeScreenshot()
-          // Screenshot captured
-          const preview = await this.appState.getImagePreview(screenshotPath)
-          // Preview generated
-          mainWindow.webContents.send("screenshot-taken", {
-            path: screenshotPath,
-            preview
-          })
-        } catch (error) {
-          console.error("[Shortcuts] Error capturing screenshot:", error)
-        }
-      } else {
-        console.warn("[Shortcuts] Ctrl+H pressed, but no mainWindow found!")
-      }
-    })
+    // Screenshot shortcut — try Ctrl+H first, fall back to Ctrl+Shift+H if it's taken
+    const screenshotHandler = async () => {
+      console.log("[Shortcuts] Screenshot shortcut pressed — taking screenshot...")
+      try {
+        const screenshotPath = await this.appState.takeScreenshot()
+        console.log("[Shortcuts] Screenshot saved:", screenshotPath)
+        const preview = await this.appState.getImagePreview(screenshotPath)
 
-    // Selective screenshot (latent context)
-    globalShortcut.register("CommandOrControl+Shift+H", async () => {
-      const mainWindow = this.appState.getMainWindow()
-      if (mainWindow) {
-        try {
-          const screenshotPath = await this.appState.takeSelectiveScreenshot()
-          const preview = await this.appState.getImagePreview(screenshotPath)
-          // Emitting 'screenshot-attached' means NO auto-analysis
-          mainWindow.webContents.send("screenshot-attached", {
-            path: screenshotPath,
-            preview
-          })
-        } catch (error) {
-          // console.error("Error capturing selective screenshot:", error)
+        // Small delay so the re-shown window is fully ready to receive events
+        await new Promise(resolve => setTimeout(resolve, 150))
+
+        // Broadcast to ALL windows – ensures delivery regardless of overlay vs launcher mode
+        const windowHelper = this.appState.getWindowHelper()
+        const wins = [
+          windowHelper.getLauncherWindow(),
+          windowHelper.getOverlayWindow()
+        ]
+        let sent = 0
+        for (const win of wins) {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("screenshot-taken", { path: screenshotPath, preview })
+            sent++
+          }
         }
+        console.log(`[Shortcuts] screenshot-taken event sent to ${sent} window(s)`)
+      } catch (error) {
+        console.error("[Shortcuts] Error capturing screenshot:", error)
       }
-    })
+    }
+
+    const tryRegister = (accelerator: string): boolean => {
+      globalShortcut.register(accelerator, screenshotHandler)
+      return globalShortcut.isRegistered(accelerator)
+    }
+
+    if (tryRegister("CommandOrControl+H")) {
+      this.activeScreenshotShortcut = "CommandOrControl+H"
+      console.log("[Shortcuts] ✅ Ctrl+H registered as screenshot shortcut")
+    } else if (tryRegister("CommandOrControl+Shift+H")) {
+      this.activeScreenshotShortcut = "CommandOrControl+Shift+H"
+      console.warn("[Shortcuts] ⚠️ Ctrl+H unavailable — registered Ctrl+Shift+H instead")
+    } else if (tryRegister("CommandOrControl+Alt+H")) {
+      this.activeScreenshotShortcut = "CommandOrControl+Alt+H"
+      console.warn("[Shortcuts] ⚠️ Ctrl+H and Ctrl+Shift+H unavailable — registered Ctrl+Alt+H instead")
+    } else {
+      this.activeScreenshotShortcut = "Unbound"
+      console.error("[Shortcuts] ❌ Failed to register any screenshot shortcut (Ctrl+H family). They are all taken by your OS.")
+    }
+
+
+
 
     globalShortcut.register("CommandOrControl+Enter", async () => {
       await this.appState.processingHelper.processScreenshots()

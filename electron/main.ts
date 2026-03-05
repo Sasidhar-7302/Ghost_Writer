@@ -47,6 +47,8 @@ import { DatabaseManager } from "./db/DatabaseManager"
 import { CredentialsManager } from "./services/CredentialsManager"
 import { LocalWhisperSTT } from "./audio/LocalWhisperSTT"
 import { WhisperModelManager } from "./audio/WhisperModelManager"
+import { ISTT, STTFactory } from "./audio/STTFactory"
+import { cleanupOrphanedServers } from "./audio/LocalWhisperSTT";
 
 import { ContextDocumentManager } from "./services/ContextDocumentManager"
 import { AnalyticsManager } from "./services/AnalyticsManager"
@@ -118,25 +120,29 @@ export class AppState {
     this.shortcutsHelper = new ShortcutsHelper(this)
 
 
-
     // Initialize IntelligenceManager with LLMHelper
     this.intelligenceManager = new IntelligenceManager(this.processingHelper.getLLMHelper())
 
-    // Initialize ThemeManager
-    this.themeManager = ThemeManager.getInstance()
-    this.contextManager = ContextDocumentManager.getInstance() // Initialize Context Manager
-    this.credentialsManager = CredentialsManager.getInstance() // Initialize Credentials Manager
+    // Pre-requisites
+    this.credentialsManager = CredentialsManager.getInstance();
+    this.themeManager = ThemeManager.getInstance();
+    this.contextManager = ContextDocumentManager.getInstance();
 
-    // Initialize RAG Manager (optional, can be disabled if heavy)meManager = ThemeManager.getInstance()
+    // Native Detection
+    this.isNativeAudioAvailable = SystemAudioCapture.isAvailable() && MicrophoneCapture.isAvailable();
+    if (!this.isNativeAudioAvailable) {
+      console.warn('[AppState] Native Audio Module not available. Web Audio Fallback enabled.');
+    }
 
-    // Initialize RAGManager (requires database to be ready)
-    this.initializeRAGManager()
-
+    // Initialize RAG
+    this.initializeRAGManager();
 
     this.setupIntelligenceEvents()
 
+    // Cleanup any orphaned whisper-server processes from a previous crash
+    cleanupOrphanedServers().catch(() => { });
+
     // Setup Ollama IPC
-    this.setupOllamaIpcHandlers()
 
     // --- NEW SYSTEM AUDIO PIPELINE (SOX + NODE GOOGLE STT) ---
     // LAZY INIT: Do not setup pipeline here to prevent launch volume surge.
@@ -245,12 +251,11 @@ export class AppState {
   private systemAudioCapture: SystemAudioCapture | null = null;
   private microphoneCapture: MicrophoneCapture | null = null;
   private audioTestCapture: MicrophoneCapture | null = null; // For audio settings test
-  private googleSTT: GoogleSTT | RestSTT | DeepgramStreamingSTT | LocalWhisperSTT | null = null; // Interviewer
-  private googleSTT_User: GoogleSTT | RestSTT | DeepgramStreamingSTT | LocalWhisperSTT | null = null; // User
+  private googleSTT: ISTT | null = null; // Interviewer
+  private googleSTT_User: ISTT | null = null; // User
 
-  private lastSystemAudioLoudTime: number = 0;
-  private readonly AEC_THRESHOLD_VOLUME = 500; // Int16 amplitude threshold
-  private readonly AEC_MUTE_DURATION_MS = 300; // Drop mic for 300ms after loud system audio
+  private isNativeAudioAvailable: boolean = true;
+  private fallbackToWebAudio: boolean = false;
 
   private getBufferVolume(buf: Buffer): number {
     let sum = 0;
@@ -262,8 +267,15 @@ export class AppState {
     return buf.length > 0 ? sum / (buf.length / 2) : 0;
   }
 
-  private setupSystemAudioPipeline(): void {
-    // REMOVED EARLY RETURN: if (this.systemAudioCapture && this.microphoneCapture) return; // Already initialized
+  private async setupSystemAudioPipeline(): Promise<void> {
+
+    if (!this.isNativeAudioAvailable) {
+      console.log('[Main] Skipping native pipeline setup - Falling back to Web Audio');
+      this.fallbackToWebAudio = true;
+      // Notify renderer to start Web Audio capture
+      this.getMainWindow()?.webContents.send('audio-capture-fallback', { reason: 'Native module missing' });
+      return;
+    }
 
     try {
       // 1. Initialize Captures if missing
@@ -272,14 +284,16 @@ export class AppState {
         this.systemAudioCapture = new SystemAudioCapture();
         // Wire Capture -> STT
         this.systemAudioCapture.on('data', (chunk: Buffer) => {
-          const vol = this.getBufferVolume(chunk);
-          if (vol > this.AEC_THRESHOLD_VOLUME) {
-            this.lastSystemAudioLoudTime = Date.now();
-          }
           this.googleSTT?.write(chunk);
         });
         this.systemAudioCapture.on('error', (err: Error) => {
           console.error('[Main] SystemAudioCapture Error:', err);
+          // Mid-session production hardening: If native capture dies, trigger Web Audio fallback
+          if (this.isMeetingActive && !this.fallbackToWebAudio) {
+            console.warn('[Main] Native System Capture failed mid-meeting. Attempting Web Audio fallback...');
+            this.fallbackToWebAudio = true;
+            this.getMainWindow()?.webContents.send('audio-capture-fallback', { reason: 'Native capture error: ' + err.message });
+          }
         });
       }
 
@@ -287,11 +301,6 @@ export class AppState {
         this.microphoneCapture = new MicrophoneCapture();
         // Wire Capture -> STT
         this.microphoneCapture.on('data', (chunk: Buffer) => {
-          if (Date.now() - this.lastSystemAudioLoudTime < this.AEC_MUTE_DURATION_MS) {
-            // Echo cancellation: drop user's mic chunk because system output was loud recently
-            // console.log('[Main] AEC: Dropped user mic chunk');
-            return;
-          }
           this.googleSTT_User?.write(chunk);
         });
         this.microphoneCapture.on('error', (err: Error) => {
@@ -301,85 +310,11 @@ export class AppState {
 
       // 2. Initialize STT Services if missing
       if (!this.googleSTT) {
-        // Check which provider to use
-        const { CredentialsManager } = require('./services/CredentialsManager');
-        const sttProvider = CredentialsManager.getInstance().getAirGapMode() ? 'local-whisper' : CredentialsManager.getInstance().getSttProvider();
-
-        if (sttProvider === 'deepgram') {
-          const apiKey = CredentialsManager.getInstance().getDeepgramApiKey();
-          if (apiKey) {
-            console.log(`[Main] Using DeepgramStreamingSTT for Interviewer`);
-            this.googleSTT = new DeepgramStreamingSTT(apiKey);
-          } else {
-            // No Deepgram key → try Local Whisper, then Google
-            const whisperSTT = this.createLocalWhisperSTT();
-            if (whisperSTT) {
-              console.log(`[Main] Using LocalWhisperSTT for Interviewer (no Deepgram key)`);
-              this.googleSTT = whisperSTT;
-            } else {
-              console.warn(`[Main] No API key for Deepgram STT, falling back to GoogleSTT`);
-              this.googleSTT = new GoogleSTT();
-            }
-          }
-        } else if (sttProvider === 'groq' || sttProvider === 'openai' || sttProvider === 'elevenlabs' || sttProvider === 'azure' || sttProvider === 'ibmwatson') {
-          let apiKey: string | undefined;
-          let region: string | undefined;
-          let modelOverride: string | undefined;
-
-          if (sttProvider === 'groq') {
-            apiKey = CredentialsManager.getInstance().getGroqSttApiKey();
-            modelOverride = CredentialsManager.getInstance().getGroqSttModel();
-          } else if (sttProvider === 'openai') {
-            apiKey = CredentialsManager.getInstance().getOpenAiSttApiKey();
-          } else if (sttProvider === 'elevenlabs') {
-            apiKey = CredentialsManager.getInstance().getElevenLabsApiKey();
-          } else if (sttProvider === 'azure') {
-            apiKey = CredentialsManager.getInstance().getAzureApiKey();
-            region = CredentialsManager.getInstance().getAzureRegion();
-          } else if (sttProvider === 'ibmwatson') {
-            apiKey = CredentialsManager.getInstance().getIbmWatsonApiKey();
-            region = CredentialsManager.getInstance().getIbmWatsonRegion();
-          }
-
-          if (apiKey) {
-            console.log(`[Main] Using RestSTT (${sttProvider}) for Interviewer`);
-            this.googleSTT = new RestSTT(sttProvider, apiKey, modelOverride, region);
-          } else {
-            // No cloud key → try Local Whisper, then Google
-            const whisperSTT = this.createLocalWhisperSTT();
-            if (whisperSTT) {
-              console.log(`[Main] Using LocalWhisperSTT for Interviewer (no ${sttProvider} key)`);
-              this.googleSTT = whisperSTT;
-            } else {
-              console.warn(`[Main] No API key for ${sttProvider} STT, falling back to GoogleSTT`);
-              this.googleSTT = new GoogleSTT();
-            }
-          }
-        } else if (sttProvider === 'local-whisper') {
-          // Explicitly requested Local Whisper
-          console.log(`[Main] Using LocalWhisperSTT for Interviewer (User preference)`);
-          const whisperSTT = this.createLocalWhisperSTT();
-          if (whisperSTT) {
-            this.googleSTT = whisperSTT;
-          } else {
-            console.warn(`[Main] Local Whisper not ready, falling back to GoogleSTT`);
-            this.googleSTT = new GoogleSTT();
-          }
-        } else {
-          // No cloud STT key → try Local Whisper first, then Google Web Speech
-          const whisperSTT = this.createLocalWhisperSTT();
-          if (whisperSTT) {
-            console.log(`[Main] Using LocalWhisperSTT for Interviewer (no cloud key)`);
-            this.googleSTT = whisperSTT;
-          } else {
-            this.googleSTT = new GoogleSTT();
-          }
-        }
+        this.googleSTT = await STTFactory.createSTT('interviewer');
 
         // Wire Transcript Events
         this.googleSTT.on('transcript', (segment: { text: string, isFinal: boolean, confidence: number }) => {
           if (!this.isMeetingActive) {
-            // console.log('[Main] Ignored transcript (Meeting inactive):', segment.text.substring(0, 50));
             return;
           }
 
@@ -409,97 +344,22 @@ export class AppState {
       }
 
       if (!this.googleSTT_User) {
-        // Check which provider to use
-        const { CredentialsManager } = require('./services/CredentialsManager');
-        const sttProvider = CredentialsManager.getInstance().getAirGapMode() ? 'local-whisper' : CredentialsManager.getInstance().getSttProvider();
-
-        if (sttProvider === 'deepgram') {
-          const apiKey = CredentialsManager.getInstance().getDeepgramApiKey();
-          if (apiKey) {
-            console.log(`[Main] Using DeepgramStreamingSTT for User`);
-            this.googleSTT_User = new DeepgramStreamingSTT(apiKey);
-          } else {
-            // No Deepgram key → try Local Whisper, then Google
-            const whisperSTT = this.createLocalWhisperSTT();
-            if (whisperSTT) {
-              console.log(`[Main] Using LocalWhisperSTT for User (no Deepgram key)`);
-              this.googleSTT_User = whisperSTT;
-            } else {
-              console.warn(`[Main] No API key for Deepgram STT, falling back to GoogleSTT`);
-              this.googleSTT_User = new GoogleSTT();
-            }
-          }
-        } else if (sttProvider === 'groq' || sttProvider === 'openai' || sttProvider === 'elevenlabs' || sttProvider === 'azure' || sttProvider === 'ibmwatson') {
-          let apiKey: string | undefined;
-          let region: string | undefined;
-          let modelOverride: string | undefined;
-
-          if (sttProvider === 'groq') {
-            apiKey = CredentialsManager.getInstance().getGroqSttApiKey();
-            modelOverride = CredentialsManager.getInstance().getGroqSttModel();
-          } else if (sttProvider === 'openai') {
-            apiKey = CredentialsManager.getInstance().getOpenAiSttApiKey();
-          } else if (sttProvider === 'elevenlabs') {
-            apiKey = CredentialsManager.getInstance().getElevenLabsApiKey();
-          } else if (sttProvider === 'azure') {
-            apiKey = CredentialsManager.getInstance().getAzureApiKey();
-            region = CredentialsManager.getInstance().getAzureRegion();
-          } else if (sttProvider === 'ibmwatson') {
-            apiKey = CredentialsManager.getInstance().getIbmWatsonApiKey();
-            region = CredentialsManager.getInstance().getIbmWatsonRegion();
-          }
-
-          if (apiKey) {
-            console.log(`[Main] Using RestSTT (${sttProvider}) for User`);
-            this.googleSTT_User = new RestSTT(sttProvider, apiKey, modelOverride, region);
-          } else {
-            // No cloud key → try Local Whisper, then Google
-            const whisperSTT = this.createLocalWhisperSTT();
-            if (whisperSTT) {
-              console.log(`[Main] Using LocalWhisperSTT for User (no ${sttProvider} key)`);
-              this.googleSTT_User = whisperSTT;
-            } else {
-              console.warn(`[Main] No API key for ${sttProvider} STT, falling back to GoogleSTT`);
-              this.googleSTT_User = new GoogleSTT();
-            }
-          }
-        } else if (sttProvider === 'local-whisper') {
-          // Explicitly requested Local Whisper
-          console.log(`[Main] Using LocalWhisperSTT for User (User preference)`);
-          const whisperSTT = this.createLocalWhisperSTT();
-          if (whisperSTT) {
-            this.googleSTT_User = whisperSTT;
-          } else {
-            console.warn(`[Main] Local Whisper not ready, falling back to GoogleSTT`);
-            this.googleSTT_User = new GoogleSTT();
-          }
-        } else {
-          // No cloud STT → try Local Whisper, then Google Web Speech
-          const whisperSTT = this.createLocalWhisperSTT();
-          if (whisperSTT) {
-            console.log(`[Main] Using LocalWhisperSTT for User (no cloud key)`);
-            this.googleSTT_User = whisperSTT;
-          } else {
-            this.googleSTT_User = new GoogleSTT();
-          }
-        }
+        this.googleSTT_User = await STTFactory.createSTT('user');
 
         // Wire Transcript Events
         this.googleSTT_User.on('transcript', (segment: { text: string, isFinal: boolean, confidence: number }) => {
           if (!this.isMeetingActive) {
-            // console.log('[Main] Ignored transcript (Meeting inactive):', segment.text.substring(0, 50));
             return;
           }
 
           this.intelligenceManager.handleTranscript({
-            speaker: 'user', // Identified as User
+            speaker: 'user',
             text: segment.text,
             timestamp: Date.now(),
             final: segment.isFinal,
             confidence: segment.confidence
           });
 
-          // Forward User transcript to UI too
           const helper = this.getWindowHelper();
           const payload = {
             speaker: 'user',
@@ -542,7 +402,6 @@ export class AppState {
       console.error('[Main] Failed to setup System Audio Pipeline:', err);
     }
   }
-
   private async reconfigureAudio(inputDeviceId?: string, outputDeviceId?: string): Promise<void> {
     console.log(`[Main] Reconfiguring Audio: Input=${inputDeviceId}, Output=${outputDeviceId}`);
 
@@ -560,10 +419,6 @@ export class AppState {
       this.googleSTT?.setSampleRate(rate);
 
       this.systemAudioCapture.on('data', (chunk: Buffer) => {
-        const vol = this.getBufferVolume(chunk);
-        if (vol > this.AEC_THRESHOLD_VOLUME) {
-          this.lastSystemAudioLoudTime = Date.now();
-        }
         this.googleSTT?.write(chunk);
       });
       this.systemAudioCapture.on('error', (err: Error) => {
@@ -575,10 +430,6 @@ export class AppState {
             this.systemAudioCapture?.stop();
             this.systemAudioCapture = new SystemAudioCapture();
             this.systemAudioCapture.on('data', (chunk: Buffer) => {
-              const vol = this.getBufferVolume(chunk);
-              if (vol > this.AEC_THRESHOLD_VOLUME) {
-                this.lastSystemAudioLoudTime = Date.now();
-              }
               this.googleSTT?.write(chunk);
             });
             this.systemAudioCapture.on('error', (err2: Error) => {
@@ -601,10 +452,6 @@ export class AppState {
         this.googleSTT?.setSampleRate(rate);
 
         this.systemAudioCapture.on('data', (chunk: Buffer) => {
-          const vol = this.getBufferVolume(chunk);
-          if (vol > this.AEC_THRESHOLD_VOLUME) {
-            this.lastSystemAudioLoudTime = Date.now();
-          }
           this.googleSTT?.write(chunk);
         });
         this.systemAudioCapture.on('error', (err: Error) => {
@@ -629,13 +476,16 @@ export class AppState {
       this.googleSTT_User?.setSampleRate(rate);
 
       this.microphoneCapture.on('data', (chunk: Buffer) => {
-        if (Date.now() - this.lastSystemAudioLoudTime < this.AEC_MUTE_DURATION_MS) {
-          return;
-        }
         this.googleSTT_User?.write(chunk);
       });
       this.microphoneCapture.on('error', (err: Error) => {
         console.error('[Main] MicrophoneCapture Error:', err);
+        // Mid-session production hardening: If native capture dies, trigger Web Audio fallback
+        if (this.isMeetingActive && !this.fallbackToWebAudio) {
+          console.warn('[Main] Native Mic Capture failed mid-meeting. Attempting Web Audio fallback...');
+          this.fallbackToWebAudio = true;
+          this.getMainWindow()?.webContents.send('audio-capture-fallback', { reason: 'Native mic error: ' + err.message });
+        }
       });
       console.log('[Main] MicrophoneCapture initialized.');
     } catch (err) {
@@ -647,9 +497,6 @@ export class AppState {
         this.googleSTT_User?.setSampleRate(rate);
 
         this.microphoneCapture.on('data', (chunk: Buffer) => {
-          if (Date.now() - this.lastSystemAudioLoudTime < this.AEC_MUTE_DURATION_MS) {
-            return;
-          }
           this.googleSTT_User?.write(chunk);
         });
         this.microphoneCapture.on('error', (err: Error) => {
@@ -694,12 +541,12 @@ export class AppState {
 
     // Stop existing STT instances
     if (this.googleSTT) {
-      this.googleSTT.stop();
+      await this.googleSTT.stop();
       this.googleSTT.removeAllListeners();
       this.googleSTT = null;
     }
     if (this.googleSTT_User) {
-      this.googleSTT_User.stop();
+      await this.googleSTT_User.stop();
       this.googleSTT_User.removeAllListeners();
       this.googleSTT_User = null;
     }
@@ -788,7 +635,7 @@ export class AppState {
     this.getWindowHelper().getLauncherWindow()?.webContents.send('session-reset');
 
     // LAZY INIT: Ensure pipeline is ready (if not reconfigured above)
-    this.setupSystemAudioPipeline();
+    await this.setupSystemAudioPipeline();
 
     // 3. Start System Audio
     this.systemAudioCapture?.start();
@@ -808,11 +655,11 @@ export class AppState {
 
     // 3. Stop System Audio
     this.systemAudioCapture?.stop();
-    this.googleSTT?.stop();
+    await this.googleSTT?.stop();
 
     // 4. Stop Microphone
     this.microphoneCapture?.stop();
-    this.googleSTT_User?.stop();
+    await this.googleSTT_User?.stop();
 
     // 4. Reset Intelligence Context & Save
     await this.intelligenceManager.stopMeeting();
@@ -1050,6 +897,14 @@ export class AppState {
 
   public setProblemInfo(problemInfo: any): void {
     this.problemInfo = problemInfo
+  }
+
+  public getGoogleSTT() {
+    return this.googleSTT;
+  }
+
+  public getGoogleSTTUser() {
+    return this.googleSTT_User;
   }
 
   public getScreenshotQueue(): string[] {
@@ -1463,94 +1318,84 @@ async function initializeApp() {
   }
   appInitialized = true;
 
+  // CRITICAL: Set app name BEFORE any paths are resolved or services initialized
+  app.setName("Ghost Writer");
+  console.log('[Main] App Name set to:', app.getName());
+
   console.log('[Main] initializeApp called at', new Date().toISOString());
   await app.whenReady()
 
-  // Initialize CredentialsManager and load keys explicitly
-  // This fixes the issue where keys (especially in production) aren't loaded in time for RAG/LLM
+  // 1. Initialize Core Services (Singleton init)
   const { CredentialsManager } = require('./services/CredentialsManager');
   CredentialsManager.getInstance().init();
 
   const appState = AppState.getInstance()
 
-  // Explicitly load credentials into helpers
+  // 2. Load stored credentials into helpers early
   appState.processingHelper.loadStoredCredentials();
 
-  // Initialize IPC handlers before window creation
+  // 3. Initialize IPC handlers 
   initializeIpcHandlers(appState)
 
-  app.whenReady().then(() => {
-    app.setName("Ghost Writer"); // Fix App Name in Menu
+  // 4. Setup App Environment
 
-    CredentialsManager.getInstance().init();
+  // Anonymous install ping - one-time, non-blocking
+  const { sendAnonymousInstallPing } = require('./services/InstallPingManager');
+  sendAnonymousInstallPing();
 
-    // Anonymous install ping - one-time, non-blocking
-    // See electron/services/InstallPingManager.ts for privacy details
-    const { sendAnonymousInstallPing } = require('./services/InstallPingManager');
-    sendAnonymousInstallPing();
+  // Load stored Google Service Account path (for Speech-to-Text)
+  const storedServiceAccountPath = CredentialsManager.getInstance().getGoogleServiceAccountPath();
+  if (storedServiceAccountPath) {
+    console.log("[Init] Loading stored Google Service Account path");
+    appState.updateGoogleCredentials(storedServiceAccountPath);
+  }
 
-    // Load stored API keys into ProcessingHelper/LLMHelper
-    appState.processingHelper.loadStoredCredentials();
+  console.log("App is ready")
 
-    // Load stored Google Service Account path (for Speech-to-Text)
-    const storedServiceAccountPath = CredentialsManager.getInstance().getGoogleServiceAccountPath();
-    if (storedServiceAccountPath) {
-      console.log("[Init] Loading stored Google Service Account path");
-      appState.updateGoogleCredentials(storedServiceAccountPath);
-    }
+  // 5. UI and System Integration
+  appState.createWindow()
 
+  // Apply initial stealth state based on isUndetectable setting
+  if (!appState.getUndetectable()) {
+    appState.showTray();
+  }
 
-    console.log("App is ready")
+  // Register global shortcuts
+  appState.shortcutsHelper.registerGlobalShortcuts()
 
-    appState.createWindow()
+  // Pre-create settings window in background 
+  appState.settingsWindowHelper.preloadWindow()
 
-    // Apply initial stealth state based on isUndetectable setting
-    // Default isUndetectable = false, so dock is visible and tray is shown
-    if (appState.getUndetectable()) {
-      // Stealth mode: tray is hidden by default when in stealth
-    } else {
-      // Normal mode: show tray
-      appState.showTray();
-    }
-    // Register global shortcuts using ShortcutsHelper
-    appState.shortcutsHelper.registerGlobalShortcuts()
+  // Initialize CalendarManager
+  try {
+    const { CalendarManager } = require('./services/CalendarManager');
+    const calMgr = CalendarManager.getInstance();
+    calMgr.init();
 
-    // Pre-create settings window in background for faster first open
-    appState.settingsWindowHelper.preloadWindow()
-
-    // Initialize CalendarManager
-    try {
-      const { CalendarManager } = require('./services/CalendarManager');
-      const calMgr = CalendarManager.getInstance();
-      calMgr.init();
-
-      calMgr.on('start-meeting-requested', (event: any) => {
-        console.log('[Main] Start meeting requested from calendar notification', event);
-        appState.centerAndShowWindow();
-        appState.startMeeting({
-          title: event.title,
-          calendarEventId: event.id,
-          source: 'calendar'
-        });
+    calMgr.on('start-meeting-requested', (event: any) => {
+      console.log('[Main] Start meeting requested from calendar notification', event);
+      appState.centerAndShowWindow();
+      appState.startMeeting({
+        title: event.title,
+        calendarEventId: event.id,
+        source: 'calendar'
       });
-
-      calMgr.on('open-requested', () => {
-        appState.centerAndShowWindow();
-      });
-
-      console.log('[Main] CalendarManager initialized');
-    } catch (e) {
-      console.error('[Main] Failed to initialize CalendarManager:', e);
-    }
-
-    // Recover unprocessed meetings (persistence check)
-    appState.getIntelligenceManager().recoverUnprocessedMeetings().catch(err => {
-      console.error('[Main] Failed to recover unprocessed meetings:', err);
     });
 
+    calMgr.on('open-requested', () => {
+      appState.centerAndShowWindow();
+    });
 
-    // Note: We do NOT force dock show here anymore, respecting stealth mode.
-  })
+    console.log('[Main] CalendarManager initialized');
+  } catch (e) {
+    console.error('[Main] Failed to initialize CalendarManager:', e);
+  }
+
+  // Recover unprocessed meetings (persistence check)
+  appState.getIntelligenceManager().recoverUnprocessedMeetings().catch(err => {
+    console.error('[Main] Failed to recover unprocessed meetings:', err);
+  });
+
 
   app.on("activate", () => {
     console.log("App activated")

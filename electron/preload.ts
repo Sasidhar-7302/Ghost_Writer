@@ -12,6 +12,7 @@ interface ElectronAPI {
   deleteScreenshot: (
     path: string
   ) => Promise<{ success: boolean; error?: string }>
+  getActiveShortcut: () => Promise<string>
   onScreenshotTaken: (
     callback: (data: { path: string; preview: string }) => void
   ) => () => void
@@ -57,7 +58,7 @@ interface ElectronAPI {
   setNvidiaApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepseekApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean }>
-  
+
   // Security
   setAirGapMode: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   getAirGapMode: () => Promise<boolean>
@@ -104,6 +105,8 @@ interface ElectronAPI {
   onAudioLevel: (callback: (level: number) => void) => () => void
   setRecognitionLanguage: (key: string) => Promise<{ success: boolean; error?: string }>
   onSessionReset: (callback: () => void) => () => void
+  onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => () => void
+  sendRawAudio: (data: Buffer) => void
 
   saveProjectText: (text: string) => Promise<{ success: boolean; error?: string }>
   saveAgendaText: (text: string) => Promise<{ success: boolean; error?: string }>
@@ -141,6 +144,7 @@ interface ElectronAPI {
   onIntelligenceManualResult: (callback: (data: { answer: string; question: string }) => void) => () => void
   onIntelligenceModeChanged: (callback: (data: { mode: string }) => void) => () => void
   onIntelligenceError: (callback: (data: { error: string; mode: string }) => void) => () => void
+  onLicenseStatusUpdated: (callback: (state: any) => void) => () => void
 
   invoke: (channel: string, ...args: any[]) => Promise<any>
   showWindow: () => Promise<void>
@@ -218,6 +222,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   takeScreenshot: () => ipcRenderer.invoke("take-screenshot"),
   getScreenshots: () => ipcRenderer.invoke("get-screenshots"),
   getImagePreview: (path: string) => ipcRenderer.invoke("get-image-preview", path),
+  getActiveShortcut: () => ipcRenderer.invoke("get-active-shortcut"),
   deleteScreenshot: (path: string) =>
     ipcRenderer.invoke("delete-screenshot", path),
 
@@ -643,6 +648,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("intelligence-error", subscription)
     }
   },
+  onLicenseStatusUpdated: (callback: (state: any) => void) => {
+    const subscription = (_: any, state: any) => callback(state)
+    ipcRenderer.on("license-status-updated", subscription)
+    return () => {
+      ipcRenderer.removeListener("license-status-updated", subscription)
+    }
+  },
   onSessionReset: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("session-reset", subscription)
@@ -650,6 +662,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("session-reset", subscription)
     }
   },
+  onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("audio-capture-fallback", subscription)
+    return () => {
+      ipcRenderer.removeListener("audio-capture-fallback", subscription)
+    }
+  },
+  sendRawAudio: (data: Buffer) => ipcRenderer.send("raw-audio-stream", data),
 
 
   // Streaming Chat

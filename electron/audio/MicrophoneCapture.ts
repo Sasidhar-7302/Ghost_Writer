@@ -17,12 +17,14 @@ export class MicrophoneCapture extends EventEmitter {
     private monitor: any = null;
     private isRecording: boolean = false;
     private deviceId: string | null = null;
+    private static isNativeAvailable: boolean = !!RustMicCapture;
 
     constructor(deviceId?: string | null) {
         super();
         this.deviceId = deviceId || null;
         if (!RustMicCapture) {
             console.error('[MicrophoneCapture] Rust class implementation not found.');
+            MicrophoneCapture.isNativeAvailable = false;
         } else {
             console.log(`[MicrophoneCapture] Initialized wrapper. Device ID: ${this.deviceId || 'default'}`);
             try {
@@ -34,6 +36,10 @@ export class MicrophoneCapture extends EventEmitter {
                 throw e;
             }
         }
+    }
+
+    public static isAvailable(): boolean {
+        return this.isNativeAvailable;
     }
 
     public getSampleRate(): number {

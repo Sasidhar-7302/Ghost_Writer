@@ -21,8 +21,38 @@ import { app } from 'electron';
 import { IncomingMessage } from 'http';
 
 // whisper.cpp release info
-const WHISPER_CPP_VERSION = 'v1.8.3';
-const WHISPER_CPP_BINARY_URL = `https://github.com/ggerganov/whisper.cpp/releases/download/${WHISPER_CPP_VERSION}/whisper-bin-x64.zip`;
+let WHISPER_CPP_VERSION = 'v1.8.3'; // Fallback
+let LATEST_BINARY_URL: string | null = null;
+
+const getWhisperBinaryUrl = async (): Promise<string | null> => {
+    if (process.platform === 'win32') {
+        if (LATEST_BINARY_URL) return LATEST_BINARY_URL;
+
+        // Try to dynamically fetch the newest release from GitHub
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch('https://api.github.com/repos/ggerganov/whisper.cpp/releases/latest', {
+                headers: { 'User-Agent': 'GhostWriter-App' },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+                const data = await res.json();
+                WHISPER_CPP_VERSION = data.tag_name;
+                const asset = data.assets?.find((a: any) => a.name === 'whisper-bin-x64.zip');
+                if (asset && asset.browser_download_url) {
+                    LATEST_BINARY_URL = asset.browser_download_url;
+                    return LATEST_BINARY_URL;
+                }
+            }
+        } catch (e) { /* Silent fallback */ }
+
+        return `https://github.com/ggerganov/whisper.cpp/releases/download/${WHISPER_CPP_VERSION}/whisper-bin-x64.zip`;
+    }
+    return null;
+};
 
 // Hugging Face model URLs
 const WHISPER_MODELS: Record<string, { url: string; size: string }> = {
@@ -38,6 +68,10 @@ const WHISPER_MODELS: Record<string, { url: string; size: string }> = {
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
         size: '466MB',
     },
+    'small-tdrz': {
+        url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en-tdrz.bin',
+        size: '466MB',
+    },
     'medium': {
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
         size: '1.5GB',
@@ -51,9 +85,9 @@ const WHISPER_MODELS: Record<string, { url: string; size: string }> = {
 // Default model depends on hardware:
 //   - NVIDIA GPU: 'medium' (best accuracy, 1.5GB loads into VRAM in ~2s)
 //   - CPU-only:   'tiny'   (fastest CPU inference, 74MB loads in <1s)
-const GPU_DEFAULT_MODEL = 'medium';
+const GPU_DEFAULT_MODEL = 'small-tdrz';
 const CPU_DEFAULT_MODEL = 'tiny';
-const DEFAULT_MODEL = 'medium'; // Fallback before GPU detection runs
+const DEFAULT_MODEL = 'small-tdrz'; // Switch default to tdrz for new features
 
 export interface WhisperPaths {
     binaryPath: string;
@@ -304,15 +338,20 @@ export class WhisperModelManager {
             return false;
         }
 
+        // Dynamically fetch the latest binary URL
+        const url = await getWhisperBinaryUrl();
+        if (!url) {
+            console.warn(`[WhisperModelManager] No download URL for platform ${process.platform}. Please bundle binaries in assets/whisper-bin/`);
+            return false;
+        }
 
-
-        console.log(`[WhisperModelManager] Downloading whisper.cpp binary (${WHISPER_CPP_VERSION})...`);
+        console.log(`[WhisperModelManager] Downloading whisper binary from ${url} (Target Version: ${WHISPER_CPP_VERSION})...`);
         this.isDownloading = true;
-
         try {
             // Download the zip file
             const zipPath = path.join(this.whisperDir, 'whisper-bin.zip');
-            await this.downloadFile(WHISPER_CPP_BINARY_URL, zipPath);
+            this.downloadingModelName = 'binary';
+            await this.downloadFile(url, zipPath);
 
             // Extract the binary
             await this.extractZip(zipPath, this.binDir);
@@ -544,6 +583,8 @@ export class WhisperModelManager {
                         // Broadcast progress to renderer windows
                         if (this.downloadingModelName) {
                             this.broadcastDownloadProgress(this.downloadingModelName, percent);
+                        } else {
+                            this.broadcastDownloadProgress('unknown', percent);
                         }
 
                         // Log every 10% or at significant milestones
