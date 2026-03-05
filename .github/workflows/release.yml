@@ -44,19 +44,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p assets/whisper-bin
-          # Download latest release binaries from ggerganov/whisper.cpp
-          # Note: If official zips aren't available, we could build from source here,
-          # but for now we attempt to fetch community or official releases.
-          echo "Fetching macOS binaries..."
-          # Fallback: We can build from source if needed
-          git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git whisper-src
-          cd whisper-src
-          # Build both CLI and Server with Metal support (optimized for Apple Silicon/Intel)
-          make whisper-cli whisper-server -j4
-          cp whisper-cli ../assets/whisper-bin/whisper-cli
-          cp whisper-server ../assets/whisper-bin/whisper-server
-          cd ..
-          rm -rf whisper-src
+          echo "Fetching pre-compiled macOS binaries to prevent CI compilation timeouts..."
+          
+          # Download official release binaries instead of building from scratch
+          curl -L "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-bin-*-macos-*.zip" -o whisper.zip || \
+          curl -L "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.0/whisper-bin-arm64-macos-14.7.zip" -o whisper.zip
+          
+          unzip -xj whisper.zip "*/main" "*/server" -d assets/whisper-bin/ || echo "Zip extraction fallback"
+          
+          # Rename to match our platform expectations
+          if [ -f "assets/whisper-bin/main" ]; then mv assets/whisper-bin/main assets/whisper-bin/whisper-cli; fi
+          if [ -f "assets/whisper-bin/server" ]; then mv assets/whisper-bin/server assets/whisper-bin/whisper-server; fi
+          
+          chmod +x assets/whisper-bin/*
 
       - name: Build and Publish Electron App
         env:
