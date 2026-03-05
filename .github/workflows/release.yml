@@ -48,6 +48,13 @@ jobs:
       - name: Build and Publish Windows Installer
         run: npm run dist -- --win --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
 
+      - name: Upload Windows Installer to Actions Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ghost.Writer.Setup.${{ github.event.inputs.version }}.exe
+          path: release/*.exe
+          if-no-files-found: error
+
   # ─── macOS Build ─────────────────────────────────────────────────────────────
   build-macos:
     name: Build macOS (.dmg)
@@ -101,3 +108,10 @@ jobs:
 
       - name: Build and Publish macOS .dmg
         run: npm run dist -- --mac --arm64 --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
+
+      - name: Upload macOS Installer to Actions Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ghost.Writer-${{ github.event.inputs.version }}-arm64.dmg
+          path: release/*.dmg
+          if-no-files-found: error
