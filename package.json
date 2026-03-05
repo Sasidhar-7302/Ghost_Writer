@@ -1,6 +1,6 @@
 {
   "name": "ghost-writer",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "main": "./dist-electron/main.js",
   "description": "Professional-grade, privacy-first AI assistant for high-stakes interviews and meetings featuring real-time local transcription and hardware-aware intelligence.",
   "scripts": {
