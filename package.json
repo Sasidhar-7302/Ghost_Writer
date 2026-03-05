@@ -35,6 +35,9 @@
       "dist-electron/**/*",
       "package.json",
       "node_modules/**/*",
+      "!**/node_modules/@xenova/**",
+      "!**/node_modules/onnxruntime-node/**",
+      "!**/node_modules/onnxruntime-web/**",
       "!**/native-module/target/**",
       "!**/native-module/src/**",
       "!**/native-module/.cargo/**"
@@ -55,12 +58,6 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
           "arch": [
             "x64"
           ]
@@ -137,7 +134,8 @@
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.28.8",
     "vite-plugin-electron-renderer": "^0.14.6",
-    "wait-on": "^8.0.1"
+    "wait-on": "^8.0.1",
+    "@xenova/transformers": "^2.17.2"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
@@ -149,7 +147,6 @@
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-toast": "^1.2.2",
     "@supabase/supabase-js": "^2.98.0",
-    "@xenova/transformers": "^2.17.2",
     "axios": "^1.7.7",
     "better-sqlite3": "12.6.2",
     "class-variance-authority": "^0.7.0",

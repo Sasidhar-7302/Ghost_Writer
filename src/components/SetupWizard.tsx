@@ -24,6 +24,13 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         whisper: { hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string } | null;
     }>({ gpu: null, ollama: null, whisper: null });
 
+    const [aiRuntimeState, setAiRuntimeState] = useState<{
+        status: string;
+        percent: number;
+        success: boolean;
+        error?: string;
+    }>({ status: 'Initializing...', percent: 0, success: false });
+
     const [apiKeys, setApiKeys] = useState({
         groq: '',
         openai: '',
@@ -47,6 +54,13 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             title: 'Diagnosis & Setup',
             description: 'Optimizing and downloading models for your hardware.',
             icon: <Monitor className="w-5 h-5" />,
+            required: true
+        },
+        {
+            id: 'ai-runtime',
+            title: 'AI Extract',
+            description: 'Downloading local intelligence engines.',
+            icon: <Brain className="w-5 h-5" />,
             required: true
         },
         {
@@ -118,6 +132,44 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         };
     }, [currentStep]);
 
+    useEffect(() => {
+        let cleanupProgress: (() => void) | undefined;
+        let cleanupComplete: (() => void) | undefined;
+
+        if (currentStep === 2) {
+            window.electronAPI.invoke('check-ai-runtime').then((installed: boolean) => {
+                if (installed) {
+                    setAiRuntimeState({ status: 'AI Runtime installed.', percent: 100, success: true });
+                    setTimeout(() => {
+                        setCurrentStep(3);
+                        setCompletedSteps(prev => new Set([...prev, 2]));
+                    }, 1500);
+                } else {
+                    cleanupProgress = window.electronAPI.on('ai-download-progress', (data: any) => {
+                        setAiRuntimeState(prev => ({ ...prev, status: data.status, percent: data.percent }));
+                    });
+                    cleanupComplete = window.electronAPI.on('ai-download-complete', (data: any) => {
+                        if (data.success) {
+                            setAiRuntimeState(prev => ({ ...prev, status: 'AI Runtime installed.', percent: 100, success: true }));
+                            setTimeout(() => {
+                                setCurrentStep(3);
+                                setCompletedSteps(prev => new Set([...prev, 2]));
+                            }, 1500);
+                        } else {
+                            setAiRuntimeState(prev => ({ ...prev, status: 'Installation failed.', error: data.error, success: false }));
+                        }
+                    });
+                    window.electronAPI.invoke('install-ai-runtime');
+                }
+            });
+        }
+
+        return () => {
+            if (cleanupProgress) cleanupProgress();
+            if (cleanupComplete) cleanupComplete();
+        };
+    }, [currentStep]);
+
     const handleNext = async () => {
         if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
@@ -139,6 +191,8 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             case 1:
                 // Don't allow manual proceed if still downloading (unless it explicitly failed/timed out)
                 return systemInfo.whisper && !systemInfo.whisper.isDownloading && systemInfo.whisper.hasModel && systemInfo.whisper.hasBinary;
+            case 2:
+                return aiRuntimeState.success || !!aiRuntimeState.error;
             default: return true;
         }
     };
@@ -227,6 +281,27 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 );
 
             case 2:
+                return (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto pt-4">
+                            {renderDiagnosisCard(
+                                'Engine Modules',
+                                <Brain className="w-4 h-4" />,
+                                aiRuntimeState.success ? 'success' : (aiRuntimeState.error ? 'error' : 'loading'),
+                                aiRuntimeState.error || aiRuntimeState.status || 'Downloading...',
+                                aiRuntimeState.error ? 'Click back to retry.' : `${aiRuntimeState.percent}% complete`
+                            )}
+                            <div className="w-full bg-white/10 rounded-full h-1 mt-6">
+                                <div
+                                    className="bg-white h-1 rounded-full transition-all duration-300"
+                                    style={{ width: `${aiRuntimeState.percent}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 3:
                 return (
                     <div className="text-center space-y-12 py-10">
                         <div className="relative w-24 h-24 mx-auto">

@@ -30,10 +30,23 @@ export class LocalEmbeddingManager {
         console.log('[LocalEmbeddingManager] Initializing all-MiniLM-L6-v2 pipeline...');
 
         try {
-            // Bypass tsc's transpilation of import() to require()
             if (!this.transformers) {
                 const dynamicImport = new Function('specifier', 'return import(specifier)');
-                this.transformers = await dynamicImport('@xenova/transformers');
+
+                try {
+                    // Try normal resolution first (useful during dev)
+                    this.transformers = await dynamicImport('@xenova/transformers');
+                } catch (e) {
+                    // Fallback to absolute path from our custom downloaded ai-runtime zip
+                    const { AIRuntimeManager } = require('../services/AIRuntimeManager');
+                    const basePath = AIRuntimeManager.getInstance().getTransformersPath();
+
+                    // Since @xenova/transformers has 'src/transformers.js' as its main export in v2.17.2
+                    const mainPath = path.join(basePath, 'src', 'transformers.js');
+                    const urlPath = require('url').pathToFileURL(mainPath).href;
+
+                    this.transformers = await dynamicImport(urlPath);
+                }
 
                 // Configure transformers.js to use local cache in userData
                 const userDataPath = app.getPath('userData');
