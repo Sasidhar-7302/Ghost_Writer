@@ -1,8 +1,5 @@
 name: Build and Release
 
-
-
-
 on:
   workflow_dispatch:
     inputs:
@@ -11,15 +8,9 @@ on:
         required: true
         default: '2.1.0'
 
-
-
-
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   CSC_SKIP_SIGNING: true
-
-
-
 
 jobs:
   # ─── Windows Build ────────────────────────────────────────────────────────────
@@ -27,15 +18,9 @@ jobs:
     name: Build Windows (.exe)
     runs-on: windows-latest
 
-
-
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-
-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,11 +29,72 @@ jobs:
           
           cache: 'npm'
 
-
-
-
       - name: Install Rust Toolchain (Windows)
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           targets: x86_64-pc-windows-msvc
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Native Audio Module (Windows)
+        working-directory: native-module
+        run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
+
+      - name: Build and Publish Windows Installer
+        run: npm run dist -- --win --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
+
+  # ─── macOS Build ─────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS (.dmg)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust Toolchain (macOS ARM64)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Native Audio Module (macOS)
+        working-directory: native-module
+        run: npx @napi-rs/cli build --platform --release --target aarch64-apple-darwin
+
+      - name: Download pre-compiled Whisper Binaries (macOS)
+        run: |
+          mkdir -p assets/whisper-bin
+          echo "Downloading pre-compiled whisper.cpp binaries..."
+
+          # Try downloading pre-built ARM64 binary release
+          curl -L "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.2/whisper-blas-bin-arm64.zip" \
+            -o whisper.zip --fail --silent || \
+          curl -L "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-blas-bin-arm64.zip" \
+            -o whisper.zip --silent || echo "Pre-built binary not found, skipping."
+
+          if [ -f "whisper.zip" ]; then
+            unzip -j whisper.zip "*/main" "*/server" -d assets/whisper-bin/ 2>/dev/null || true
+          fi
+
+          # Rename binaries to match expected names
+          [ -f "assets/whisper-bin/main" ] && mv assets/whisper-bin/main assets/whisper-bin/whisper-cli || true
+          [ -f "assets/whisper-bin/server" ] && mv assets/whisper-bin/server assets/whisper-bin/whisper-server || true
+
+          # Make executable regardless
+          chmod +x assets/whisper-bin/* 2>/dev/null || true
+          echo "Whisper binary setup complete."
+
+      - name: Build and Publish macOS .dmg
+        run: npm run dist -- --mac --arm64 --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
