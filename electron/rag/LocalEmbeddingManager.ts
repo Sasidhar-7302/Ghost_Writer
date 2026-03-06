@@ -34,18 +34,11 @@ export class LocalEmbeddingManager {
                 const dynamicImport = new Function('specifier', 'return import(specifier)');
 
                 try {
-                    // Try normal resolution first (useful during dev)
+                    // Try normal resolution
                     this.transformers = await dynamicImport('@xenova/transformers');
                 } catch (e) {
-                    // Fallback to absolute path from our custom downloaded ai-runtime zip
-                    const { AIRuntimeManager } = require('../services/AIRuntimeManager');
-                    const basePath = AIRuntimeManager.getInstance().getTransformersPath();
-
-                    // Since @xenova/transformers has 'src/transformers.js' as its main export in v2.17.2
-                    const mainPath = path.join(basePath, 'src', 'transformers.js');
-                    const urlPath = require('url').pathToFileURL(mainPath).href;
-
-                    this.transformers = await dynamicImport(urlPath);
+                    console.error('Failed to resolve transformers bundle', e);
+                    throw e;
                 }
 
                 // Configure transformers.js to use local cache in userData
