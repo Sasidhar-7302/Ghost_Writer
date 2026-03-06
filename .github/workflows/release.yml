@@ -45,8 +45,23 @@ jobs:
         working-directory: native-module
         run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
 
-      - name: Build and Publish Windows Installer
-        run: npm run dist -- --win --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
+      - name: Build Windows Installer
+        run: npm run dist -- --win -c.extraMetadata.version=${{ github.event.inputs.version }}
+
+      - name: Upload Windows Setup to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          # Create release if it doesn't exist
+          gh release view "v${{ github.event.inputs.version }}" || gh release create "v${{ github.event.inputs.version }}" --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
+          
+          # Upload the Windows executable
+          gh release upload "v${{ github.event.inputs.version }}" release/*.exe --clobber
+          
+          # Upload auto-updater files if they were generated
+          if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi
+          if ls release/latest.yml 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/latest.yml --clobber; fi
 
   # ─── macOS Build ─────────────────────────────────────────────────────────────
   build-macos:
@@ -99,5 +114,20 @@ jobs:
           chmod +x assets/whisper-bin/* 2>/dev/null || true
           echo "Whisper binary setup complete."
 
-      - name: Build and Publish macOS Installer
-        run: npm run dist -- --mac --arm64 --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
+      - name: Build macOS Installer
+        run: npm run dist -- --mac --arm64 -c.extraMetadata.version=${{ github.event.inputs.version }}
+
+      - name: Upload macOS Executable to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          # Create release if it doesn't exist
+          gh release view "v${{ github.event.inputs.version }}" || gh release create "v${{ github.event.inputs.version }}" --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
+          
+          # Upload the macOS executable
+          gh release upload "v${{ github.event.inputs.version }}" release/*.dmg --clobber
+          
+          # Upload auto-updater files if they were generated
+          if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi
+          if ls release/latest-mac.yml 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/latest-mac.yml --clobber; fi
