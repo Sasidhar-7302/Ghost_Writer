@@ -51,25 +51,6 @@ export function initializeIpcHandlers(appState: AppState): void {
   registerCostHandlers(appState);
   registerLicenseHandlers();
 
-  // AI Runtime Extract Handlers
-  safeIpcHandle("check-ai-runtime", async () => {
-    const { AIRuntimeManager } = require('./services/AIRuntimeManager');
-    return AIRuntimeManager.getInstance().isRuntimeInstalled();
-  });
-
-  safeIpcHandle("install-ai-runtime", async (event) => {
-    try {
-      const { AIRuntimeManager } = require('./services/AIRuntimeManager');
-      const window = require('electron').BrowserWindow.fromWebContents(event.sender);
-      if (window) {
-        await AIRuntimeManager.getInstance().installRuntime(window);
-      }
-      return { success: true };
-    } catch (error: any) {
-      console.error("[IPC] Failed to install AI runtime:", error);
-      return { success: false, error: error.message };
-    }
-  });
   safeIpcHandle("get-recognition-languages", async () => {
     return ENGLISH_VARIANTS;
   });
