@@ -45,15 +45,14 @@ jobs:
         working-directory: native-module
         run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
 
-      - name: Build and Publish Windows Installer
-        run: npm run dist -- --win --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
+      - name: Build Windows Installer
+        run: npm run dist -- --win -c.extraMetadata.version=${{ github.event.inputs.version }}
 
-      - name: Upload Windows Installer to Actions Run
-        uses: actions/upload-artifact@v4
-        with:
-          name: Ghost.Writer.Setup.${{ github.event.inputs.version }}.exe
-          path: release/*.exe
-          if-no-files-found: error
+      - name: Upload Explorer Setup Executable to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ github.event.inputs.version }}" release/*.exe --clobber
 
   # ─── macOS Build ─────────────────────────────────────────────────────────────
   build-macos:
@@ -106,12 +105,11 @@ jobs:
           chmod +x assets/whisper-bin/* 2>/dev/null || true
           echo "Whisper binary setup complete."
 
-      - name: Build and Publish macOS .dmg
-        run: npm run dist -- --mac --arm64 --publish=always -c.extraMetadata.version=${{ github.event.inputs.version }}
+      - name: Build macOS Installer
+        run: npm run dist -- --mac --arm64 -c.extraMetadata.version=${{ github.event.inputs.version }}
 
-      - name: Upload macOS Installer to Actions Run
-        uses: actions/upload-artifact@v4
-        with:
-          name: Ghost.Writer-${{ github.event.inputs.version }}-arm64.dmg
-          path: release/*.dmg
-          if-no-files-found: error
+      - name: Upload macOS Executable to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ github.event.inputs.version }}" release/*.dmg --clobber
