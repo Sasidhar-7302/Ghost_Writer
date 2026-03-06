@@ -48,11 +48,11 @@ jobs:
       - name: Build Windows Installer
         run: npm run dist -- --win -c.extraMetadata.version=${{ github.event.inputs.version }}
 
-      - name: Upload Explorer Setup Executable to Release
+      - name: Upload Windows Setup Executable to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "v${{ github.event.inputs.version }}" release/*.exe --clobber
+          gh release upload "v${{ github.event.inputs.version }}" release/*.exe --clobber || gh release create "v${{ github.event.inputs.version }}" release/*.exe --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
 
   # ─── macOS Build ─────────────────────────────────────────────────────────────
   build-macos:
@@ -112,4 +112,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "v${{ github.event.inputs.version }}" release/*.dmg --clobber
+          gh release upload "v${{ github.event.inputs.version }}" release/*.dmg --clobber || gh release create "v${{ github.event.inputs.version }}" release/*.dmg --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
