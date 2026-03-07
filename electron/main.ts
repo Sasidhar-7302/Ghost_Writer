@@ -615,6 +615,10 @@ export class AppState {
   }
 
   public async startMeeting(metadata?: any): Promise<void> {
+    if (this.isMeetingActive) {
+      console.log('[Main] Meeting is already active. Ignoring duplicate start request.');
+      return;
+    }
     console.log('[Main] Starting Meeting...', metadata);
 
     this.isMeetingActive = true;
@@ -647,6 +651,10 @@ export class AppState {
   }
 
   public async endMeeting(): Promise<void> {
+    if (!this.isMeetingActive) {
+      console.log('[Main] Meeting is already ended or not active. Ignoring duplicate end request.');
+      return;
+    }
     console.log('[Main] Ending Meeting...');
     this.isMeetingActive = false; // Block new data immediately
 

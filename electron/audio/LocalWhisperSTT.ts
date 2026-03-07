@@ -273,14 +273,23 @@ export class LocalWhisperSTT extends EventEmitter {
                 console.log(`[LocalWhisperSTT] GPU Acceleration active (${gpu.name})`);
             } else {
                 console.log(`[LocalWhisperSTT] CPU Mode (${OPTIMAL_THREADS} threads)`);
-                args.push('-ng', 'true');
+                args.push('-ng');
             }
 
-            console.log(`[LocalWhisperSTT] Starting whisper-server on ${WHISPER_SERVER_HOST}:${WHISPER_SERVER_PORT}...`);
+            const binDir = path.dirname(this.serverBinaryPath);
+            const spawnEnv = { ...process.env };
+            if (process.platform === 'win32') {
+                spawnEnv.PATH = `${binDir}${path.delimiter}${spawnEnv.PATH || ''}`;
+                spawnEnv.CUDA_VISIBLE_DEVICES = '0';
+            }
+
+            console.log(`[LocalWhisperSTT] Starting whisper-server from: ${this.serverBinaryPath}`);
+            console.log(`[LocalWhisperSTT] Working directory: ${binDir}`);
 
             try {
                 sharedServerProcess = spawn(this.serverBinaryPath, args, {
-                    cwd: path.dirname(this.serverBinaryPath),
+                    cwd: binDir,
+                    env: spawnEnv,
                     stdio: ['ignore', 'pipe', 'pipe'],
                     windowsHide: true,
                 });

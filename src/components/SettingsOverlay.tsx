@@ -403,7 +403,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
     // STT Provider settings
     const [sttProvider, setSttProvider] = useState<'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper'>('google');
     const [groqSttModel, setGroqSttModel] = useState('whisper-large-v3-turbo');
-    const [whisperStatus, setWhisperStatus] = useState<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string; progress?: number; installedModels?: Record<string, boolean>; downloadingModel?: string | null; customBinaryPath?: string; customModelPath?: string } | null>(null);
+    const [whisperStatus, setWhisperStatus] = useState<{ hasBinary: boolean; hasModel: boolean; hasCUDASupport?: boolean; isMacOS?: boolean; platform?: string; isDownloading: boolean; selectedModel: string; progress?: number; installedModels?: Record<string, boolean>; downloadingModel?: string | null; customBinaryPath?: string; customModelPath?: string } | null>(null);
     const [pendingWhisperModel, setPendingWhisperModel] = useState<string | null>(null);
     const [whisperApplied, setWhisperApplied] = useState(false);
 
@@ -1225,6 +1225,58 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                 {/* Local Whisper Settings */}
                                                 {sttProvider === 'local-whisper' && (
                                                     <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl border border-border-subtle p-4 relative" style={{ zIndex: 80 }}>
+                                                        {/* GPU Hardware Detection Card */}
+                                                        <div className={`rounded-lg p-3 mb-4 border ${gpuInfo?.isNvidia ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-orange-500/5 border-orange-500/20'}`}>
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <div className={`p-2 rounded-lg ${gpuInfo?.isNvidia || whisperStatus?.isMacOS ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'}`}>
+                                                                    <Monitor size={16} />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <h4 className="text-sm font-semibold text-text-primary">{gpuInfo?.name || (whisperStatus?.isMacOS ? 'Apple Silicon' : 'Detecting GPU...')}</h4>
+                                                                    <p className="text-[10px] text-text-tertiary">
+                                                                        {whisperStatus?.isMacOS
+                                                                            ? 'Apple Silicon \u2022 Metal GPU Acceleration'
+                                                                            : gpuInfo?.isNvidia
+                                                                                ? `${gpuInfo.vramGB}GB VRAM \u2022 NVIDIA CUDA Capable`
+                                                                                : 'CPU Mode \u2014 No NVIDIA GPU detected'}
+                                                                    </p>
+                                                                </div>
+                                                                {(gpuInfo?.isNvidia || whisperStatus?.isMacOS) && (
+                                                                    <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border ${whisperStatus?.hasCUDASupport
+                                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                                                        : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                                                        }`}>
+                                                                        {whisperStatus?.hasCUDASupport ? (whisperStatus?.isMacOS ? 'Metal Active' : 'GPU Active') : 'GPU Ready'}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Dependency Checklist */}
+                                                            <div className="grid grid-cols-3 gap-2 mt-2">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {whisperStatus?.hasBinary
+                                                                        ? <Check size={10} className="text-emerald-400" strokeWidth={3} />
+                                                                        : <X size={10} className="text-red-400" strokeWidth={3} />}
+                                                                    <span className="text-[10px] text-text-secondary">Engine</span>
+                                                                </div>
+                                                                {(gpuInfo?.isNvidia || whisperStatus?.isMacOS) && (
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {whisperStatus?.hasCUDASupport
+                                                                            ? <Check size={10} className="text-emerald-400" strokeWidth={3} />
+                                                                            : <X size={10} className="text-amber-400" strokeWidth={3} />}
+                                                                        <span className="text-[10px] text-text-secondary">{whisperStatus?.isMacOS ? 'Metal' : 'CUDA'}</span>
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {whisperStatus?.hasModel
+                                                                        ? <Check size={10} className="text-emerald-400" strokeWidth={3} />
+                                                                        : <X size={10} className="text-red-400" strokeWidth={3} />}
+                                                                    <span className="text-[10px] text-text-secondary">Model</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Status Header */}
                                                         <div className="flex items-start justify-between mb-4">
                                                             <div>
                                                                 <label className="text-xs font-medium text-text-secondary block mb-1">Local Whisper Status</label>
@@ -1232,9 +1284,11 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                     <div className={`w-2 h-2 rounded-full ${whisperStatus?.hasBinary && whisperStatus?.hasModel ? 'bg-green-500' : 'bg-amber-500'}`} />
                                                                     <span className="text-sm font-medium text-text-primary">
                                                                         {whisperStatus?.isDownloading
-                                                                            ? (whisperStatus.downloadingModel === 'binary' ? 'Downloading Engine...' : `Downloading ${whisperStatus.downloadingModel || 'model'}...`)
+                                                                            ? (whisperStatus.downloadingModel === 'binary' || whisperStatus.downloadingModel === 'binary-cuda'
+                                                                                ? (whisperStatus?.isMacOS ? 'Building Metal Engine...' : `Downloading ${gpuInfo?.isNvidia ? 'CUDA' : 'CPU'} Engine...`)
+                                                                                : `Downloading ${whisperStatus.downloadingModel || 'model'}...`)
                                                                             : whisperStatus?.hasBinary && whisperStatus?.hasModel
-                                                                                ? 'Ready to transcribe'
+                                                                                ? (whisperStatus?.hasCUDASupport ? (whisperStatus?.isMacOS ? '\u2705 Ready (Metal Accelerated)' : '\u2705 Ready (GPU Accelerated)') : '\u2705 Ready')
                                                                                 : 'Setup required'}
                                                                     </span>
                                                                 </div>
@@ -1250,6 +1304,47 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                 </div>
                                                             )}
                                                         </div>
+
+                                                        {/* One-Click Setup Banner */}
+                                                        {!whisperStatus?.isDownloading && (!whisperStatus?.hasBinary || !whisperStatus?.hasModel || ((gpuInfo?.isNvidia || whisperStatus?.isMacOS) && !whisperStatus?.hasCUDASupport)) && (
+                                                            <div className={`rounded-lg p-3 mb-4 border ${'bg-accent-primary/5 border-accent-primary/20'}`}>
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="p-2 rounded-lg bg-accent-primary/10 text-accent-primary">
+                                                                        <Download size={16} />
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <h4 className="text-sm font-medium text-text-primary mb-1">
+                                                                            {whisperStatus?.isMacOS
+                                                                                ? 'Setup for macOS'
+                                                                                : gpuInfo?.isNvidia && whisperStatus?.hasBinary && !whisperStatus?.hasCUDASupport
+                                                                                    ? 'GPU Acceleration Available'
+                                                                                    : 'Setup Required'}
+                                                                        </h4>
+                                                                        <p className="text-xs text-text-secondary mb-3">
+                                                                            {whisperStatus?.isMacOS
+                                                                                ? `Will download and compile whisper.cpp with Metal GPU acceleration for Apple Silicon. This takes 1-2 minutes (requires Xcode Command Line Tools).`
+                                                                                : gpuInfo?.isNvidia && whisperStatus?.hasBinary && !whisperStatus?.hasCUDASupport
+                                                                                    ? `Your ${gpuInfo.name} (${gpuInfo.vramGB}GB) is ready! Download CUDA-enabled engine (~460MB) for 10x faster transcription.`
+                                                                                    : gpuInfo?.isNvidia
+                                                                                        ? `Will download CUDA-enabled engine (~460MB) + ${whisperStatus?.selectedModel || 'small'} model for your ${gpuInfo.name}.`
+                                                                                        : `Will download the Whisper engine (~4MB) and ${whisperStatus?.selectedModel || 'small'} model to run locally on CPU.`}
+                                                                        </p>
+                                                                        <button
+                                                                            // @ts-ignore
+                                                                            onClick={() => window.electronAPI?.setupWhisper?.(whisperStatus?.selectedModel)}
+                                                                            className="px-4 py-2 bg-accent-primary hover:bg-accent-secondary text-bg-primary text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-accent-primary/20 active:scale-95"
+                                                                        >
+                                                                            <Download size={14} />
+                                                                            {whisperStatus?.isMacOS
+                                                                                ? 'Build & Setup Everything'
+                                                                                : gpuInfo?.isNvidia && whisperStatus?.hasBinary && !whisperStatus?.hasCUDASupport
+                                                                                    ? 'Download CUDA Engine'
+                                                                                    : 'Download & Setup Everything'}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {/* Model Selection */}
                                                         <div className="mb-4">
@@ -1340,14 +1435,12 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                             const isModelInstalled = whisperStatus?.installedModels?.[pendingWhisperModel];
 
                                                                             if (!isModelInstalled) {
-                                                                                // Download first, then apply
                                                                                 // @ts-ignore
                                                                                 const dlRes = await window.electronAPI?.downloadWhisperModel?.(pendingWhisperModel);
                                                                                 if (dlRes?.status) setWhisperStatus(dlRes.status);
                                                                                 if (!dlRes?.success) return;
                                                                             }
 
-                                                                            // Apply the model
                                                                             setWhisperStatus(prev => prev ? { ...prev, selectedModel: pendingWhisperModel } : null);
                                                                             // @ts-ignore
                                                                             const res = await window.electronAPI?.setLocalWhisperModel(pendingWhisperModel);
@@ -1387,34 +1480,13 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                             )}
                                                         </div>
 
-                                                        {!whisperStatus?.isDownloading && (!whisperStatus?.hasBinary || !whisperStatus?.hasModel) && (
-                                                            <div className="bg-bg-input rounded-lg p-3 mb-4">
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className="bg-accent-primary/10 text-accent-primary p-2 rounded-lg">
-                                                                        <Download size={16} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="text-sm font-medium text-text-primary mb-1">Required Components Missing</h4>
-                                                                        <p className="text-xs text-text-secondary mb-3">
-                                                                            Ghost Writer needs to download the Whisper engine and <b>{whisperStatus?.selectedModel || 'small'}</b> model file to run locally.
-                                                                        </p>
-                                                                        <button
-                                                                            // @ts-ignore
-                                                                            onClick={() => window.electronAPI?.setupWhisper?.(whisperStatus?.selectedModel)}
-                                                                            className="px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
-                                                                        >
-                                                                            Download & Setup
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
                                                         <div className="grid grid-cols-2 gap-2 mt-2">
                                                             <div className="bg-bg-input rounded-lg p-2.5 border border-border-subtle">
                                                                 <span className="text-[10px] text-text-tertiary uppercase tracking-wider font-bold block mb-0.5">Engine</span>
                                                                 <div className="flex items-center justify-between">
-                                                                    <span className="text-xs font-medium text-text-primary">whisper.cpp</span>
+                                                                    <span className="text-xs font-medium text-text-primary">
+                                                                        {gpuInfo?.isNvidia && whisperStatus?.hasCUDASupport ? 'whisper.cpp (CUDA)' : 'whisper.cpp'}
+                                                                    </span>
                                                                     {whisperStatus?.hasBinary ? <Check size={12} className="text-green-500" /> : <X size={12} className="text-red-400" />}
                                                                 </div>
                                                             </div>

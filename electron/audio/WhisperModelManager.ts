@@ -22,36 +22,69 @@ import { IncomingMessage } from 'http';
 
 // whisper.cpp release info
 let WHISPER_CPP_VERSION = 'v1.8.3'; // Fallback
-let LATEST_BINARY_URL: string | null = null;
+let cachedBinaryUrls: { cpu: string; cuda: string; source?: string } | null = null;
 
-const getWhisperBinaryUrl = async (): Promise<string | null> => {
-    if (process.platform === 'win32') {
-        if (LATEST_BINARY_URL) return LATEST_BINARY_URL;
+/**
+ * Get download URLs for whisper binaries.
+ * Windows: Returns both CPU-only and CUDA-enabled pre-built URLs.
+ * macOS: Returns source tarball URL (no pre-built macOS binaries available).
+ */
+const getWhisperBinaryUrls = async (): Promise<{ cpu: string; cuda: string; source?: string } | null> => {
+    if (process.platform !== 'win32' && process.platform !== 'darwin') return null;
+    if (cachedBinaryUrls) return cachedBinaryUrls;
 
-        // Try to dynamically fetch the newest release from GitHub
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            const res = await fetch('https://api.github.com/repos/ggerganov/whisper.cpp/releases/latest', {
-                headers: { 'User-Agent': 'GhostWriter-App' },
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
+    // Try to dynamically fetch the newest release from GitHub
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('https://api.github.com/repos/ggerganov/whisper.cpp/releases/latest', {
+            headers: { 'User-Agent': 'GhostWriter-App' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-            if (res.ok) {
-                const data = await res.json();
-                WHISPER_CPP_VERSION = data.tag_name;
-                const asset = data.assets?.find((a: any) => a.name === 'whisper-bin-x64.zip');
-                if (asset && asset.browser_download_url) {
-                    LATEST_BINARY_URL = asset.browser_download_url;
-                    return LATEST_BINARY_URL;
-                }
+        if (res.ok) {
+            const data = await res.json();
+            WHISPER_CPP_VERSION = data.tag_name;
+
+            if (process.platform === 'darwin') {
+                // macOS: use source tarball (no pre-built binaries available)
+                cachedBinaryUrls = {
+                    cpu: data.tarball_url || `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz`,
+                    cuda: data.tarball_url || `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz`,
+                    source: data.tarball_url || `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz`,
+                };
+                return cachedBinaryUrls;
             }
-        } catch (e) { /* Silent fallback */ }
 
-        return `https://github.com/ggerganov/whisper.cpp/releases/download/${WHISPER_CPP_VERSION}/whisper-bin-x64.zip`;
+            const cpuAsset = data.assets?.find((a: any) => a.name === 'whisper-bin-x64.zip');
+            const cudaAsset = data.assets?.find((a: any) =>
+                a.name.includes('cublas-12') && a.name.includes('x64'));
+
+            if (cpuAsset && cudaAsset) {
+                cachedBinaryUrls = {
+                    cpu: cpuAsset.browser_download_url,
+                    cuda: cudaAsset.browser_download_url,
+                };
+                return cachedBinaryUrls;
+            }
+        }
+    } catch (e) { /* Silent fallback */ }
+
+    if (process.platform === 'darwin') {
+        cachedBinaryUrls = {
+            cpu: `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz`,
+            cuda: `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz`,
+            source: `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz`,
+        };
+        return cachedBinaryUrls;
     }
-    return null;
+
+    cachedBinaryUrls = {
+        cpu: `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_CPP_VERSION}/whisper-bin-x64.zip`,
+        cuda: `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_CPP_VERSION}/whisper-cublas-12.4.0-bin-x64.zip`,
+    };
+    return cachedBinaryUrls;
 };
 
 // Hugging Face model URLs
@@ -205,7 +238,8 @@ export class WhisperModelManager {
     }
 
     /**
-     * Get path to whisper.cpp binary
+     * Get path to whisper.cpp binary.
+     * Binaries live in AppData/Roaming/ghost-writer/whisper/bin/ (downloaded on-demand).
      */
     public getBinaryPath(): string {
         // Check custom path first
@@ -281,55 +315,41 @@ export class WhisperModelManager {
     }
 
     /**
-     * Download the whisper.cpp binary if not present
-     * Returns true if download was successful or binary already exists
+     * Check if the current binary has GPU acceleration support.
+     * Windows: CUDA build includes ggml-cuda.dll alongside the binaries.
+     * macOS: Apple Silicon uses Metal acceleration natively (always available if binary exists).
+     */
+    public hasCUDASupport(): boolean {
+        if (process.platform === 'darwin') {
+            // macOS Apple Silicon always uses Metal GPU acceleration when built from source
+            return this.hasBinary();
+        }
+        const cudaDll = path.join(this.binDir, 'ggml-cuda.dll');
+        // Also check Release subfolder
+        const cudaDllRelease = path.join(this.binDir, 'Release', 'ggml-cuda.dll');
+        return fs.existsSync(cudaDll) || fs.existsSync(cudaDllRelease);
+    }
+
+    /**
+     * Download the whisper.cpp binary if not present.
+     * Automatically selects the correct build (CUDA or CPU) based on GPU detection.
+     * Returns true if download was successful or binary already exists.
      */
     public async ensureBinary(): Promise<boolean> {
-        // Try extracting bundled binary first (which includes the high-speed whisper-server)
-        const isPackaged = app.isPackaged;
-        const assetsPath = isPackaged
-            ? path.join(process.resourcesPath, 'assets')
-            : path.join(app.getAppPath(), 'assets');
-        const bundledBinPath = path.join(assetsPath, 'whisper-bin');
-        const serverExePath = process.platform === 'win32' ? 'whisper-server.exe' : 'whisper-server';
-
-        const bundledServerPath = path.join(bundledBinPath, serverExePath);
-        const destinationServerPath = path.join(this.binDir, serverExePath);
-        const destinationCudaDll = path.join(this.binDir, 'cublas64_12.dll');
-        const bundledCudaDll = path.join(bundledBinPath, 'cublas64_12.dll');
-
-        // Force re-extraction if:
-        // 1. Bundled server exists but isn't installed in UserData, OR
-        // 2. Bundled CUDA DLLs exist but aren't installed (CPU-only fallback active)
-        const needsServerExtraction = fs.existsSync(bundledServerPath) && !fs.existsSync(destinationServerPath);
-        const needsCudaExtraction = fs.existsSync(bundledCudaDll) && !fs.existsSync(destinationCudaDll);
-
-        if (fs.existsSync(bundledBinPath) && (needsServerExtraction || needsCudaExtraction)) {
-            const reason = needsCudaExtraction ? 'Missing CUDA DLLs (GPU acceleration)' : 'Missing high-speed server';
-            console.log(`[WhisperModelManager] ${reason} in UserData. Forcing bundled extraction from ${bundledBinPath}...`);
-            this.isDownloading = true;
-            try {
-                fs.cpSync(bundledBinPath, this.binDir, { recursive: true });
-
-                if (process.platform !== 'win32') {
-                    const cliPath = path.join(this.binDir, 'whisper-cli');
-                    const serverPath = path.join(this.binDir, 'whisper-server');
-                    if (fs.existsSync(cliPath)) fs.chmodSync(cliPath, 0o755);
-                    if (fs.existsSync(serverPath)) fs.chmodSync(serverPath, 0o755);
-                }
-
-                console.log(`[WhisperModelManager] Bundled binary ready: ${this.getBinaryPath()}`);
-                return true;
-            } catch (err) {
-                console.error('[WhisperModelManager] Failed to copy bundled binary:', err);
-            } finally {
-                this.isDownloading = false;
-            }
-        }
-
         // If already extracted or we have any acceptable binary, return true
         if (this.hasBinary()) {
             console.log('[WhisperModelManager] Binary already exists');
+            // Check if we should upgrade to CUDA build
+            try {
+                const { GPUHelper } = require('../utils/GPUHelper');
+                const gpu = await GPUHelper.detectGPU();
+                if (gpu.isNvidia && !this.hasCUDASupport()) {
+                    console.log('[WhisperModelManager] NVIDIA GPU detected but no CUDA binary. Downloading GPU-enabled build...');
+                    return this.downloadBinary(true);
+                }
+            } catch (e) {
+                console.warn('[WhisperModelManager] GPU check failed, keeping existing binary:', e);
+            }
             return true;
         }
 
@@ -338,19 +358,58 @@ export class WhisperModelManager {
             return false;
         }
 
-        // Dynamically fetch the latest binary URL
-        const url = await getWhisperBinaryUrl();
-        if (!url) {
-            console.warn(`[WhisperModelManager] No download URL for platform ${process.platform}. Please bundle binaries in assets/whisper-bin/`);
+        // Auto-detect GPU for initial download
+        let useGPU = false;
+        try {
+            const { GPUHelper } = require('../utils/GPUHelper');
+            const gpu = await GPUHelper.detectGPU();
+            useGPU = gpu.isNvidia;
+            if (useGPU) {
+                console.log(`[WhisperModelManager] NVIDIA GPU detected (${gpu.name}). Will download CUDA-enabled build.`);
+            } else {
+                console.log(`[WhisperModelManager] No NVIDIA GPU. Will download CPU-only build.`);
+            }
+        } catch (e) {
+            console.warn('[WhisperModelManager] GPU detection failed, downloading CPU build:', e);
+        }
+
+        return this.downloadBinary(useGPU);
+    }
+
+    /**
+     * Download the whisper binary (CPU or CUDA variant).
+     * On macOS, builds from source since no pre-built binaries are available.
+     */
+    private async downloadBinary(cuda: boolean): Promise<boolean> {
+        const urls = await getWhisperBinaryUrls();
+        if (!urls) {
+            console.warn(`[WhisperModelManager] No download URL for platform ${process.platform}.`);
             return false;
         }
 
-        console.log(`[WhisperModelManager] Downloading whisper binary from ${url} (Target Version: ${WHISPER_CPP_VERSION})...`);
+        // macOS: build from source
+        if (process.platform === 'darwin' && urls.source) {
+            return this.buildFromSource(urls.source);
+        }
+
+        const url = cuda ? urls.cuda : urls.cpu;
+        const buildType = cuda ? 'CUDA (GPU-enabled)' : 'CPU-only';
+        console.log(`[WhisperModelManager] Downloading ${buildType} whisper binary from ${url} (${WHISPER_CPP_VERSION})...`);
         this.isDownloading = true;
+
         try {
+            // Clear existing binaries before downloading new ones
+            if (fs.existsSync(this.binDir)) {
+                const existingFiles = fs.readdirSync(this.binDir);
+                for (const file of existingFiles) {
+                    const filePath = path.join(this.binDir, file);
+                    try { fs.unlinkSync(filePath); } catch { }
+                }
+            }
+
             // Download the zip file
             const zipPath = path.join(this.whisperDir, 'whisper-bin.zip');
-            this.downloadingModelName = 'binary';
+            this.downloadingModelName = cuda ? 'binary-cuda' : 'binary';
             await this.downloadFile(url, zipPath);
 
             // Extract the binary
@@ -364,7 +423,10 @@ export class WhisperModelManager {
                 fs.chmodSync(this.getBinaryPath(), 0o755);
             }
 
-            console.log(`[WhisperModelManager] Binary ready: ${this.getBinaryPath()}`);
+            console.log(`[WhisperModelManager] ${buildType} binary ready: ${this.getBinaryPath()}`);
+            if (cuda) {
+                console.log(`[WhisperModelManager] CUDA support: ${this.hasCUDASupport() ? 'YES ✅' : 'NO ❌'}`);
+            }
             return true;
         } catch (err) {
             console.error('[WhisperModelManager] Failed to download binary:', err);
@@ -372,6 +434,146 @@ export class WhisperModelManager {
         } finally {
             this.isDownloading = false;
             this.downloadProgress = 0;
+        }
+    }
+
+    /**
+     * Build whisper.cpp from source on macOS.
+     * Downloads the source tarball, extracts, compiles with cmake+make.
+     * Apple Silicon Metal GPU acceleration is enabled automatically.
+     */
+    private async buildFromSource(sourceUrl: string): Promise<boolean> {
+        console.log(`[WhisperModelManager] Building whisper.cpp from source for macOS (Metal GPU acceleration)...`);
+        this.isDownloading = true;
+        this.downloadingModelName = 'binary';
+
+        const buildDir = path.join(this.whisperDir, 'build-src');
+
+        try {
+            // Clean previous build
+            if (fs.existsSync(buildDir)) {
+                const { execSync } = require('child_process');
+                execSync(`rm -rf "${buildDir}"`, { timeout: 10000 });
+            }
+            fs.mkdirSync(buildDir, { recursive: true });
+
+            // Clear existing binaries
+            if (fs.existsSync(this.binDir)) {
+                const existingFiles = fs.readdirSync(this.binDir);
+                for (const file of existingFiles) {
+                    const filePath = path.join(this.binDir, file);
+                    try { fs.unlinkSync(filePath); } catch { }
+                }
+            }
+            fs.mkdirSync(this.binDir, { recursive: true });
+
+            // Download source tarball
+            const tarballPath = path.join(this.whisperDir, 'whisper-src.tar.gz');
+            this.downloadProgress = 5;
+            console.log(`[WhisperModelManager] Downloading source from ${sourceUrl}...`);
+            await this.downloadFile(sourceUrl, tarballPath);
+
+            this.downloadProgress = 30;
+            console.log('[WhisperModelManager] Extracting source...');
+
+            // Extract tarball
+            const { execSync } = require('child_process');
+            execSync(`tar -xzf "${tarballPath}" -C "${buildDir}" --strip-components=1`, {
+                timeout: 60000,
+            });
+
+            // Clean up tarball
+            try { fs.unlinkSync(tarballPath); } catch { }
+
+            this.downloadProgress = 40;
+            console.log('[WhisperModelManager] Compiling whisper.cpp (this may take 1-2 minutes)...');
+
+            // Build with cmake (Metal is enabled by default on macOS Apple Silicon)
+            const cmakeBuildDir = path.join(buildDir, 'build');
+            fs.mkdirSync(cmakeBuildDir, { recursive: true });
+
+            execSync(`cmake .. -DCMAKE_BUILD_TYPE=Release`, {
+                cwd: cmakeBuildDir,
+                timeout: 60000,
+                stdio: 'pipe',
+            });
+
+            this.downloadProgress = 60;
+
+            execSync(`cmake --build . --config Release -j$(sysctl -n hw.logicalcpu)`, {
+                cwd: cmakeBuildDir,
+                timeout: 300000, // 5 minutes for compilation
+                stdio: 'pipe',
+            });
+
+            this.downloadProgress = 90;
+
+            // Find and copy the built binary to our bin directory
+            const possiblePaths = [
+                path.join(cmakeBuildDir, 'bin', 'whisper-cli'),
+                path.join(cmakeBuildDir, 'bin', 'main'),
+                path.join(cmakeBuildDir, 'whisper-cli'),
+                path.join(cmakeBuildDir, 'main'),
+            ];
+
+            let builtBinaryPath: string | null = null;
+            for (const p of possiblePaths) {
+                if (fs.existsSync(p)) {
+                    builtBinaryPath = p;
+                    break;
+                }
+            }
+
+            if (!builtBinaryPath) {
+                // Search recursively for whisper-cli
+                try {
+                    const findResult = execSync(`find "${cmakeBuildDir}" -name "whisper-cli" -type f`, {
+                        timeout: 5000,
+                        encoding: 'utf-8',
+                    }).trim();
+                    if (findResult) {
+                        builtBinaryPath = findResult.split('\n')[0];
+                    }
+                } catch { }
+            }
+
+            if (!builtBinaryPath) {
+                throw new Error('Build succeeded but could not find whisper-cli binary');
+            }
+
+            // Copy binary to bin directory
+            const destPath = path.join(this.binDir, 'whisper-cli');
+            fs.copyFileSync(builtBinaryPath, destPath);
+            fs.chmodSync(destPath, 0o755);
+
+            this.downloadProgress = 100;
+            console.log(`[WhisperModelManager] macOS binary built and ready: ${destPath}`);
+            console.log('[WhisperModelManager] Metal GPU acceleration: ENABLED ✅');
+
+            // Clean up build directory
+            try {
+                execSync(`rm -rf "${buildDir}"`, { timeout: 10000 });
+            } catch { }
+
+            return true;
+        } catch (err) {
+            console.error('[WhisperModelManager] Failed to build from source:', err);
+            // Provide helpful error message
+            if (String(err).includes('cmake') || String(err).includes('not found')) {
+                console.error('[WhisperModelManager] Xcode Command Line Tools may not be installed.');
+                console.error('[WhisperModelManager] Install with: xcode-select --install');
+            }
+            return false;
+        } finally {
+            this.isDownloading = false;
+            this.downloadProgress = 0;
+            // Clean up build dir on failure too
+            try {
+                if (fs.existsSync(buildDir)) {
+                    const { execSync } = require('child_process');
+                    execSync(`rm -rf "${buildDir}"`, { timeout: 10000 });
+                }
+            } catch { }
         }
     }
 
