@@ -50,11 +50,14 @@ export function registerSTTHandlers(appState: AppState): void {
 
       return {
         ...status,
+        hasCUDASupport: manager.hasCUDASupport(),
+        platform: process.platform,
+        isMacOS: process.platform === 'darwin',
         customBinaryPath: creds.getLocalWhisperBinaryPath(),
         customModelPath: creds.getLocalWhisperModelPath()
       };
     } catch (error: any) {
-      return { hasBinary: false, hasModel: false, isDownloading: false, selectedModel: 'small' };
+      return { hasBinary: false, hasModel: false, hasCUDASupport: false, platform: process.platform, isMacOS: process.platform === 'darwin', isDownloading: false, selectedModel: 'small' };
     }
   });
 
