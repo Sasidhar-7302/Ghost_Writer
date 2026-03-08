@@ -20,7 +20,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
     };
 
     const handleCopyEmail = () => {
-        navigator.clipboard.writeText("yepurisasi@gmail.com");
+        navigator.clipboard.writeText("support@chintuai.com");
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -74,17 +74,16 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                 <div className="p-6 border-b border-border-subtle">
                     <div className="flex items-start gap-5">
                         <div className="w-14 h-14 rounded-full bg-[var(--bg-glass)] backdrop-blur-md border border-border-subtle flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
-                            <img src={evinProfile} alt="Sasidhar Yepuri" className="w-full h-full object-cover" />
+                            <img src={evinProfile} alt="Chintu AI Team" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
                                 <div>
-                                    <h4 className="text-sm font-bold text-text-primary">Sasidhar Yepuri</h4>
-                                    <p className="text-[10px] text-text-tertiary">Founder & Lead Architect</p>
+                                    <h4 className="text-sm font-bold text-text-primary">Chintu AI Team</h4>
+                                    <p className="text-[10px] text-text-tertiary">Ghost Writer Core Team</p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button onClick={(e) => handleOpenLink(e as any, "https://github.com/Sasidhar-7302")} className="text-text-tertiary hover:text-text-primary transition-colors"><Github size={16} /></button>
-                                    <button onClick={(e) => handleOpenLink(e as any, "https://www.linkedin.com/in/sasidharyepuri")} className="text-text-tertiary hover:text-text-primary transition-colors"><Linkedin size={16} /></button>
+                                    <button onClick={(e) => handleOpenLink(e as any, "https://github.com/chintuai2026/Ghost_Writer")} className="text-text-tertiary hover:text-text-primary transition-colors"><Github size={16} /></button>
                                 </div>
                             </div>
                             <p className="text-xs text-text-secondary leading-relaxed">
@@ -96,7 +95,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
 
                 <div className="grid grid-cols-2 divide-x divide-border-subtle">
                     <button
-                        onClick={(e) => handleOpenLink(e as any, "https://github.com/Sasidhar-7302/Ghost_Writer")}
+                        onClick={(e) => handleOpenLink(e as any, "https://github.com/chintuai2026/Ghost_Writer")}
                         className="p-4 flex flex-col items-center justify-center gap-2 hover:bg-accent-primary/5 transition-colors group"
                     >
                         <Star size={16} className="text-yellow-500 group-hover:fill-current" />
@@ -112,7 +111,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                             <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary group-hover:text-text-primary transition-colors">
                                 {copied ? 'Copied!' : 'Contact'}
                             </span>
-                            <span className="text-[10px] text-text-primary font-medium">{copied ? 'yepurisasi@gmail.com' : 'yepurisasi@gmail.com'}</span>
+                            <span className="text-[10px] text-text-primary font-medium">{copied ? 'support@chintuai.com' : 'support@chintuai.com'}</span>
                         </div>
                     </button>
                 </div>
@@ -126,16 +125,10 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                         <Heart size={20} />
                     </div>
                     <div>
-                        <h4 className="text-xs font-black text-text-primary uppercase tracking-widest">Founder Support</h4>
-                        <p className="text-[10px] text-text-tertiary mt-1 max-w-[200px] font-medium">Empower independent development through direct contributions.</p>
+                        <h4 className="text-xs font-black text-text-primary uppercase tracking-widest">Community Driven</h4>
+                        <p className="text-[10px] text-text-tertiary mt-1 max-w-[200px] font-medium">Ghost Writer is built by a distributed team of privacy entusiasts.</p>
                     </div>
                 </div>
-                <button
-                    onClick={(e) => handleOpenLink(e as any, "https://paypal.me/sasidhar7302")}
-                    className="px-6 py-2.5 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/90 transition-all shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)] active:scale-95 relative z-10"
-                >
-                    Back Project
-                </button>
             </div>
 
             {/* 5. Production Footer */}

@@ -120,7 +120,7 @@ When reporting bugs, please include:
 
 We welcome feature ideas! When proposing features:
 
-1. Check existing [issues](https://github.com/Sasidhar-7302/Ghost_Writer/issues) to avoid duplicates
+1. Check existing [issues](https://github.com/chintuai2026/Ghost_Writer/issues) to avoid duplicates
 2. Describe the **use case**, not just the solution
 3. Consider backward compatibility
 4. Note any performance implications

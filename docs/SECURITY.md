@@ -11,7 +11,7 @@ The following versions of Ghost Writer are currently supported with security upd
 
 ## Reporting a Vulnerability
 
-We take the security of Ghost Writer seriously. If you believe you have found a security vulnerability, please report it by emailing **yepurisasi@gmail.com**.
+We take the security of Ghost Writer seriously. If you believe you have found a security vulnerability, please report it by emailing **support@chintuai.com**.
 
 Please do not report security vulnerabilities through public GitHub issues.
 
