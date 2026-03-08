@@ -5,7 +5,7 @@
 <br>
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=for-the-badge)](docs/LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?style=for-the-badge&logo=apple)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4?style=for-the-badge&logo=apple)](https://github.com/chintuai2026/Ghost_Writer/releases)
 [![Electron](https://img.shields.io/badge/Electron-29-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
 [![Rust](https://img.shields.io/badge/Rust-Native-DEA584?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
@@ -14,7 +14,7 @@
 **Ghost Writer** is the ultimate stealth, local-first meeting & interview assistant built for professionals. High-stakes interviews and meetings, mastered.  
 Bring your own API keys for intelligent Cloud LLMs (OpenAI, DeepSeek, Gemini, Groq) or run 100% air-gapped via Ollama for absolute control over your intelligence data.
 
-[Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Support](https://paypal.me/sasidhar7302) · [Changelog](docs/CHANGELOG.md)
+[Download](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](docs/CHANGELOG.md)
 
 </div>
 
@@ -127,7 +127,7 @@ Ghost Writer uses a layered architecture with clear separation of concerns:
 Ghost Writer is designed for **one-click deployment**. You don't need to be a developer to use it.
 
 ### 1. Download & Install
-1. **[Download the Latest Release](https://github.com/Sasidhar-7302/Ghost_Writer/releases)** (`.exe` for Windows, `.dmg` for macOS).
+1. **[Download the Latest Release](https://github.com/chintuai2026/Ghost_Writer/releases)** (`.exe` for Windows, `.dmg` for macOS).
 2. Run the installer.
    - **macOS Note**: If you see a security warning, Right-Click -> Open the app (unnotarized build).
 3. The **Setup Wizard** will launch automatically to guide you through hardware diagnosis and AI configuration.
@@ -155,7 +155,7 @@ If you want to build Ghost Writer from source:
 ### Build Instructions
 ```bash
 # 1. Clone & Install
-git clone https://github.com/Sasidhar-7302/Ghost_Writer.git
+git clone https://github.com/chintuai2026/Ghost_Writer.git
 cd Ghost_Writer
 npm install
 
@@ -411,8 +411,7 @@ SENTRY_DSN=your_sentry_dsn     # Optional crash reporting
 
 Ghost Writer is developed for the community. If you find it helpful, please consider supporting the project:
 
-- **[Support on PayPal](https://paypal.me/sasidhar7302)**: Support independent development.
-- **[Star the Repository](https://github.com/Sasidhar-7302/Ghost_Writer)**: Help more people discover the project.
+- **[Star the Repository](https://github.com/chintuai2026/Ghost_Writer)**: Help more people discover the project.
 - **[Contribute](docs/CONTRIBUTING.md)**: Open an issue or submit a pull request.
 
 ---
