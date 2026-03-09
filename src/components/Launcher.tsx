@@ -124,7 +124,9 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
         console.log("Launcher mounted");
         // Seed demo data if needed (safe to call always)
         if (window.electronAPI && window.electronAPI.invoke) {
-            window.electronAPI.invoke('seed-demo').catch(err => console.error("Failed to seed demo:", err));
+            window.electronAPI.invoke('seed-demo')
+                .then(() => fetchMeetings())
+                .catch(err => console.error("Failed to seed demo:", err));
         }
 
         // Sync initial undetectable state
@@ -181,6 +183,7 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
         return () => {
             if (removeMeetingsListener) removeMeetingsListener();
             if (removeUndetectableListener) removeUndetectableListener();
+            if (removeAirGapListener) removeAirGapListener();
             if (removeScreenshotListener) removeScreenshotListener();
             // clearInterval(interval);
         };

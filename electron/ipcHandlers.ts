@@ -1,7 +1,7 @@
 // ipcHandlers.ts — Coordinator
 // Delegates to focused sub-handler modules in ./ipc/
 
-import { app, ipcMain, shell, dialog } from "electron"
+import { app, ipcMain, shell, dialog, BrowserWindow } from "electron"
 import { AppState } from "./main"
 import { DatabaseManager } from "./db/DatabaseManager"
 import { rateLimiter } from "./utils/rateLimiter"
@@ -975,6 +975,12 @@ export function initializeIpcHandlers(appState: AppState): void {
     if (ragManager && ragManager.isReady()) {
       ragManager.reprocessMeeting('demo-meeting').catch(console.error);
     }
+
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('meetings-updated');
+      }
+    });
 
     return { success: true };
   });

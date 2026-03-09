@@ -136,6 +136,20 @@ const App: React.FC = () => {
     }
   }, [showStartup, isLauncherWindow]);
 
+  useEffect(() => {
+    const restartOnboarding = () => {
+      if (!isLauncherWindow && !isDefault) return;
+      setIsSettingsOpen(false);
+      setShowModeSelection(false);
+      setShowSetupWizard(true);
+    };
+
+    window.addEventListener('ghost-writer:restart-onboarding', restartOnboarding as EventListener);
+    return () => {
+      window.removeEventListener('ghost-writer:restart-onboarding', restartOnboarding as EventListener);
+    };
+  }, [isDefault, isLauncherWindow]);
+
   // Handlers
   const handleStartMeetingTrigger = () => {
     setShowModeSelection(true);

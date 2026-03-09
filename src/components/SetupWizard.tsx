@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ArrowRight, ArrowLeft, Key, Mic, Brain, FileText, Sparkles, Monitor, Activity, ShieldCheck, AlertCircle, Loader2, Globe, Command } from 'lucide-react';
+import { Check, ArrowRight, ArrowLeft, Mic, Brain, Sparkles, Monitor, Activity, ShieldCheck, Loader2, Globe, Command } from 'lucide-react';
 
 interface SetupWizardProps {
     onComplete: () => void;
@@ -16,23 +16,11 @@ interface SetupStep {
 
 const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     const [currentStep, setCurrentStep] = useState(0);
-    const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-    const [isChecking, setIsChecking] = useState(false);
     const [systemInfo, setSystemInfo] = useState<{
         gpu: { success: boolean; info?: any; error?: string } | null;
         ollama: { success: boolean; running: boolean; models?: any[]; error?: string } | null;
         whisper: { hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string } | null;
     }>({ gpu: null, ollama: null, whisper: null });
-
-    const [apiKeys, setApiKeys] = useState({
-        groq: '',
-        openai: '',
-        claude: '',
-        deepseek: '',
-        gemini: ''
-    });
-
-    const [primaryProvider, setPrimaryProvider] = useState<'gemini' | 'groq'>('gemini');
 
     const steps: SetupStep[] = [
         {
@@ -59,7 +47,6 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     ];
 
     const performDiagnosis = async () => {
-        setIsChecking(true);
         try {
             const [gpu, ollama, whisper] = await Promise.all([
                 window.electronAPI.getGpuInfo(),
@@ -86,8 +73,6 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             setSystemInfo({ gpu, ollama, whisper: updatedWhisper });
         } catch (error) {
             console.error('Diagnosis failed:', error);
-        } finally {
-            setIsChecking(false);
         }
     };
 
@@ -99,16 +84,15 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 // Poll status to auto-proceed when models finish downloading
                 pollInterval = setInterval(async () => {
                     const status = await window.electronAPI.getWhisperStatus();
-                    if (status) {
-                        setSystemInfo(prev => ({ ...prev, whisper: status }));
-                        if (!status.isDownloading && status.hasModel && status.hasBinary) {
-                            clearInterval(pollInterval);
-                            setTimeout(() => {
-                                setCurrentStep(2);
-                                setCompletedSteps(prev => new Set([...prev, 1]));
-                            }, 2000); // Small delay to let user see the green checks
+                        if (status) {
+                            setSystemInfo(prev => ({ ...prev, whisper: status }));
+                            if (!status.isDownloading && status.hasModel && status.hasBinary) {
+                                clearInterval(pollInterval);
+                                setTimeout(() => {
+                                    setCurrentStep(2);
+                                }, 2000); // Small delay to let user see the green checks
+                            }
                         }
-                    }
                 }, 2000);
             });
         }
@@ -121,7 +105,6 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     const handleNext = async () => {
         if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
-            setCompletedSteps(prev => new Set([...prev, currentStep]));
         } else {
             localStorage.setItem('setupComplete', 'true');
             onComplete();
@@ -145,23 +128,25 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
     const renderDiagnosisCard = (title: string, icon: React.ReactNode, status: 'loading' | 'success' | 'warning' | 'error', details: string, sub?: string) => {
         const statusColors = {
-            loading: 'opacity-50',
+            loading: 'text-text-secondary',
             success: 'text-text-primary',
             warning: 'text-orange-400',
             error: 'text-red-400'
         };
 
         return (
-            <div className={`p-4 rounded-xl bg-white/5 border border-white/10 flex items-start gap-4 transition-all duration-300 hover:bg-white/10`}>
-                <div className={`mt-1 text-text-secondary`}>{icon}</div>
+            <div className="rounded-2xl border border-border-subtle bg-[var(--bg-card-alpha)] p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-border-muted hover:bg-[var(--bg-elevated)]/70">
+                <div className="flex items-start gap-4">
+                <div className="mt-1 text-[var(--accent-primary)]">{icon}</div>
                 <div className="flex-1 min-w-0 text-left text-xs">
                     <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-text-tertiary uppercase tracking-widest text-[10px]">{title}</span>
                         {status === 'loading' && <Loader2 className="w-3 h-3 animate-spin text-text-tertiary" />}
-                        {status === 'success' && <ShieldCheck className="w-3 h-3 text-text-primary opacity-50" />}
+                        {status === 'success' && <ShieldCheck className="w-3 h-3 text-[var(--accent-primary)]" />}
                     </div>
                     <p className={`font-medium ${statusColors[status]}`}>{details}</p>
                     {sub && <p className="text-text-tertiary mt-0.5">{sub}</p>}
+                </div>
                 </div>
             </div>
         );
@@ -172,25 +157,25 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             case 0:
                 return (
                     <div className="text-center py-4">
-                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-8 border border-white/10">
-                            <Sparkles className="w-8 h-8 text-text-primary" />
+                        <div className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-2xl border border-border-subtle bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.22),rgba(18,18,26,0.92))] shadow-[0_24px_60px_-24px_rgba(56,189,248,0.55)]">
+                            <Sparkles className="w-8 h-8 text-[var(--accent-primary)]" />
                         </div>
-                        <h2 className="text-3xl font-light tracking-tight text-text-primary mb-4 italic">Ghost Writer</h2>
+                        <h2 className="mb-4 text-3xl font-light tracking-tight text-text-primary italic">Ghost Writer</h2>
                         <p className="text-text-secondary max-w-sm mx-auto leading-relaxed mb-12">
-                            High-fidelity meeting and interview assistance.
-                            Built for professionals who require discretion and accuracy.
+                            High-fidelity meeting and interview assistance with the same visual system as the core app.
+                            Private by default, fast in live conversations, and tuned for screenshot-aware answers.
                         </p>
-                        <div className="grid grid-cols-3 gap-6 opacity-80 max-w-lg mx-auto border-t border-white/5 pt-12">
+                        <div className="mx-auto grid max-w-lg grid-cols-3 gap-4 border-t border-border-subtle pt-10 opacity-90">
                             <div className="space-y-2">
-                                <Activity className="w-5 h-5 mx-auto text-text-tertiary" />
+                                <Activity className="mx-auto h-5 w-5 text-[var(--accent-primary)]" />
                                 <span className="block text-[10px] uppercase tracking-tighter text-text-tertiary">Live Detection</span>
                             </div>
                             <div className="space-y-2">
-                                <ShieldCheck className="w-5 h-5 mx-auto text-text-tertiary" />
+                                <ShieldCheck className="mx-auto h-5 w-5 text-[var(--accent-primary)]" />
                                 <span className="block text-[10px] uppercase tracking-tighter text-text-tertiary">Zero-Cloud Option</span>
                             </div>
                             <div className="space-y-2">
-                                <Globe className="w-5 h-5 mx-auto text-text-tertiary" />
+                                <Globe className="mx-auto h-5 w-5 text-[var(--accent-primary)]" />
                                 <span className="block text-[10px] uppercase tracking-tighter text-text-tertiary">Context Aware</span>
                             </div>
                         </div>
@@ -233,16 +218,17 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                             <motion.div
                                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }}
                                 transition={{ repeat: Infinity, duration: 3 }}
-                                className="absolute inset-0 bg-white/20 rounded-full blur-2xl"
+                                className="absolute inset-0 rounded-full blur-2xl"
+                                style={{ backgroundColor: 'rgba(56, 189, 248, 0.2)' }}
                             />
-                            <div className="relative w-24 h-24 bg-white flex items-center justify-center rounded-3xl shadow-2xl">
-                                <Check className="w-10 h-10 text-black" />
+                            <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-border-subtle bg-[var(--bg-card)] shadow-[0_32px_90px_-40px_rgba(56,189,248,0.8)]">
+                                <Check className="h-10 w-10 text-[var(--accent-primary)]" />
                             </div>
                         </div>
                         <div className="space-y-4">
                             <h2 className="text-3xl font-light tracking-tight text-text-primary">Deployment Ready</h2>
                             <p className="text-text-secondary max-w-sm mx-auto leading-relaxed">
-                                Ghost Writer is 100% offline and optimized for your hardware. <br />Discretion is now enabled.
+                                Ghost Writer is configured for your hardware and ready to launch into the full interface.
                             </p>
                         </div>
                         <div className="flex justify-center gap-6 font-mono text-[9px] uppercase tracking-widest text-text-tertiary opacity-40">
@@ -264,21 +250,20 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-md flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[200] bg-[var(--overlay-bg)] backdrop-blur-xl flex items-center justify-center p-6">
             <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-xl bg-white/[0.03] border border-white/10 rounded-[2.5rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col backdrop-blur-3xl relative"
+                className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-[2.5rem] border border-border-subtle bg-[linear-gradient(180deg,rgba(18,18,26,0.98),rgba(5,5,8,0.98))] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.85)]"
             >
                 {/* Subtle Glass Highlight */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_45%)]" />
 
                 {/* Progress Indicators */}
                 <div className="px-10 pt-10 pb-4 flex items-center justify-between gap-2">
                     {steps.map((step, index) => (
                         <div key={step.id} className="flex-1 flex flex-col gap-2">
-                            <div className={`h-[2px] rounded-full transition-all duration-700 ${index <= currentStep ? 'bg-text-primary h-[3px]' : 'bg-white/10'
-                                }`} />
+                            <div className={`h-[2px] rounded-full transition-all duration-700 ${index <= currentStep ? 'h-[3px] bg-[var(--accent-primary)]' : 'bg-border-subtle'}`} />
                             <span className={`text-[8px] uppercase tracking-widest font-bold transition-opacity duration-500 ${index === currentStep ? 'opacity-100 text-text-primary' : 'opacity-0'
                                 }`}>{step.title}</span>
                         </div>
@@ -314,7 +299,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     <button
                         onClick={handleNext}
                         disabled={!canProceed()}
-                        className="h-14 min-w-[160px] bg-white text-black hover:bg-white/90 disabled:bg-white/10 disabled:text-text-tertiary rounded-2xl flex items-center justify-center gap-3 font-bold transition-all text-xs uppercase tracking-[0.2em] shadow-[0_10px_40px_-10px_rgba(255,255,255,0.3)] disabled:shadow-none"
+                        className="flex h-14 min-w-[160px] items-center justify-center gap-3 rounded-2xl bg-[var(--accent-primary)] text-black shadow-[0_16px_40px_-18px_rgba(56,189,248,0.85)] transition-all text-xs font-bold uppercase tracking-[0.2em] hover:brightness-110 disabled:bg-bg-input disabled:text-text-tertiary disabled:shadow-none"
                     >
                         {currentStep === steps.length - 1 ? 'Activate' : 'Next'}
                         {currentStep < steps.length - 1 && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}

@@ -1,6 +1,60 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell } from "electron"
 import path from "path"
 import fs from "fs"
+
+const APP_NAME = "Ghost Writer";
+const LEGACY_USER_DATA_NAME = "Electron";
+
+function copyIfMissing(sourcePath: string, targetPath: string): void {
+  if (!fs.existsSync(sourcePath) || fs.existsSync(targetPath)) {
+    return;
+  }
+
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.cpSync(sourcePath, targetPath, { recursive: true });
+}
+
+function normalizeUserDataPath(): void {
+  try {
+    app.setName(APP_NAME);
+    const appDataPath = app.getPath("appData");
+    const desiredUserDataPath = path.join(appDataPath, APP_NAME);
+    const legacyUserDataPath = path.join(appDataPath, LEGACY_USER_DATA_NAME);
+
+    if (app.getPath("userData") !== desiredUserDataPath) {
+      app.setPath("userData", desiredUserDataPath);
+    }
+
+    if (!fs.existsSync(legacyUserDataPath) || legacyUserDataPath === desiredUserDataPath) {
+      return;
+    }
+
+    const entriesToMigrate = [
+      "credentials.enc",
+      "calendar_tokens.enc",
+      "ghost-writer.db",
+      "theme-config.json",
+      "install_id.txt",
+      "install_ping_sent.txt",
+      "context_documents",
+      "whisper",
+      "ai-runtime",
+      "logs"
+    ];
+
+    for (const entry of entriesToMigrate) {
+      copyIfMissing(
+        path.join(legacyUserDataPath, entry),
+        path.join(desiredUserDataPath, entry)
+      );
+    }
+  } catch {
+    // Path normalization is best-effort and should never block app startup.
+  }
+}
+
+normalizeUserDataPath();
+
 import { autoUpdater } from "electron-updater"
 require('dotenv').config();
 
@@ -1338,7 +1392,7 @@ async function initializeApp() {
   appInitialized = true;
 
   // CRITICAL: Set app name BEFORE any paths are resolved or services initialized
-  app.setName("Ghost Writer");
+  app.setName(APP_NAME);
   console.log('[Main] App Name set to:', app.getName());
 
   console.log('[Main] initializeApp called at', new Date().toISOString());

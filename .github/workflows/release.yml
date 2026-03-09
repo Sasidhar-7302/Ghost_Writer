@@ -57,7 +57,7 @@ jobs:
           gh release view "v${{ github.event.inputs.version }}" || gh release create "v${{ github.event.inputs.version }}" --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
           
           # Upload the Windows executable
-          gh release upload "v${{ github.event.inputs.version }}" release/*.exe --clobber
+          gh release upload "v${{ github.event.inputs.version }}" artifacts/*.exe --clobber
           
           # Upload auto-updater files if they were generated
           if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi
@@ -126,7 +126,7 @@ jobs:
           gh release view "v${{ github.event.inputs.version }}" || gh release create "v${{ github.event.inputs.version }}" --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
           
           # Upload the macOS executable
-          gh release upload "v${{ github.event.inputs.version }}" release/*.dmg --clobber
+          gh release upload "v${{ github.event.inputs.version }}" artifacts/*.dmg --clobber
           
           # Upload auto-updater files if they were generated
           if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi

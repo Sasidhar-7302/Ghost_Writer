@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Info, Monitor, Globe } from 'lucide-react';
+import { Globe, RotateCcw, Sparkles } from 'lucide-react';
 
 interface GeneralSettingsProps { }
 
@@ -119,6 +119,19 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
         }
     };
 
+    const handleReplayOnboarding = () => {
+        localStorage.removeItem('setupComplete');
+        window.dispatchEvent(new CustomEvent('ghost-writer:restart-onboarding'));
+    };
+
+    const handleReseedDemo = async () => {
+        try {
+            await window.electronAPI?.invoke?.('seed-demo');
+        } catch (error) {
+            console.error('Failed to reseed demo meeting:', error);
+        }
+    };
+
     return (
         <div className="space-y-8 animated fadeIn">
             <div>
@@ -180,6 +193,27 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = () => {
                         <p className="text-xs text-text-secondary leading-relaxed">
                             When enabled, <strong className="text-text-primary">Ghost Writer requires Local Whisper STT and Ollama LLM to be used.</strong> It will aggressively block any outgoing requests to public cloud providers (OpenAI, Gemini, Deepgram, etc.) to ensure complete data privacy for highly sensitive meetings.
                         </p>
+                    </div>
+
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
+                        <label className="block text-xs font-medium text-text-secondary uppercase tracking-wide mb-3">Guided Setup & Demo</label>
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={handleReplayOnboarding}
+                                className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-input px-4 py-2.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary"
+                            >
+                                <Sparkles size={14} />
+                                Replay Onboarding
+                            </button>
+                            <button
+                                onClick={handleReseedDemo}
+                                className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-input px-4 py-2.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary"
+                            >
+                                <RotateCcw size={14} />
+                                Restore Demo Meeting
+                            </button>
+                        </div>
+                        <p className="mt-2 text-xs text-text-tertiary">Use these if the setup guide or sample Ghost Writer meeting is missing in a packaged build.</p>
                     </div>
                 </div>
             </div>

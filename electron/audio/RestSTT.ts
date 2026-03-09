@@ -189,7 +189,7 @@ export class RestSTT extends EventEmitter {
     /**
      * Stop the upload timer and flush remaining buffer
      */
-    public stop(): void {
+    public async stop(): Promise<void> {
         if (!this.isActive) return;
 
         console.log(`[RestSTT] Stopping (${this.provider})...`);
@@ -201,7 +201,7 @@ export class RestSTT extends EventEmitter {
         }
 
         // Flush remaining audio
-        this.flushAndUpload();
+        await this.flushAndUpload();
     }
 
     /**

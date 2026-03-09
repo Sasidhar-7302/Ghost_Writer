@@ -10,7 +10,9 @@ import { logger } from '../utils/logger';
 
 const log = logger.createChild('CredentialsManager');
 
-const CREDENTIALS_PATH = path.join(app.getPath('userData'), 'credentials.enc');
+function getCredentialsPath(): string {
+    return path.join(app.getPath('userData'), 'credentials.enc');
+}
 
 export interface CustomProvider {
     id: string;
@@ -82,7 +84,7 @@ export class CredentialsManager {
      */
     public init(): void {
         console.log(`[CredentialsManager] Data path: ${app.getPath('userData')}`);
-        console.log(`[CredentialsManager] Loading from: ${CREDENTIALS_PATH}`);
+        console.log(`[CredentialsManager] Loading from: ${getCredentialsPath()}`);
         this.loadCredentials();
         log.info('Initialized');
     }
@@ -467,24 +469,26 @@ export class CredentialsManager {
 
     public clearAll(): void {
         this.credentials = {};
-        if (fs.existsSync(CREDENTIALS_PATH)) {
-            fs.unlinkSync(CREDENTIALS_PATH);
+        const credentialsPath = getCredentialsPath();
+        if (fs.existsSync(credentialsPath)) {
+            fs.unlinkSync(credentialsPath);
         }
         console.log('[CredentialsManager] All credentials cleared');
     }
 
     private saveCredentials(): void {
         try {
+            const credentialsPath = getCredentialsPath();
             if (!safeStorage.isEncryptionAvailable()) {
                 log.warn('Encryption not available, falling back to plaintext');
                 // Fallback: save as plaintext (less secure, but functional)
-                fs.writeFileSync(CREDENTIALS_PATH + '.json', JSON.stringify(this.credentials));
+                fs.writeFileSync(credentialsPath + '.json', JSON.stringify(this.credentials));
                 return;
             }
 
             const data = JSON.stringify(this.credentials);
             const encrypted = safeStorage.encryptString(data);
-            fs.writeFileSync(CREDENTIALS_PATH, encrypted);
+            fs.writeFileSync(credentialsPath, encrypted);
         } catch (error) {
             log.error('Failed to save credentials', error);
         }
@@ -492,14 +496,15 @@ export class CredentialsManager {
 
     private loadCredentials(): void {
         try {
+            const credentialsPath = getCredentialsPath();
             // Try encrypted file first
-            if (fs.existsSync(CREDENTIALS_PATH)) {
+            if (fs.existsSync(credentialsPath)) {
                 if (!safeStorage.isEncryptionAvailable()) {
                     log.warn('Encryption not available for load');
                     return;
                 }
 
-                const encrypted = fs.readFileSync(CREDENTIALS_PATH);
+                const encrypted = fs.readFileSync(credentialsPath);
                 const decrypted = safeStorage.decryptString(encrypted);
                 this.credentials = JSON.parse(decrypted);
                 console.log(`[CredentialsManager] Model preference loaded: ${this.credentials.modelPreference || 'none'}`);
@@ -509,7 +514,7 @@ export class CredentialsManager {
             }
 
             // Fallback: try plaintext file
-            const plaintextPath = CREDENTIALS_PATH + '.json';
+            const plaintextPath = credentialsPath + '.json';
             if (fs.existsSync(plaintextPath)) {
                 const data = fs.readFileSync(plaintextPath, 'utf-8');
                 this.credentials = JSON.parse(data);
