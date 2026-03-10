@@ -403,6 +403,9 @@ export class CredentialsManager {
     }
 
     public setLocalWhisperModel(model: string): void {
+        if (this.credentials.localWhisperModel === model) {
+            return;
+        }
         this.credentials.localWhisperModel = model;
         this.saveCredentials();
         console.log(`[CredentialsManager] Local Whisper Model set to: ${model}`);

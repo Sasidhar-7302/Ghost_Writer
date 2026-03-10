@@ -4,6 +4,17 @@
 import { ipcMain, shell } from "electron";
 import type { AppState } from "../main";
 
+function getCalendarModule() {
+  return require('../services/CalendarManager') as {
+    CalendarManager: { getInstance: () => any };
+    isGoogleCalendarConfigured: () => boolean;
+  };
+}
+
+function isCalendarEnabled(): boolean {
+  return getCalendarModule().isGoogleCalendarConfigured();
+}
+
 export function registerCalendarEmailHandlers(appState: AppState): void {
   // ==========================================
   // Calendar Integration
@@ -11,7 +22,10 @@ export function registerCalendarEmailHandlers(appState: AppState): void {
 
   ipcMain.handle("calendar-connect", async () => {
     try {
-      const { CalendarManager } = require('../services/CalendarManager');
+      if (!isCalendarEnabled()) {
+        return { success: false, error: 'Calendar integration is disabled until Google OAuth credentials are configured.' };
+      }
+      const { CalendarManager } = getCalendarModule();
       await CalendarManager.getInstance().startAuthFlow();
       return { success: true };
     } catch (error: any) {
@@ -21,23 +35,35 @@ export function registerCalendarEmailHandlers(appState: AppState): void {
   });
 
   ipcMain.handle("calendar-disconnect", async () => {
-    const { CalendarManager } = require('../services/CalendarManager');
+    if (!isCalendarEnabled()) {
+      return { success: true };
+    }
+    const { CalendarManager } = getCalendarModule();
     await CalendarManager.getInstance().disconnect();
     return { success: true };
   });
 
   ipcMain.handle("get-calendar-status", async () => {
-    const { CalendarManager } = require('../services/CalendarManager');
+    if (!isCalendarEnabled()) {
+      return { connected: false };
+    }
+    const { CalendarManager } = getCalendarModule();
     return CalendarManager.getInstance().getConnectionStatus();
   });
 
   ipcMain.handle("get-upcoming-events", async () => {
-    const { CalendarManager } = require('../services/CalendarManager');
+    if (!isCalendarEnabled()) {
+      return [];
+    }
+    const { CalendarManager } = getCalendarModule();
     return CalendarManager.getInstance().getUpcomingEvents();
   });
 
   ipcMain.handle("calendar-refresh", async () => {
-    const { CalendarManager } = require('../services/CalendarManager');
+    if (!isCalendarEnabled()) {
+      return { success: true, skipped: true };
+    }
+    const { CalendarManager } = getCalendarModule();
     await CalendarManager.getInstance().refreshState();
     return { success: true };
   });
@@ -82,7 +108,10 @@ export function registerCalendarEmailHandlers(appState: AppState): void {
 
   ipcMain.handle("get-calendar-attendees", async (_, eventId: string) => {
     try {
-      const { CalendarManager } = require('../services/CalendarManager');
+      if (!isCalendarEnabled()) {
+        return [];
+      }
+      const { CalendarManager } = getCalendarModule();
       const cm = CalendarManager.getInstance();
 
       const events = await cm.getUpcomingEvents();

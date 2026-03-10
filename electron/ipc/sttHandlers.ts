@@ -87,7 +87,18 @@ export function registerSTTHandlers(appState: AppState): void {
     try {
       const { WhisperModelManager } = require('../audio/WhisperModelManager');
       const manager = WhisperModelManager.getInstance();
+      const previousModel = manager.getStatus().selectedModel;
+
+      if (previousModel === model) {
+        return { success: true, status: manager.getStatus(), unchanged: true };
+      }
+
       manager.setModel(model);
+
+      if (manager.isReady()) {
+        await appState.reconfigureSttProvider();
+      }
+
       return { success: true, status: manager.getStatus() };
     } catch (error: any) {
       console.error("Error setting local whisper model:", error);

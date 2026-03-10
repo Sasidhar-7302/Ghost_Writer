@@ -8,8 +8,10 @@ import { EventEmitter } from 'events';
 
 // Configuration
 // In a real app, these should be in environment variables or build configs
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "YOUR_CLIENT_ID_HERE";
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "YOUR_CLIENT_SECRET_HERE";
+const DEFAULT_GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID_HERE";
+const DEFAULT_GOOGLE_CLIENT_SECRET = "YOUR_CLIENT_SECRET_HERE";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || DEFAULT_GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = "http://localhost:11111/auth/callback";
 const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
 
@@ -17,8 +19,8 @@ function getTokenPath(): string {
     return path.join(app.getPath('userData'), 'calendar_tokens.enc');
 }
 
-if (GOOGLE_CLIENT_ID === "YOUR_CLIENT_ID_HERE" || GOOGLE_CLIENT_SECRET === "YOUR_CLIENT_SECRET_HERE") {
-    console.warn('[CalendarManager] Google OAuth credentials are using defaults. Calendar features will not work until valid credentials are provided via env vars.');
+export function isGoogleCalendarConfigured(): boolean {
+    return GOOGLE_CLIENT_ID !== DEFAULT_GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET !== DEFAULT_GOOGLE_CLIENT_SECRET;
 }
 
 export interface CalendarEvent {
@@ -51,6 +53,9 @@ export class CalendarManager extends EventEmitter {
     }
 
     public init() {
+        if (!isGoogleCalendarConfigured()) {
+            return;
+        }
         this.loadTokens();
     }
 
@@ -59,6 +64,10 @@ export class CalendarManager extends EventEmitter {
     // =========================================================================
 
     public async startAuthFlow(): Promise<void> {
+        if (!isGoogleCalendarConfigured()) {
+            throw new Error('Google Calendar integration is disabled until valid OAuth credentials are configured.');
+        }
+
         return new Promise((resolve, reject) => {
             // 1. Create Loopback Server
             const server = http.createServer(async (req, res) => {
@@ -120,7 +129,7 @@ export class CalendarManager extends EventEmitter {
     public getConnectionStatus(): { connected: boolean; email?: string, lastSync?: number } {
         // We don't store email in tokens usually, but we could fetch it.
         // For now, simpler boolean.
-        return { connected: this.isConnected };
+        return { connected: isGoogleCalendarConfigured() && this.isConnected };
     }
 
     private getAuthUrl(): string {
@@ -157,6 +166,10 @@ export class CalendarManager extends EventEmitter {
     // =========================================================================
 
     public async refreshState(): Promise<void> {
+        if (!isGoogleCalendarConfigured()) {
+            return;
+        }
+
         console.log('[CalendarManager] Refreshing state (Reality Reconciliation)...');
 
         // 1. Reset Soft Heuristics
@@ -328,6 +341,7 @@ export class CalendarManager extends EventEmitter {
     // =========================================================================
 
     public async getUpcomingEvents(force: boolean = false): Promise<CalendarEvent[]> {
+        if (!isGoogleCalendarConfigured()) return [];
         if (!this.isConnected || !this.accessToken) return [];
 
         // Check expiry

@@ -23,6 +23,7 @@ import { IncomingMessage } from 'http';
 // whisper.cpp release info
 let WHISPER_CPP_VERSION = 'v1.8.3'; // Fallback
 let cachedBinaryUrls: { cpu: string; cuda: string; source?: string } | null = null;
+const CUDA_RUNTIME_DLLS = ['cublas64_12.dll', 'cublasLt64_12.dll', 'cudart64_12.dll'];
 
 /**
  * Get download URLs for whisper binaries.
@@ -209,7 +210,11 @@ export class WhisperModelManager {
 
     public setModel(model: string): void {
         if (WHISPER_MODELS[model]) {
+            if (this.selectedModel === model) {
+                return;
+            }
             this.selectedModel = model;
+            this.hasUserExplicitlyChosen = true;
             // Persist choice
             try {
                 const { CredentialsManager } = require('../services/CredentialsManager');
@@ -324,10 +329,28 @@ export class WhisperModelManager {
             // macOS Apple Silicon always uses Metal GPU acceleration when built from source
             return this.hasBinary();
         }
-        const cudaDll = path.join(this.binDir, 'ggml-cuda.dll');
-        // Also check Release subfolder
-        const cudaDllRelease = path.join(this.binDir, 'Release', 'ggml-cuda.dll');
-        return fs.existsSync(cudaDll) || fs.existsSync(cudaDllRelease);
+
+        const candidateDirs = [this.binDir, path.join(this.binDir, 'Release')];
+
+        return candidateDirs.some((dir) => {
+            if (!fs.existsSync(dir)) {
+                return false;
+            }
+
+            // Older whisper.cpp CUDA bundles included ggml-cuda.dll directly.
+            if (fs.existsSync(path.join(dir, 'ggml-cuda.dll'))) {
+                return true;
+            }
+
+            // Newer cublas builds ship CUDA runtime DLLs next to whisper-cli.exe/whisper-server.exe.
+            const hasRuntimeSet = CUDA_RUNTIME_DLLS.every((file) => fs.existsSync(path.join(dir, file)));
+            const hasWhisperExecutable =
+                fs.existsSync(path.join(dir, 'whisper-cli.exe')) ||
+                fs.existsSync(path.join(dir, 'whisper-server.exe')) ||
+                fs.existsSync(path.join(dir, 'main.exe'));
+
+            return hasRuntimeSet && hasWhisperExecutable;
+        });
     }
 
     /**

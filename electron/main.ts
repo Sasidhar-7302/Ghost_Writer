@@ -1443,25 +1443,29 @@ async function initializeApp() {
 
   // Initialize CalendarManager
   try {
-    const { CalendarManager } = require('./services/CalendarManager');
-    const calMgr = CalendarManager.getInstance();
-    calMgr.init();
+    const { CalendarManager, isGoogleCalendarConfigured } = require('./services/CalendarManager');
+    if (isGoogleCalendarConfigured()) {
+      const calMgr = CalendarManager.getInstance();
+      calMgr.init();
 
-    calMgr.on('start-meeting-requested', (event: any) => {
-      console.log('[Main] Start meeting requested from calendar notification', event);
-      appState.centerAndShowWindow();
-      appState.startMeeting({
-        title: event.title,
-        calendarEventId: event.id,
-        source: 'calendar'
+      calMgr.on('start-meeting-requested', (event: any) => {
+        console.log('[Main] Start meeting requested from calendar notification', event);
+        appState.centerAndShowWindow();
+        appState.startMeeting({
+          title: event.title,
+          calendarEventId: event.id,
+          source: 'calendar'
+        });
       });
-    });
 
-    calMgr.on('open-requested', () => {
-      appState.centerAndShowWindow();
-    });
+      calMgr.on('open-requested', () => {
+        appState.centerAndShowWindow();
+      });
 
-    console.log('[Main] CalendarManager initialized');
+      console.log('[Main] CalendarManager initialized');
+    } else {
+      console.log('[Main] Calendar integration disabled (no Google OAuth credentials configured)');
+    }
   } catch (e) {
     console.error('[Main] Failed to initialize CalendarManager:', e);
   }
