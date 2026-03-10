@@ -177,6 +177,7 @@ out.log
 check_userData.js
 tmp/
 /tmp/
+.tmp/
 /env.txt
 tests/eval/results/
 eng.traineddata
