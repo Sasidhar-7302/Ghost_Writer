@@ -58,6 +58,9 @@ jobs:
           
           # Upload the Windows executable
           gh release upload "v${{ github.event.inputs.version }}" artifacts/*.exe --clobber
+
+          # Upload optional AI runtime bundle used by packaged installs
+          if [ -f ai-runtime.zip ]; then gh release upload "v${{ github.event.inputs.version }}" ai-runtime.zip --clobber; fi
           
           # Upload auto-updater files if they were generated
           if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi
