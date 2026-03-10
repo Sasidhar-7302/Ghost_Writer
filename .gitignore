@@ -135,6 +135,7 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+.vscode/
 
 # yarn v2
 .yarn/cache
@@ -179,6 +180,12 @@ tmp/
 /env.txt
 tests/eval/results/
 eng.traineddata
+ai-runtime.zip
+build_errors.txt
+diff.txt
+diff.utf8.txt
+renderer/
+worker-script/
 
 # Test scripts and artifacts
 test_*.js
