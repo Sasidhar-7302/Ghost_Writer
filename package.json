@@ -113,6 +113,10 @@
   "keywords": [],
   "author": "Chintu AI Team",
   "license": "AGPL-3.0",
+  "engines": {
+    "node": "20 || >=22",
+    "npm": ">=10"
+  },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
     "@napi-rs/cli": "^3.5.1",
