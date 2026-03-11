@@ -57,6 +57,26 @@ export const PromptsSettings: React.FC = () => {
         }
     };
 
+    const handleUseSample = async (type: 'interview' | 'meeting') => {
+        try {
+            setSaving(type);
+            const prompt = type === 'interview' ? defaultInterview : defaultMeeting;
+            if (type === 'interview') setInterviewPrompt(prompt);
+            else setMeetingPrompt(prompt);
+
+            const result = await window.electronAPI.setCustomPrompt(type, prompt);
+            if (result.success) {
+                showStatus('success', `${type === 'interview' ? 'Interview' : 'Meeting'} sample prompt restored!`);
+            } else {
+                showStatus('error', `Failed to restore sample prompt: ${result.error}`);
+            }
+        } catch (error) {
+            showStatus('error', `Error restoring sample prompt: ${error}`);
+        } finally {
+            setSaving(null);
+        }
+    };
+
     const showStatus = (type: 'success' | 'error', message: string) => {
         setStatus({ type, message });
         setTimeout(() => setStatus({ type: null, message: '' }), 3000);
@@ -118,6 +138,14 @@ export const PromptsSettings: React.FC = () => {
                             <RotateCcw size={14} /> Reset
                         </button>
                         <button
+                            onClick={() => handleUseSample('interview')}
+                            disabled={saving === 'interview'}
+                            className="px-3 py-1.5 bg-accent-primary/10 hover:bg-accent-primary/15 text-accent-primary rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm border border-accent-primary/20 disabled:opacity-50"
+                            title="Restore bundled sample prompt"
+                        >
+                            <Info size={14} /> Use Sample
+                        </button>
+                        <button
                             onClick={() => handleSave('interview')}
                             disabled={saving === 'interview'}
                             className="px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded-lg text-xs font-medium shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
@@ -130,7 +158,7 @@ export const PromptsSettings: React.FC = () => {
                 <div className="mt-3 flex items-start gap-2 p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 text-[10px] text-blue-300">
                     <Info size={14} className="shrink-0 mt-0.5" />
                     <p>
-                        <strong>Note:</strong> You can use <code>{"{RESUME_CONTEXT}"}</code> and <code>{"{JD_CONTEXT}"}</code> placeholders to inject user context.
+                        <strong>Note:</strong> You can use <code>{"{RESUME_CONTEXT}"}</code> and <code>{"{JD_CONTEXT}"}</code> placeholders to inject user context. The packaged app does not ship your resume or saved context files.
                     </p>
                 </div>
             </div>
@@ -165,6 +193,14 @@ export const PromptsSettings: React.FC = () => {
                             <RotateCcw size={14} /> Reset
                         </button>
                         <button
+                            onClick={() => handleUseSample('meeting')}
+                            disabled={saving === 'meeting'}
+                            className="px-3 py-1.5 bg-accent-primary/10 hover:bg-accent-primary/15 text-accent-primary rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm border border-accent-primary/20 disabled:opacity-50"
+                            title="Restore bundled sample prompt"
+                        >
+                            <Info size={14} /> Use Sample
+                        </button>
+                        <button
                             onClick={() => handleSave('meeting')}
                             disabled={saving === 'meeting'}
                             className="px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded-lg text-xs font-medium shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
@@ -177,7 +213,7 @@ export const PromptsSettings: React.FC = () => {
                 <div className="mt-3 flex items-start gap-2 p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 text-[10px] text-blue-300">
                     <Info size={14} className="shrink-0 mt-0.5" />
                     <p>
-                        <strong>Tip:</strong> For meetings, you can repurpose the Resume/JD context as Project Docs/Agenda.
+                        <strong>Tip:</strong> For meetings, you can repurpose the Resume/JD context as Project Docs/Agenda. The packaged app does not ship your saved meeting context files.
                     </p>
                 </div>
             </div>

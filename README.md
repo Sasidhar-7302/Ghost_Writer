@@ -107,6 +107,12 @@ Direct latest-download URLs:
 - Windows: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe`
 - macOS: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg`
 
+## Packaged App Privacy
+
+- The `.exe` and `.dmg` installers do not include your local resume, job description, project docs, agenda, screenshots, meeting history, or credentials.
+- Those files are created only after install and are stored in the app's local `userData` directory on that machine.
+- The packaged app ships only the built-in interview and meeting sample prompts, which can be restored from Settings if a user edits or deletes them.
+
 ## Quick Start
 
 1. Download the latest installer from GitHub Releases.
