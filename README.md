@@ -97,10 +97,15 @@ Official releases are published here:
 
 - [GitHub Releases](https://github.com/chintuai2026/Ghost_Writer/releases)
 
-Expected asset names for `v1.0.0`:
+Stable download asset names:
 
-- Windows: `Ghost.Writer.Setup.1.0.0.exe`
-- macOS: `Ghost.Writer.1.0.0-arm64.dmg`
+- Windows: `Ghost.Writer.Setup.exe`
+- macOS: `Ghost.Writer.arm64.dmg`
+
+Direct latest-download URLs:
+
+- Windows: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe`
+- macOS: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg`
 
 ## Quick Start
 

@@ -75,7 +75,7 @@
           ]
         }
       ],
-      "artifactName": "Ghost.Writer.Setup.${version}.${ext}",
+      "artifactName": "Ghost.Writer.Setup.${ext}",
       "icon": "assets/icons/win/icon.ico",
       "requestedExecutionLevel": "asInvoker"
     },
@@ -88,7 +88,7 @@
           ]
         }
       ],
-      "artifactName": "Ghost.Writer.${version}-${arch}.${ext}",
+      "artifactName": "Ghost.Writer.${arch}.${ext}",
       "icon": "assets/icons/mac/icon.png",
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
