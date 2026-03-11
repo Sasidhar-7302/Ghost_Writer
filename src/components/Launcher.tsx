@@ -9,6 +9,7 @@ import TopSearchPill from './TopSearchPill';
 import GlobalChatOverlay from './GlobalChatOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analytics } from '../lib/analytics/analytics.service'; // Added analytics import
+import { APP_VERSION } from '../lib/appVersion';
 
 interface Meeting {
     id: string;
@@ -417,7 +418,7 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
                                                 <div className="flex flex-col">
                                                     <h1 className="text-lg font-bold text-text-primary tracking-tight leading-none">Ghost Writer</h1>
                                                     <span className="text-[10px] text-text-tertiary font-medium mt-1 uppercase tracking-widest opacity-70">
-                                                        {isAirGap ? "Secure Local Loop" : "Production v1.2.4"}
+                                                        {isAirGap ? "Secure Local Loop" : `Production v${APP_VERSION}`}
                                                         {isAirGap && (
                                                             <span className="ml-2 px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[8px] font-black rounded border border-emerald-500/30">
                                                                 Local Only

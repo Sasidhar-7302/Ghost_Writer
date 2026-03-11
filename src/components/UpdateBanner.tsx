@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
+import { APP_VERSION } from '../lib/appVersion';
 
 const UpdateBanner: React.FC = () => {
     const [updateInfo, setUpdateInfo] = useState<any>(null);
@@ -35,7 +36,7 @@ const UpdateBanner: React.FC = () => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'u') {
                 e.preventDefault();
-                setUpdateInfo({ version: '1.0.2' });
+                setUpdateInfo({ version: APP_VERSION });
                 setStatus('ready');
                 setIsVisible(true);
             }

@@ -4,6 +4,7 @@ import {
     Heart, Linkedin, Instagram, Mail, MicOff, Star, Bug
 } from 'lucide-react';
 import evinProfile from './icon.ico';
+import { APP_VERSION } from '../lib/appVersion';
 
 interface AboutSectionProps { }
 
@@ -32,14 +33,14 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                 <div className="w-20 h-20 mb-6 group cursor-default flex items-center justify-center">
                     <img src={evinProfile} alt="Ghost Writer Logo" className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]" />
                 </div>
-                <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-2">Ghost Writer v1.0.0</h1>
+                <h1 className="text-2xl font-bold text-text-primary tracking-tight mb-2">{`Ghost Writer v${APP_VERSION}`}</h1>
                 <div className="flex items-center gap-2 mb-6">
                     <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black text-[9px] font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(255,255,255,0.3)]">
                         <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
                         Production Stable
                     </span>
                     <span className="px-3 py-1 rounded-full bg-white/5 text-text-tertiary text-[9px] font-bold border border-white/5 uppercase tracking-widest">
-                        v1.0.0 Official
+                        {`v${APP_VERSION} Official`}
                     </span>
                 </div>
                 <p className="text-center text-text-secondary text-sm leading-relaxed max-w-md">

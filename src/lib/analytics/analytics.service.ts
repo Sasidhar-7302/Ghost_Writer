@@ -1,6 +1,7 @@
 // GA4 Analytics via manual gtag.js injection
 // Works in Electron by dynamically loading the gtag script into the renderer DOM
 // Only requires the public Measurement ID — no API secrets needed
+import { APP_VERSION } from '../appVersion';
 
 // --- Types ---
 
@@ -47,7 +48,6 @@ interface SessionDurationPayload {
 // --- Configuration ---
 
 const GA4_MEASUREMENT_ID = "G-494RMJ2G6E";
-const APP_VERSION = "1.0.0";
 
 // Extend window to include gtag/dataLayer
 declare global {
