@@ -95,12 +95,12 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
             const result = await window.electronAPI.setCustomPrompt(mode, defaultPrompt);
 
             if (result.success) {
-                showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} sample prompt restored.`);
+                showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} default prompt restored.`);
             } else {
-                showStatus('error', `Failed to restore sample prompt: ${result.error}`);
+                showStatus('error', `Failed to restore default prompt: ${result.error}`);
             }
         } catch (error) {
-            showStatus('error', `Error restoring sample prompt: ${error}`);
+            showStatus('error', `Error restoring default prompt: ${error}`);
         } finally {
             setSaving(false);
         }
@@ -262,9 +262,9 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                             onClick={handleUseBundledPrompt}
                             disabled={saving}
                             className="px-4 py-2 bg-accent-primary/10 hover:bg-accent-primary/15 text-accent-primary rounded-xl text-xs font-bold transition-all border border-accent-primary/20 flex items-center gap-2 disabled:opacity-50"
-                            title={`Restore the bundled ${mode} sample prompt`}
+                            title={`Restore the bundled ${mode} default prompt`}
                         >
-                            <MessageSquare size={14} /> Use Sample Prompt
+                            <MessageSquare size={14} /> Use Default
                         </button>
                         <button
                             onClick={handleSavePrompt}
@@ -288,18 +288,13 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
 
                 <div className={`mt-6 p-4 rounded-2xl border bg-accent-primary/5 border-accent-primary/10 text-accent-primary/80 flex items-start gap-4`}>
                     <Info size={18} className="shrink-0 mt-0.5 opacity-70" />
-                    <div className="space-y-2 text-[11px] leading-relaxed font-medium">
-                        <p>
-                            <strong className="text-text-primary">Injection points:</strong> Embed {isInterview ? (
-                                <><code>{"{RESUME_CONTEXT}"}</code> and <code>{"{JD_CONTEXT}"}</code></>
-                            ) : (
-                                <><code>{"{PROJECT_KNOWLEDGE}"}</code> and <code>{"{AGENDA_CONTEXT}"}</code></>
-                            )} to dynamically populate your session data during reference.
-                        </p>
-                        <p>
-                            <strong className="text-text-primary">Packaged privacy:</strong> The installer ships only the bundled sample prompt. Your resume, job description, project docs, agenda, screenshots, meetings, and credentials are stored locally after install and are not embedded into the <code>.exe</code> or <code>.dmg</code>.
-                        </p>
-                    </div>
+                    <p className="text-[11px] leading-relaxed font-medium">
+                        <strong className="text-text-primary">Injection points:</strong> Embed {isInterview ? (
+                            <><code>{"{RESUME_CONTEXT}"}</code> and <code>{"{JD_CONTEXT}"}</code></>
+                        ) : (
+                            <><code>{"{PROJECT_KNOWLEDGE}"}</code> and <code>{"{AGENDA_CONTEXT}"}</code></>
+                        )} to dynamically populate your session data during reference.
+                    </p>
                 </div>
             </section>
 
