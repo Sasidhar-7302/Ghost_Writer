@@ -4,8 +4,47 @@ const path = require("path");
 const projectRoot = path.resolve(__dirname, "..");
 const electronBinary = require("electron");
 const env = { ...process.env, NODE_ENV: "development" };
+const distElectronDir = path.join(projectRoot, "dist-electron");
+const requiredBuildFiles = [
+  path.join(distElectronDir, "main.js"),
+  path.join(distElectronDir, "shortcuts.js"),
+];
 
 delete env.ELECTRON_RUN_AS_NODE;
+
+async function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureElectronBuildArtifacts() {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const missing = requiredBuildFiles.filter((filePath) => {
+      try {
+        return !require("fs").existsSync(filePath);
+      } catch {
+        return true;
+      }
+    });
+
+    if (missing.length === 0) {
+      return;
+    }
+
+    await wait(150);
+  }
+
+  const missing = requiredBuildFiles.filter((filePath) => {
+    try {
+      return !require("fs").existsSync(filePath);
+    } catch {
+      return true;
+    }
+  });
+
+  throw new Error(
+    `Electron build is incomplete. Missing: ${missing.map((filePath) => path.basename(filePath)).join(", ")}`
+  );
+}
 
 function cleanupInstalledGhostWriter() {
   if (process.platform !== "win32") {
@@ -36,23 +75,33 @@ function cleanupInstalledGhostWriter() {
 
 cleanupInstalledGhostWriter();
 
-const child = spawn(electronBinary, [path.join(projectRoot, "dist-electron", "main.js")], {
-  cwd: projectRoot,
-  stdio: "inherit",
-  env,
-  windowsHide: false,
-});
-
-child.on("exit", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
+(async () => {
+  try {
+    await ensureElectronBuildArtifacts();
+  } catch (error) {
+    console.error("[run_electron_dev] Failed to verify Electron build artifacts:", error.message || error);
+    process.exit(1);
     return;
   }
 
-  process.exit(code ?? 0);
-});
+  const child = spawn(electronBinary, [path.join(distElectronDir, "main.js")], {
+    cwd: projectRoot,
+    stdio: "inherit",
+    env,
+    windowsHide: false,
+  });
 
-child.on("error", (error) => {
-  console.error("[run_electron_dev] Failed to start Electron:", error);
-  process.exit(1);
-});
+  child.on("exit", (code, signal) => {
+    if (signal) {
+      process.kill(process.pid, signal);
+      return;
+    }
+
+    process.exit(code ?? 0);
+  });
+
+  child.on("error", (error) => {
+    console.error("[run_electron_dev] Failed to start Electron:", error);
+    process.exit(1);
+  });
+})();

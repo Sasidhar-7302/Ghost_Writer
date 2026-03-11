@@ -11,7 +11,7 @@
     "build:desktop": "npm run clean && tsc && vite build && tsc -p electron/tsconfig.json",
     "preview": "vite preview",
     "postinstall": "cross-env SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm rebuild sharp",
-    "electron:dev": "tsc -p electron/tsconfig.json && node scripts/run_electron_dev.js",
+    "electron:dev": "rimraf dist-electron && tsc -p electron/tsconfig.json && node scripts/run_electron_dev.js",
     "electron:build": "tsc -p electron/tsconfig.json && cross-env NODE_ENV=production electron .",
     "app:dev": "node scripts/app_dev.js",
     "app:build": "npm run clean:release && npm run build:desktop && node scripts/package_release.js",
