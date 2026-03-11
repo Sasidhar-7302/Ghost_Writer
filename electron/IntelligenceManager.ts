@@ -4,6 +4,8 @@
 
 import { EventEmitter } from 'events';
 import { LLMHelper } from './LLMHelper';
+import fs from 'fs';
+import path from 'path';
 
 export interface TranscriptSegment {
     marker?: string;
@@ -110,14 +112,58 @@ export class IntelligenceManager extends EventEmitter {
     } | null = null;
 
     private currentScreenshots: string[] = [];
+    private meetingScreenshotSessionDir: string | null = null;
 
-    public setMeetingMetadata(metadata: any) {
-        this.currentMeetingMetadata = metadata;
+    public setMeetingMetadata(metadata: any = null) {
+        this.currentMeetingMetadata = metadata ?? null;
         this.currentScreenshots = [];
+        this.meetingScreenshotSessionDir = null;
     }
 
     public addMeetingScreenshot(path: string) {
-        this.currentScreenshots.push(path);
+        const persistedPath = this.persistMeetingScreenshot(path);
+        if (!this.currentScreenshots.includes(persistedPath)) {
+            this.currentScreenshots.push(persistedPath);
+        }
+    }
+
+    private ensureMeetingScreenshotSessionDir(): string {
+        if (this.meetingScreenshotSessionDir) {
+            return this.meetingScreenshotSessionDir;
+        }
+
+        const sessionId = typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        this.meetingScreenshotSessionDir = path.join(
+            app.getPath('userData'),
+            'meeting_screenshots',
+            sessionId
+        );
+        fs.mkdirSync(this.meetingScreenshotSessionDir, { recursive: true });
+        return this.meetingScreenshotSessionDir;
+    }
+
+    private persistMeetingScreenshot(sourcePath: string): string {
+        try {
+            if (!sourcePath || !fs.existsSync(sourcePath)) {
+                return sourcePath;
+            }
+
+            const sessionDir = this.ensureMeetingScreenshotSessionDir();
+            const ext = path.extname(sourcePath) || '.png';
+            const filename = `${typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(16).slice(2)}`}${ext}`;
+            const targetPath = path.join(sessionDir, filename);
+
+            fs.copyFileSync(sourcePath, targetPath);
+            return targetPath;
+        } catch (error) {
+            console.warn(`[IntelligenceManager] Failed to persist meeting screenshot ${sourcePath}: ${error instanceof Error ? error.message : error}`);
+            return sourcePath;
+        }
     }
 
     // Mode state
@@ -495,7 +541,7 @@ export class IntelligenceManager extends EventEmitter {
         // Autowire the latest screenshot captured via Ctrl+H if no explicit image was passed
         let targetImagePath = imagePath;
         if (!targetImagePath && this.currentScreenshots.length > 0) {
-            targetImagePath = this.currentScreenshots.pop();
+            targetImagePath = this.currentScreenshots[this.currentScreenshots.length - 1];
             console.log(`[IntelligenceManager] Picked up implicit screenshot for WhatShouldISay: ${targetImagePath}`);
         }
 
@@ -964,7 +1010,9 @@ export class IntelligenceManager extends EventEmitter {
             usage: [...this.fullUsage],
             startTime: this.sessionStartTime,
             durationMs: durationMs,
-            context: this.getFullSessionContext() // Use FULL session context, not just recent window
+            context: this.getFullSessionContext(), // Use FULL session context, not just recent window
+            screenshots: [...this.currentScreenshots],
+            meetingMetadata: this.currentMeetingMetadata ? { ...this.currentMeetingMetadata } : null
         };
 
         // 2. Reset state immediately so new meeting can start or UI is clean
@@ -975,14 +1023,17 @@ export class IntelligenceManager extends EventEmitter {
 
         const placeholder: Meeting = {
             id: meetingId,
-            title: "Processing...",
+            title: snapshot.meetingMetadata?.title || "Processing...",
             date: new Date().toISOString(),
             duration: durationStr,
             summary: "Generating summary...",
             detailedSummary: { overview: '', actionItems: [], keyPoints: [] },
             transcript: snapshot.transcript,
             usage: snapshot.usage,
-            isProcessed: false // Mark as unprocessed initially
+            calendarEventId: snapshot.meetingMetadata?.calendarEventId,
+            source: snapshot.meetingMetadata?.source || 'manual',
+            isProcessed: false, // Mark as unprocessed initially
+            screenshots: snapshot.screenshots
         };
 
         try {
@@ -1004,21 +1055,33 @@ export class IntelligenceManager extends EventEmitter {
     /**
      * Heavy lifting: LLM Title, Summary, and DB Write
      */
-    private async processAndSaveMeeting(data: { transcript: TranscriptSegment[], usage: any[], startTime: number, durationMs: number, context: string }, meetingId: string): Promise<void> {
+    private async processAndSaveMeeting(data: {
+        transcript: TranscriptSegment[],
+        usage: any[],
+        startTime: number,
+        durationMs: number,
+        context: string,
+        screenshots: string[],
+        meetingMetadata: {
+            title?: string;
+            calendarEventId?: string;
+            source?: 'manual' | 'calendar';
+        } | null
+    }, meetingId: string): Promise<void> {
         let title = "Untitled Session";
         let summaryData: { overview?: string, actionItems: string[], keyPoints: string[] } = { actionItems: [], keyPoints: [] };
         let calendarEventId: string | undefined;
         let source: 'manual' | 'calendar' = 'manual';
 
-        if (this.currentMeetingMetadata) {
-            if (this.currentMeetingMetadata.title) title = this.currentMeetingMetadata.title;
-            if (this.currentMeetingMetadata.calendarEventId) calendarEventId = this.currentMeetingMetadata.calendarEventId;
-            if (this.currentMeetingMetadata.source) source = this.currentMeetingMetadata.source;
+        if (data.meetingMetadata) {
+            if (data.meetingMetadata.title) title = data.meetingMetadata.title;
+            if (data.meetingMetadata.calendarEventId) calendarEventId = data.meetingMetadata.calendarEventId;
+            if (data.meetingMetadata.source) source = data.meetingMetadata.source;
         }
 
         try {
             // Generate Title (only if not set by calendar)
-            if (this.recapLLM && (!this.currentMeetingMetadata || !this.currentMeetingMetadata.title)) {
+            if (this.recapLLM && (!data.meetingMetadata || !data.meetingMetadata.title)) {
                 const titlePrompt = `Generate a concise 3-6 word title for this meeting context. Output ONLY the title text. Do not use quotes or conversational filler.`;
                 const groqTitlePrompt = GROQ_TITLE_PROMPT;
 
@@ -1108,10 +1171,7 @@ export class IntelligenceManager extends EventEmitter {
             const meetingData: Meeting = {
                 id: meetingId,
                 title: title,
-                date: new Date().toISOString(), // This will use current time of completion, maybe usage start time is better? 
-                // Actually, using completion time updates the sort order to top.
-                // But let's respect original date. Ideally we pass date in data.
-                // For now, new Date() is fine as it's just a few seconds difference.
+                date: new Date(data.startTime).toISOString(),
                 duration: durationStr,
                 summary: summaryText,
                 detailedSummary: summaryData,
@@ -1120,15 +1180,11 @@ export class IntelligenceManager extends EventEmitter {
                 calendarEventId: calendarEventId,
                 source: source,
                 isProcessed: true, // Mark as processed
-                screenshots: [...this.currentScreenshots]
+                screenshots: [...data.screenshots]
             };
 
             // Save to SQLite
             DatabaseManager.getInstance().saveMeeting(meetingData, data.startTime, data.durationMs);
-
-            // Clear metadata
-            this.currentMeetingMetadata = null;
-            this.currentScreenshots = [];
 
             // Notify Frontend to refresh list
             const wins = require('electron').BrowserWindow.getAllWindows();
@@ -1137,10 +1193,6 @@ export class IntelligenceManager extends EventEmitter {
         } catch (error) {
             console.error('[IntelligenceManager] Failed to save meeting:', error);
         } finally {
-            // Clear metadata
-            this.currentMeetingMetadata = null;
-            this.currentScreenshots = [];
-
             // ALWAYS Notify Frontend to refresh list - even if summarized failed
             const wins = require('electron').BrowserWindow.getAllWindows();
             wins.forEach((w: any) => w.webContents.send('meetings-updated'));
@@ -1186,7 +1238,13 @@ export class IntelligenceManager extends EventEmitter {
                     usage: details.usage,
                     startTime: startTime,
                     durationMs: durationMs,
-                    context: context
+                    context: context,
+                    screenshots: details.screenshots || [],
+                    meetingMetadata: {
+                        title: details.title && details.title !== 'Processing...' ? details.title : undefined,
+                        calendarEventId: details.calendarEventId,
+                        source: details.source
+                    }
                 };
 
                 await this.processAndSaveMeeting(snapshot, m.id);
@@ -1207,6 +1265,9 @@ export class IntelligenceManager extends EventEmitter {
         this.sessionStartTime = Date.now();
         this.lastAssistantMessage = null;
         this.assistantResponseHistory = []; // Reset temporal RAG history
+        this.currentMeetingMetadata = null;
+        this.currentScreenshots = [];
+        this.meetingScreenshotSessionDir = null;
         this.activeMode = 'idle';
         if (this.assistCancellationToken) {
             this.assistCancellationToken.abort();

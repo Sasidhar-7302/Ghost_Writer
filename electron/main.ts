@@ -681,9 +681,8 @@ export class AppState {
     console.log('[Main] Starting Meeting...', metadata);
 
     this.isMeetingActive = true;
+    this.intelligenceManager.setMeetingMetadata(metadata || null);
     if (metadata) {
-      this.intelligenceManager.setMeetingMetadata(metadata);
-
       // Check for audio configuration preference
       if (metadata.audio) {
         await this.reconfigureAudio(metadata.audio.inputDeviceId, metadata.audio.outputDeviceId);

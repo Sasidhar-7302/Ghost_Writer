@@ -213,6 +213,19 @@ export class DatabaseManager {
         // Migrations completed
     }
 
+    private deleteScreenshotFiles(paths: string[]): void {
+        for (const screenshotPath of paths) {
+            if (!screenshotPath) continue;
+            try {
+                if (fs.existsSync(screenshotPath)) {
+                    fs.unlinkSync(screenshotPath);
+                }
+            } catch (error) {
+                console.warn(`[DatabaseManager] Failed to delete screenshot ${screenshotPath}:`, error);
+            }
+        }
+    }
+
     // ============================================
     // Public API
     // ============================================
@@ -479,9 +492,20 @@ export class DatabaseManager {
         if (!this.db) return false;
 
         try {
+            const row = this.db.prepare('SELECT screenshots_json FROM meetings WHERE id = ?').get(id) as any;
             const stmt = this.db.prepare('DELETE FROM meetings WHERE id = ?');
             const info = stmt.run(id);
             console.log(`[DatabaseManager] Deleted meeting ${id}. Changes: ${info.changes}`);
+            if (info.changes > 0 && row?.screenshots_json) {
+                try {
+                    const screenshots = JSON.parse(row.screenshots_json || '[]');
+                    if (Array.isArray(screenshots)) {
+                        this.deleteScreenshotFiles(screenshots);
+                    }
+                } catch {
+                    // Ignore malformed screenshot metadata during cleanup.
+                }
+            }
             return info.changes > 0;
         } catch (error) {
             console.error(`[DatabaseManager] Failed to delete meeting ${id}:`, error);
@@ -529,6 +553,18 @@ export class DatabaseManager {
         if (!this.db) return false;
 
         try {
+            const meetingRows = this.db.prepare('SELECT screenshots_json FROM meetings').all() as any[];
+            for (const row of meetingRows) {
+                try {
+                    const screenshots = JSON.parse(row.screenshots_json || '[]');
+                    if (Array.isArray(screenshots)) {
+                        this.deleteScreenshotFiles(screenshots);
+                    }
+                } catch {
+                    // Ignore malformed screenshot metadata during cleanup.
+                }
+            }
+
             // Clear all tables (order matters due to foreign keys, but SQLite handles with ON DELETE CASCADE)
             this.db.exec('DELETE FROM embedding_queue');
             this.db.exec('DELETE FROM chunk_summaries');
@@ -536,6 +572,11 @@ export class DatabaseManager {
             this.db.exec('DELETE FROM ai_interactions');
             this.db.exec('DELETE FROM transcripts');
             this.db.exec('DELETE FROM meetings');
+
+            const meetingScreenshotDir = path.join(app.getPath('userData'), 'meeting_screenshots');
+            if (fs.existsSync(meetingScreenshotDir)) {
+                fs.rmSync(meetingScreenshotDir, { recursive: true, force: true });
+            }
 
             // All data cleared
             return true;
