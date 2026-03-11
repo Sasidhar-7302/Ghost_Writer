@@ -258,9 +258,12 @@ export class LocalWhisperSTT extends EventEmitter {
 
         // Use a promise-based lock to ensure only one server starts
         if (sharedServerPromise) {
-            console.log('[LocalWhisperSTT] Waiting for existing server startup promise...');
+            sharedServerRefCount++;
+            console.log(`[LocalWhisperSTT] Waiting for existing server startup promise (refCount: ${sharedServerRefCount})...`);
             return sharedServerPromise;
         }
+
+        sharedServerRefCount = 1;
 
         sharedServerPromise = (async () => {
             sharedServerStarting = true;
@@ -300,7 +303,6 @@ export class LocalWhisperSTT extends EventEmitter {
                 });
 
                 sharedServerModelPath = this.modelPath;
-                sharedServerRefCount = 1;
 
                 // Log server output for debugging
                 sharedServerProcess.stdout?.on('data', (data: Buffer) => {
