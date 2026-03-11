@@ -190,6 +190,7 @@ worker-script/
 
 # Test scripts and artifacts
 test_*.js
+!tests/test_audio_echo_suppression.js
 test_*.wav
 audit_report.md
 

@@ -109,6 +109,11 @@ import { LocalWhisperSTT } from "./audio/LocalWhisperSTT"
 import { WhisperModelManager } from "./audio/WhisperModelManager"
 import { ISTT, STTFactory } from "./audio/STTFactory"
 import { cleanupOrphanedServers } from "./audio/LocalWhisperSTT";
+import {
+  isLikelyEchoTranscript,
+  pruneTranscriptEchoCandidates,
+  TranscriptEchoCandidate
+} from "./audio/echoSuppression";
 
 import { ContextDocumentManager } from "./services/ContextDocumentManager"
 import { AnalyticsManager } from "./services/AnalyticsManager"
@@ -146,6 +151,7 @@ export class AppState {
 
   private hasDebugged: boolean = false
   private isMeetingActive: boolean = false; // Guard for session state leaks
+  private recentInterviewerTranscripts: TranscriptEchoCandidate[] = [];
 
   // Processing events
   public readonly PROCESSING_EVENTS = {
@@ -327,6 +333,27 @@ export class AppState {
     return buf.length > 0 ? sum / (buf.length / 2) : 0;
   }
 
+  private rememberInterviewerTranscript(text: string, timestamp: number, final: boolean): void {
+    if (!text?.trim()) {
+      return;
+    }
+
+    this.recentInterviewerTranscripts.push({ text, timestamp, final });
+    this.recentInterviewerTranscripts = pruneTranscriptEchoCandidates(
+      this.recentInterviewerTranscripts,
+      timestamp
+    );
+  }
+
+  private shouldSuppressUserEcho(text: string, timestamp: number): boolean {
+    this.recentInterviewerTranscripts = pruneTranscriptEchoCandidates(
+      this.recentInterviewerTranscripts,
+      timestamp
+    );
+
+    return isLikelyEchoTranscript(text, this.recentInterviewerTranscripts, timestamp);
+  }
+
   private async setupSystemAudioPipeline(): Promise<void> {
 
     if (!this.isNativeAudioAvailable) {
@@ -378,10 +405,13 @@ export class AppState {
             return;
           }
 
+          const timestamp = Date.now();
+          this.rememberInterviewerTranscript(segment.text, timestamp, segment.isFinal);
+
           this.intelligenceManager.handleTranscript({
             speaker: 'interviewer',
             text: segment.text,
-            timestamp: Date.now(),
+            timestamp,
             final: segment.isFinal,
             confidence: segment.confidence
           });
@@ -390,7 +420,7 @@ export class AppState {
           const payload = {
             speaker: 'interviewer',
             text: segment.text,
-            timestamp: Date.now(),
+            timestamp,
             final: segment.isFinal,
             confidence: segment.confidence
           };
@@ -412,10 +442,16 @@ export class AppState {
             return;
           }
 
+          const timestamp = Date.now();
+          if (this.shouldSuppressUserEcho(segment.text, timestamp)) {
+            console.log('[Main] Suppressing likely interviewer echo from microphone channel:', segment.text);
+            return;
+          }
+
           this.intelligenceManager.handleTranscript({
             speaker: 'user',
             text: segment.text,
-            timestamp: Date.now(),
+            timestamp,
             final: segment.isFinal,
             confidence: segment.confidence
           });
@@ -424,7 +460,7 @@ export class AppState {
           const payload = {
             speaker: 'user',
             text: segment.text,
-            timestamp: Date.now(),
+            timestamp,
             final: segment.isFinal,
             confidence: segment.confidence
           };
@@ -682,6 +718,7 @@ export class AppState {
     console.log('[Main] Starting Meeting...', metadata);
 
     this.isMeetingActive = true;
+    this.recentInterviewerTranscripts = [];
     this.intelligenceManager.setMeetingMetadata(metadata || null);
     if (metadata) {
       // Check for audio configuration preference
@@ -716,6 +753,7 @@ export class AppState {
     }
     console.log('[Main] Ending Meeting...');
     this.isMeetingActive = false; // Block new data immediately
+    this.recentInterviewerTranscripts = [];
 
     // Track meeting end
     this.analyticsManager.onMeetingEnded();
