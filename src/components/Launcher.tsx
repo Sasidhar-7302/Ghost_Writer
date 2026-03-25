@@ -10,6 +10,7 @@ import GlobalChatOverlay from './GlobalChatOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analytics } from '../lib/analytics/analytics.service'; // Added analytics import
 import { APP_VERSION } from '../lib/appVersion';
+import { usePlatform } from '../hooks/usePlatform';
 
 interface Meeting {
     id: string;
@@ -314,10 +315,12 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
         return `${mm}:00`;
     };
 
+    const { isMac } = usePlatform();
+
     return (
         <div className="h-full w-full flex flex-col bg-bg-primary text-text-primary font-sans overflow-hidden selection:bg-accent-secondary/30">
             {/* 1. Header Navigation Bar (Command Center style) */}
-            <header className="h-14 flex items-center justify-between px-4 border-b border-border-subtle bg-[var(--bg-sidebar-alpha)] backdrop-blur-3xl z-50">
+            <header className={`h-14 flex items-center justify-between px-4 border-b border-border-subtle bg-[var(--bg-sidebar-alpha)] backdrop-blur-3xl z-50 ${isMac ? 'pl-20' : ''}`}>
                 {/* Left: Navigation Controls */}
                 <div className="flex items-center gap-1 no-drag">
                     <button

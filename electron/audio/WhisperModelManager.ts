@@ -592,7 +592,7 @@ export class WhisperModelManager {
             const cmakeBuildDir = path.join(buildDir, 'build');
             fs.mkdirSync(cmakeBuildDir, { recursive: true });
 
-            execSync(`cmake .. -DCMAKE_BUILD_TYPE=Release`, {
+            execSync(`cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF`, {
                 cwd: cmakeBuildDir,
                 timeout: 60000,
                 stdio: 'pipe',
@@ -645,6 +645,39 @@ export class WhisperModelManager {
             const destPath = path.join(this.binDir, 'whisper-cli');
             fs.copyFileSync(builtBinaryPath, destPath);
             fs.chmodSync(destPath, 0o755);
+
+            // ALSO FIND whisper-server AND COPY IT
+            let builtServerPath: string | null = null;
+            const serverPossiblePaths = [
+                path.join(cmakeBuildDir, 'bin', 'whisper-server'),
+                path.join(cmakeBuildDir, 'whisper-server'),
+            ];
+            for (const p of serverPossiblePaths) {
+                if (fs.existsSync(p)) {
+                    builtServerPath = p;
+                    break;
+                }
+            }
+            if (!builtServerPath) {
+                try {
+                    const findResult = execSync(`find "${cmakeBuildDir}" -name "whisper-server" -type f`, {
+                        timeout: 5000,
+                        encoding: 'utf-8',
+                    }).trim();
+                    if (findResult) {
+                        builtServerPath = findResult.split('\n')[0];
+                    }
+                } catch { }
+            }
+            
+            if (builtServerPath) {
+                const serverDestPath = path.join(this.binDir, 'whisper-server');
+                fs.copyFileSync(builtServerPath, serverDestPath);
+                fs.chmodSync(serverDestPath, 0o755);
+                console.log(`[WhisperModelManager] macOS server binary built and ready: ${serverDestPath}`);
+            } else {
+                console.warn('[WhisperModelManager] Built whisper-cli but could not find whisper-server. Server mode will be handicapped.');
+            }
 
             this.downloadProgress = 100;
             console.log(`[WhisperModelManager] macOS binary built and ready: ${destPath}`);

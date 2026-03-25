@@ -1303,6 +1303,9 @@ export class AppState {
     } else {
       if (process.platform === 'darwin') {
         app.dock?.show();
+        if (!app.isPackaged) {
+          app.dock?.setIcon(path.resolve(__dirname, '../assets/icons/mac/icon.png'));
+        }
       }
       this.showTray();
       this._applyDisguise('none');
@@ -1361,14 +1364,12 @@ export class AppState {
 
     console.log(`[AppState] Applying disguise: ${mode} (${appName})`);
 
-    // 1. Update process title (affects Activity Monitor / Task Manager)
-    process.title = appName;
-
-    // Windows: just set app name
-    app.setName(appName);
-
-    // 3. Update App User Model ID (Windows Taskbar grouping)
+    // 1. Update process title and App Name (affects Task Manager / Taskbar)
+    // DANGER: Changing process identity at runtime on macOS causes phantom dock icons!
     if (process.platform === 'win32') {
+      process.title = appName;
+      app.setName(appName);
+      // 3. Update App User Model ID (Windows Taskbar grouping)
       app.setAppUserModelId(`${appName.trim()}-${mode}`);
     }
 
@@ -1405,8 +1406,10 @@ export class AppState {
 
     // Force periodic updates as seen in reference to ensure it sticks
     const forceUpdate = () => {
-      process.title = appName;
-      app.setName(appName);
+      if (process.platform === 'win32') {
+        process.title = appName;
+        app.setName(appName);
+      }
     };
 
     setTimeout(forceUpdate, 200);
@@ -1437,6 +1440,12 @@ async function initializeApp() {
 
   console.log('[Main] initializeApp called at', new Date().toISOString());
   await app.whenReady()
+  
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    // Force the Dock icon in dev mode to show our new icon instead of Electron's
+    // macOS dock.setIcon in dev mode prefers PNG over ICNS
+    app.dock.setIcon(path.resolve(__dirname, '../assets/icons/mac/icon.png'));
+  }
 
   // 1. Initialize Core Services (Singleton init)
   const { CredentialsManager } = require('./services/CredentialsManager');

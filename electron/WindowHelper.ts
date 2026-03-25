@@ -110,6 +110,7 @@ export class WindowHelper {
     const topMargin = Math.round(workArea.height * 0.05);
     const y = Math.round(workArea.x + topMargin);
 
+    const isMac = process.platform === 'darwin';
     // --- 1. Create Launcher Window ---
     const launcherSettings: Electron.BrowserWindowConstructorOptions = {
       width: width,
@@ -128,6 +129,7 @@ export class WindowHelper {
       show: false,
       // Windows: use default title bar
       titleBarStyle: 'hidden',
+      trafficLightPosition: isMac ? { x: 12, y: 16 } : undefined,
       transparent: false,
       hasShadow: true,
       backgroundColor: "#000000", // Fixed: Black background to match startup sequence
@@ -135,9 +137,9 @@ export class WindowHelper {
       resizable: true,
       movable: true,
       center: true,
-      icon: !isDev
-        ? path.join(process.resourcesPath, "assets/icons/win/icon.ico")
-        : path.resolve(__dirname, "../assets/icons/win/icon.ico")
+      icon: isMac
+        ? (!isDev ? path.join(process.resourcesPath, "assets/icons/mac/icon.icns") : path.resolve(__dirname, "../assets/icons/mac/icon.icns"))
+        : (!isDev ? path.join(process.resourcesPath, "assets/icons/win/icon.ico") : path.resolve(__dirname, "../assets/icons/win/icon.ico"))
     }
 
     try {

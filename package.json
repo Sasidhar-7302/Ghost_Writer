@@ -91,7 +91,7 @@
         }
       ],
       "artifactName": "Ghost.Writer.${arch}.${ext}",
-      "icon": "assets/icons/mac/icon.png",
+      "icon": "assets/icons/mac/icon.icns",
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
