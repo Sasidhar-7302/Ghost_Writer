@@ -42,7 +42,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ghost-writer-build-${{ matrix.node-version }}
+        name: ghost-writer-build-${{ matrix.os }}-${{ matrix.node-version }}
         path: |
           dist/
           dist-electron/
