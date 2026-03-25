@@ -6,8 +6,8 @@
   <br>
 
   [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=for-the-badge)](docs/LICENSE)
-  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
-  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
+  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
   [![Electron](https://img.shields.io/badge/Electron-32-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
   [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
   [![Rust](https://img.shields.io/badge/Rust-Native-DEA584?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
@@ -15,7 +15,7 @@
   Ghost Writer is an open-source desktop copilot for interviews and meetings.
   It combines local or cloud LLMs, local Whisper transcription, screenshot-aware answering, and a stealth-oriented overlay for fast in-session assistance.
 
-  [Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](docs/CHANGELOG.md) · [Contributing](docs/CONTRIBUTING.md)
+  [Download](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](docs/CHANGELOG.md) · [Contributing](docs/CONTRIBUTING.md)
 </div>
 
 ---
@@ -95,7 +95,7 @@ Current official release: `v1.0.0`
 
 Official releases are published here:
 
-- [GitHub Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+- [GitHub Releases](https://github.com/chintuai2026/Ghost_Writer/releases)
 
 Stable download asset names:
 
@@ -104,8 +104,8 @@ Stable download asset names:
 
 Direct latest-download URLs:
 
-- Windows: `https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe`
-- macOS: `https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg`
+- Windows: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe`
+- macOS: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg`
 
 ## Quick Start
 
@@ -227,7 +227,7 @@ The repo includes:
 ### Install
 
 ```bash
-git clone https://github.com/Sasidhar-7302/Ghost_Writer.git
+git clone https://github.com/chintuai2026/Ghost_Writer.git
 cd Ghost_Writer
 npm install
 ```
@@ -263,7 +263,7 @@ Important:
 
 - the release should include `ai-runtime.zip`
 - the app looks for that asset at:
-  - `https://github.com/Sasidhar-7302/Ghost_Writer/releases/download/v<appVersion>/ai-runtime.zip`
+  - `https://github.com/chintuai2026/Ghost_Writer/releases/download/v<appVersion>/ai-runtime.zip`
 
 If `ai-runtime.zip` is not uploaded to the release, runtime installation will fail for users who need that bundle.
 
