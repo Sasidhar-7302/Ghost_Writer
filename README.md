@@ -104,8 +104,8 @@ Stable download asset names:
 
 Direct latest-download URLs:
 
-- Windows: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe`
-- macOS: `https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg`
+- **Windows**: [Ghost.Writer.Setup.exe](https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe)
+- **macOS**: [Ghost.Writer.arm64.dmg](https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg)
 
 ## Quick Start
 
