@@ -354,7 +354,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`relative flex w-full max-w-xl flex-col overflow-hidden rounded-[2.5rem] border border-border-subtle bg-[linear-gradient(180deg,rgba(18,18,26,0.98),rgba(5,5,8,0.98))] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.85)] ${process.platform === 'darwin' ? 'pt-8' : ''}`}
+                className={`relative flex w-full max-w-xl flex-col overflow-hidden rounded-[2.5rem] border border-border-subtle bg-[linear-gradient(180deg,rgba(18,18,26,0.98),rgba(5,5,8,0.98))] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.85)] ${navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'pt-8' : ''}`}
             >
                 {/* Subtle Glass Highlight */}
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_45%)]" />
