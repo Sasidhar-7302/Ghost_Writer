@@ -102,10 +102,17 @@ Stable download asset names:
 - Windows: `Ghost.Writer.Setup.exe`
 - macOS: `Ghost.Writer.arm64.dmg`
 
-Direct latest-download URLs:
-
 - **Windows**: [Ghost.Writer.Setup.exe](https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe)
 - **macOS**: [Ghost.Writer.arm64.dmg](https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg)
+
+###  macOS Seamless Installation (Recommended)
+If you want an easy, automated setup that bypasses macOS "damaged" errors, open your **Terminal** and paste this command:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install-mac.sh)"
+```
+
+*This script automatically detects your Mac architecture (Intel or Apple Silicon), downloads the latest release, installs it to your Applications folder, and fixes all security permissions.*
 
 ## Quick Start
 

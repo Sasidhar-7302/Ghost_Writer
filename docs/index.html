@@ -112,6 +112,18 @@
                 </a>
             </div>
 
+            <!-- Seamless Mac Install Block -->
+            <div id="mac-installer" class="mt-10 max-w-lg mx-auto animate-in delay-500 hidden md:block">
+                <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80">Seamless macOS Installation</p>
+                <div class="glass-card p-3 flex items-center justify-between gap-4 border-brand-blue/30 shadow-[0_0_25px_rgba(59,130,246,0.1)] group">
+                    <code id="installCommand" class="text-[10px] font-mono text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap pl-2">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install-mac.sh)"</code>
+                    <button onclick="copyInstallCommand()" id="copyBtn" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-brand-blue/20 hover:scale-105 active:scale-95">
+                        Copy
+                    </button>
+                </div>
+                <p class="text-[9px] text-gray-500 mt-2 font-medium">Bypasses "damaged file" errors automatically. Supports Apple Silicon & Intel.</p>
+            </div>
+
             <div class="mt-8 animate-in delay-500">
                 <a href="onboarding.html"
                     class="text-sm text-gray-400 hover:text-brand-blue inline-flex items-center gap-2 transition-colors border-b border-gray-800 pb-1">
@@ -281,6 +293,28 @@
         <p class="text-xs font-light">Engineered for professionals. Designed for stealth.</p>
     </footer>
 
+    <script>
+        function copyInstallCommand() {
+            const cmd = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install-mac.sh)"';
+            navigator.clipboard.writeText(cmd);
+            
+            const btn = document.getElementById('copyBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Copied!';
+            btn.classList.add('bg-green-500/20', 'text-green-400', 'border-green-500/30');
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.remove('bg-green-500/20', 'text-green-400', 'border-green-500/30');
+            }, 2000);
+        }
+
+        // Optional: Show only on Mac
+        if (navigator.platform.toUpperCase().indexOf('MAC') === -1) {
+            // Uncomment below if you want to hide the command for Windows users
+            // document.getElementById('mac-installer').style.display = 'none';
+        }
+    </script>
 </body>
 
 </html>
