@@ -117,6 +117,9 @@ jobs:
           chmod +x assets/whisper-bin/* 2>/dev/null || true
           echo "Whisper binary setup complete."
 
+      - name: Rebuild Native Modules (macOS ARM64)
+        run: ./node_modules/.bin/electron-rebuild --arch arm64
+
       - name: Build macOS Installer
         run: npm run dist -- --mac --arm64 -c.extraMetadata.version=${{ github.event.inputs.version }}
 

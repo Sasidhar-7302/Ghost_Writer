@@ -132,7 +132,7 @@ export class WindowHelper {
       trafficLightPosition: isMac ? { x: 12, y: 16 } : undefined,
       transparent: false,
       hasShadow: true,
-      backgroundColor: "#000000", // Fixed: Black background to match startup sequence
+      backgroundColor: "#12121a", // Matches app's primary background color
       focusable: true,
       resizable: true,
       movable: true,

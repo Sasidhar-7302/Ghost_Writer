@@ -62,8 +62,13 @@ cp -R "$MOUNT_DIR/$APP_NAME.app" "$INSTALL_DIR/"
 echo "🛡️ Fixing macOS security permissions..."
 xattr -cr "$INSTALL_DIR/$APP_NAME.app"
 
-# 7. Cleanup
-echo "🧹 Cleaning up..."
+# 7. Pre-configure User Data (Ensures Demo Seeding works)
+echo "🗄️ Pre-configuring application data..."
+USER_DATA_DIR="$HOME/Library/Application Support/Ghost Writer"
+mkdir -p "$USER_DATA_DIR"
+
+# 8. Cleanup
+echo "🧹 Cleaning up installation files..."
 hdiutil detach "$MOUNT_DIR" -quiet
 rm -rf "$MOUNT_DIR"
 rm "$TEMP_DMG"
