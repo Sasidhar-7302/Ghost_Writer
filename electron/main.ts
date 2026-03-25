@@ -25,7 +25,15 @@ function normalizeUserDataPath(): void {
       app.setPath("userData", desiredUserDataPath);
     }
 
+    // Check if we've already migrated to avoid expensive fs calls
+    const migrationFlag = path.join(desiredUserDataPath, ".migrated");
+    if (fs.existsSync(migrationFlag)) {
+      return;
+    }
+
     if (!fs.existsSync(legacyUserDataPath) || legacyUserDataPath === desiredUserDataPath) {
+      if (!fs.existsSync(desiredUserDataPath)) fs.mkdirSync(desiredUserDataPath, { recursive: true });
+      fs.writeFileSync(migrationFlag, "done");
       return;
     }
 
@@ -48,6 +56,10 @@ function normalizeUserDataPath(): void {
         path.join(desiredUserDataPath, entry)
       );
     }
+
+    // Mark migration as complete
+    if (!fs.existsSync(desiredUserDataPath)) fs.mkdirSync(desiredUserDataPath, { recursive: true });
+    fs.writeFileSync(migrationFlag, "done");
   } catch {
     // Path normalization is best-effort and should never block app startup.
   }
@@ -57,8 +69,21 @@ normalizeUserDataPath();
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
-  console.error("[Main] Another Ghost Writer instance is already running. Exiting this instance.");
+  console.log("[Main] Another instance is already running. Signals sent to focus it. Exiting.");
   app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Someone tried to run a second instance, we should focus our window.
+    const state = AppState.getInstance();
+    if (state) {
+      const win = state.getMainWindow();
+      if (win) {
+        if (win.isMinimized()) win.restore();
+        win.show(); // Handles both hidden windows and bringing to front
+        win.focus();
+      }
+    }
+  });
 }
 
 import { autoUpdater } from "electron-updater"
@@ -214,24 +239,26 @@ export class AppState {
     // LAZY INIT: Do not setup pipeline here to prevent launch volume surge.
     // this.setupSystemAudioPipeline()
 
-    // Initialize Analytics
-    this.analyticsManager = AnalyticsManager.getInstance();
-    this.analyticsManager.startTracking();
+    // Initialize Auto-Updater (Deferred)
+    setImmediate(() => {
+      this.setupAutoUpdater();
+      
+      // Initialize Analytics
+      this.analyticsManager = AnalyticsManager.getInstance();
+      this.analyticsManager.startTracking();
 
-    // Initialize Auto-Updater
-    this.setupAutoUpdater()
-
-    // Seed demo meeting if database is empty to provide immediate user value
-    try {
-      const db = DatabaseManager.getInstance();
-      const recent = db.getRecentMeetings(1);
-      if (recent.length === 0) {
-        processLog.info("No meetings found, seeding demo meeting.");
-        db.seedDemoMeeting();
+      // Seed demo meeting if database is empty to provide immediate user value
+      try {
+        const db = DatabaseManager.getInstance();
+        const recent = db.getRecentMeetings(1);
+        if (recent.length === 0) {
+          processLog.info("No meetings found, seeding demo meeting.");
+          db.seedDemoMeeting();
+        }
+      } catch (e) {
+        processLog.error("Failed to seed demo meeting", e);
       }
-    } catch (e) {
-      processLog.error("Failed to seed demo meeting", e);
-    }
+    });
   }
 
   private initializeRAGManager(): void {
