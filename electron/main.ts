@@ -220,6 +220,18 @@ export class AppState {
 
     // Initialize Auto-Updater
     this.setupAutoUpdater()
+
+    // Seed demo meeting if database is empty to provide immediate user value
+    try {
+      const db = DatabaseManager.getInstance();
+      const recent = db.getRecentMeetings(1);
+      if (recent.length === 0) {
+        processLog.info("No meetings found, seeding demo meeting.");
+        db.seedDemoMeeting();
+      }
+    } catch (e) {
+      processLog.error("Failed to seed demo meeting", e);
+    }
   }
 
   private initializeRAGManager(): void {
