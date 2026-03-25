@@ -65,7 +65,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                     </div>
                     <h3 className="text-xs font-black text-text-primary uppercase tracking-widest mb-2">Hybrid Compute</h3>
                     <p className="text-[11px] text-text-tertiary leading-relaxed font-medium">
-                        Optimized routing across local Whisper and high-performance cloud intelligence.
+                        Hardware-aware routing across local Whisper and high-performance cloud intelligence. Optimized for Apple Silicon.
                     </p>
                 </div>
             </div>
@@ -75,20 +75,20 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                 <div className="p-6 border-b border-border-subtle">
                     <div className="flex items-start gap-5">
                         <div className="w-14 h-14 rounded-full bg-[var(--bg-glass)] backdrop-blur-md border border-border-subtle flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
-                            <img src={evinProfile} alt="Chintu AI Team" className="w-full h-full object-cover" />
+                            <img src={evinProfile} alt="Ghost Writer Core" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
                                 <div>
-                                    <h4 className="text-sm font-bold text-text-primary">Chintu AI Team</h4>
-                                    <p className="text-[10px] text-text-tertiary">Ghost Writer Core Team</p>
+                                    <h4 className="text-sm font-bold text-text-primary">Ghost Writer Core</h4>
+                                    <p className="text-[10px] text-text-tertiary">Official Development Team</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button onClick={(e) => handleOpenLink(e as any, "https://github.com/chintuai2026/Ghost_Writer")} className="text-text-tertiary hover:text-text-primary transition-colors"><Github size={16} /></button>
                                 </div>
                             </div>
                             <p className="text-xs text-text-secondary leading-relaxed">
-                                Building the future of human-AI collaboration. Ghost Writer is open-source and community driven.
+                                Defining the next generation of privacy-first desktop assistance. Ghost Writer is an open-source project dedicated to local-first intelligence.
                             </p>
                         </div>
                     </div>
@@ -100,7 +100,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                         className="p-4 flex flex-col items-center justify-center gap-2 hover:bg-accent-primary/5 transition-colors group"
                     >
                         <Star size={16} className="text-yellow-500 group-hover:fill-current" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary group-hover:text-text-primary">Star Repo</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary group-hover:text-text-primary">Repository</span>
                     </button>
                     <button
                         onClick={handleCopyEmail}
@@ -110,7 +110,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                         <Mail size={16} className={`transition-colors duration-300 ${copied ? 'text-emerald-400' : 'text-text-primary'}`} />
                         <div className="flex flex-col items-center">
                             <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary group-hover:text-text-primary transition-colors">
-                                {copied ? 'Copied!' : 'Contact'}
+                                {copied ? 'Email Copied' : 'Support'}
                             </span>
                             <span className="text-[10px] text-text-primary font-medium">{copied ? 'support@chintuai.com' : 'support@chintuai.com'}</span>
                         </div>
@@ -126,8 +126,8 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                         <Heart size={20} />
                     </div>
                     <div>
-                        <h4 className="text-xs font-black text-text-primary uppercase tracking-widest">Community Driven</h4>
-                        <p className="text-[10px] text-text-tertiary mt-1 max-w-[200px] font-medium">Ghost Writer is built by a distributed team of privacy entusiasts.</p>
+                        <h4 className="text-xs font-black text-text-primary uppercase tracking-widest">Cross-Platform</h4>
+                        <p className="text-[10px] text-text-tertiary mt-1 max-w-[200px] font-medium">Native support for Windows and macOS Apple Silicon.</p>
                     </div>
                 </div>
             </div>
