@@ -7,11 +7,13 @@ set -e
 
 REPO="chintuai2026/Ghost_Writer"
 APP_NAME="Ghost Writer"
+REPO="chintuai2026/Ghost_Writer"
+BUILD_TIME="2026-03-26 13:15"
 INSTALL_DIR="/Applications"
 
-echo "------------------------------------------"
-echo "👻 Ghost Writer macOS Installer"
-echo "------------------------------------------"
+echo "--------------------------------------------------"
+echo "🚀 Ghost Writer macOS Installer (Build: $BUILD_TIME)"
+echo "--------------------------------------------------"
 
 # 1. Detect Architecture
 ARCH=$(uname -m)
