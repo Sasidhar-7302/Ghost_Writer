@@ -38,11 +38,11 @@
   --bg-input: #08080c;
 
   --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
 
-  --border-subtle: rgba(255, 255, 255, 0.03);
-  --border-muted: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-muted: rgba(255, 255, 255, 0.15);
 
   --accent-primary: #38bdf8;
   --accent-muted: rgba(56, 189, 248, 0.1);
@@ -52,7 +52,7 @@
 
   /* Glass / Acrylic System */
   --bg-glass: rgba(15, 15, 20, 0.7);
-  --border-glass: rgba(255, 255, 255, 0.1);
+  --border-glass: rgba(255, 255, 255, 0.15);
   --bg-surface-frosted: rgba(255, 255, 255, 0.05);
   --shadow-premium: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
   --bg-card-alpha: rgba(20, 20, 25, 0.4);

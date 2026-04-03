@@ -144,8 +144,23 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
 
     // Analytics State
     const requestStartTimeRef = useRef<number | null>(null);
+    const [isInterviewerSpeaking, setIsInterviewerSpeaking] = useState(false);
+    const [isMeetingMode, setIsMeetingMode] = useState(false);
 
-    // Sync transcript setting
+    // Sync transcript setting and meeting mode
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('ghost_writer_interviewer_transcript');
+            setShowTranscript(stored !== 'false');
+
+            window.electronAPI.getContextDocuments?.().then((docs: any) => {
+                if (docs && docs.isMeetingMode) {
+                    setIsMeetingMode(true);
+                }
+            }).catch(console.error);
+        }
+    }, []);
+
     useEffect(() => {
         const handleStorage = () => {
             const stored = localStorage.getItem('ghost_writer_interviewer_transcript');
@@ -1446,7 +1461,7 @@ Provide only the answer, nothing else.`;
                                                 }`}>
                                                 <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${entry.speaker === 'interviewer' ? 'text-purple-400/70' : 'text-blue-400/70'
                                                     }`}>
-                                                    {entry.speaker === 'interviewer' ? '🎙️ Interviewer' : '👤 You'}
+                                                    {entry.speaker === 'interviewer' ? (isMeetingMode ? '🎙️ Person 1' : '🎙️ Interviewer') : '👤 You'}
                                                 </span>
                                                 {entry.text}
                                             </div>
@@ -1479,7 +1494,7 @@ Provide only the answer, nothing else.`;
                         `}>
                                                         {msg.role === 'interviewer' && (
                                                             <div className="flex items-center gap-1.5 mb-1 text-[10px] text-slate-600 font-medium uppercase tracking-wider">
-                                                                Interviewer
+                                                                {isMeetingMode ? 'Person 1' : 'Interviewer'}
                                                                 {msg.isStreaming && <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />}
                                                             </div>
                                                         )}
