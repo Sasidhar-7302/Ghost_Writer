@@ -1387,6 +1387,11 @@ Provide only the answer, nothing else.`;
         // We still want basic markdown support here too
         return (
             <div className="markdown-content">
+                {msg.hasScreenshot && msg.screenshotPreview && (
+                    <div className="mb-3 rounded-lg overflow-hidden border border-white/10 w-fit max-w-[250px]">
+                        <img src={msg.screenshotPreview} alt="Attached screenshot" className="w-full h-auto object-contain" />
+                    </div>
+                )}
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeKatex]}

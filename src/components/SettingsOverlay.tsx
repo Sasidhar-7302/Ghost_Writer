@@ -1976,12 +1976,12 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                             { label: 'Show/Center', key: 'Ctrl/Cmd+Shift+Space', desc: 'Bring Ghost Writer to the front and center' },
                                                             { label: 'Reset / Cancel', key: 'Ctrl/Cmd+R / Alt+C', desc: 'Cancel ongoing AI requests and clear state' },
                                                         ].map((kb, idx) => (
-                                                            <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                                                            <div key={idx} className="bg-[var(--bg-card-alpha)] border border-border-subtle rounded-2xl p-4 flex items-center justify-between group hover:bg-bg-elevated transition-all duration-300">
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-primary block mb-0.5">{kb.label}</span>
                                                                     <span className="text-[11px] text-text-tertiary font-medium">{kb.desc}</span>
                                                                 </div>
-                                                                <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black text-white shadow-xl min-w-[100px] text-center uppercase tracking-wider">
+                                                                <div className="bg-bg-input border border-border-strong rounded-xl px-4 py-2 text-[10px] font-black text-text-primary shadow-sm min-w-[100px] text-center uppercase tracking-wider">
                                                                     {kb.key}
                                                                 </div>
                                                             </div>
@@ -1998,12 +1998,12 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                             { label: 'What to answer', key: 'F8 / Ctrl/Cmd+J', desc: 'Ask AI for the best response to the current dialogue' },
                                                             { label: 'Process Context', key: 'Ctrl/Cmd+Enter', desc: 'Force process current screenshots & transcript' },
                                                         ].map((kb, idx) => (
-                                                            <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                                                            <div key={idx} className="bg-[var(--bg-card-alpha)] border border-border-subtle rounded-2xl p-4 flex items-center justify-between group hover:bg-bg-elevated transition-all duration-300">
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-primary block mb-0.5">{kb.label}</span>
                                                                     <span className="text-[11px] text-text-tertiary font-medium">{kb.desc}</span>
                                                                 </div>
-                                                                <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black text-white shadow-xl min-w-[100px] text-center uppercase tracking-wider">
+                                                                <div className="bg-bg-input border border-border-strong rounded-xl px-4 py-2 text-[10px] font-black text-text-primary shadow-sm min-w-[100px] text-center uppercase tracking-wider">
                                                                     {kb.key}
                                                                 </div>
                                                             </div>
@@ -2019,12 +2019,12 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                             { label: 'Intelligence Shot', key: 'Ctrl/Cmd+H', desc: 'Capture screenshot and analyze immediately' },
                                                             { label: 'Contextual Selection', key: 'Ctrl/Cmd+Shift+H', desc: 'Attach a specific area as manual context' },
                                                         ].map((kb, idx) => (
-                                                            <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                                                            <div key={idx} className="bg-[var(--bg-card-alpha)] border border-border-subtle rounded-2xl p-4 flex items-center justify-between group hover:bg-bg-elevated transition-all duration-300">
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-primary block mb-0.5">{kb.label}</span>
                                                                     <span className="text-[11px] text-text-tertiary font-medium">{kb.desc}</span>
                                                                 </div>
-                                                                <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black text-white shadow-xl min-w-[100px] text-center uppercase tracking-wider">
+                                                                <div className="bg-bg-input border border-border-strong rounded-xl px-4 py-2 text-[10px] font-black text-text-primary shadow-sm min-w-[100px] text-center uppercase tracking-wider">
                                                                     {kb.key}
                                                                 </div>
                                                             </div>
@@ -2042,12 +2042,12 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                             { label: 'Move Left', key: 'Ctrl/Cmd + ←', desc: 'Shift the active window to the left' },
                                                             { label: 'Move Right', key: 'Ctrl/Cmd + →', desc: 'Shift the active window to the right' },
                                                         ].map((kb, idx) => (
-                                                            <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                                                            <div key={idx} className="bg-[var(--bg-card-alpha)] border border-border-subtle rounded-2xl p-4 flex items-center justify-between group hover:bg-bg-elevated transition-all duration-300">
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-primary block mb-0.5">{kb.label}</span>
                                                                     <span className="text-[11px] text-text-tertiary font-medium">{kb.desc}</span>
                                                                 </div>
-                                                                <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black text-white shadow-xl min-w-[100px] text-center uppercase tracking-wider">
+                                                                <div className="bg-bg-input border border-border-strong rounded-xl px-4 py-2 text-[10px] font-black text-text-primary shadow-sm min-w-[100px] text-center uppercase tracking-wider">
                                                                     {kb.key}
                                                                 </div>
                                                             </div>

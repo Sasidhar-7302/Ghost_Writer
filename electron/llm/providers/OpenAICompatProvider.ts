@@ -14,9 +14,10 @@ export class OpenAICompatProvider implements ILLMProvider {
     }
 
     public supportsMultimodal(): boolean {
-        // Assume OpenAI/NVIDIA support vision if they are modern models
-        // DeepSeek reasoner (currently only text) is handled by route logic in LLMHelper
-        return this.modelId.includes('gpt-4o') || this.modelId.includes('vl');
+        // We allow custom OpenAI-compatible endpoints to attempt multimodal 
+        // if they receive an image payload. Disallow deepseek-reasoner explicitly if needed,
+        // but typically the API itself will just reject it if unsupported.
+        return true;
     }
 
     // =========================================================================
