@@ -1,327 +1,102 @@
-# Ghost Writer
+# Ghost Writer Enterprise
 
 <div align="center">
-  <img src="assets/docs/hero_banner.png" width="100%" alt="Ghost Writer hero banner">
+  <img src="assets/docs/hero_banner.png" width="100%" alt="Ghost Writer Enterprise hero banner">
 
   <br>
 
-  [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=for-the-badge)](docs/LICENSE)
+  [![License](https://img.shields.io/badge/license-PROPRIETARY-red?style=for-the-badge)](LICENSE)
   [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
   [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
-  [![Electron](https://img.shields.io/badge/Electron-32-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
-  [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
-  [![Rust](https://img.shields.io/badge/Rust-Native-DEA584?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+  [![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-emerald?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer)
 
-  Ghost Writer is an open-source desktop copilot for interviews and meetings.
-  It combines local or cloud LLMs, local Whisper transcription, screenshot-aware answering, and a stealth-oriented overlay for fast in-session assistance.
+  **Ghost Writer Enterprise** is the world's most sophisticated desktop copilot for professional interviews and high-stakes meetings.
+  *Engineered for stealth, privacy, and actionable intelligence.*
 
-  [Download](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](docs/CHANGELOG.md) · [Contributing](docs/CONTRIBUTING.md)
+  [Download](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Enterprise Security](docs/SECURITY.md)
 </div>
 
 ---
 
-## Version
+## 🚀 Product Vision
+Ghost Writer Enterprise transforms live audio and visual context into actionable strategic advantages. It provides real-time, context-aware suggestions during sessions, backed by robust local-first privacy controls.
 
-Current official release: `v1.0.0`
-
-## Product Snapshot
-
-<div align="center">
-  <img src="assets/docs/feature_showcase.png" width="92%" alt="Ghost Writer feature showcase">
-</div>
+## 💎 Enterprise Features
 
 <table>
 <tr>
 <td width="50%">
 
-### Real-time transcription
-- Local Whisper with persistent server mode
-- Cloud STT options including Deepgram, Groq, OpenAI, Azure, and IBM
-- Dual audio capture from microphone and system audio
-- Fast chunking and transcript cleanup for live answers
+### 🔒 Military-Grade Privacy
+- **Emerald Full Privacy Mode**: Physically block cloud STT/LLM traffic with one click.
+- **Local-First Architecture**: Run high-performance models locally via Ollama and local Whisper.
+- **Encryption at Rest**: API keys and session data are secured via system-level encryption.
 
 </td>
 <td width="50%">
 
-### Flexible intelligence routing
-- Local-first with Ollama
-- Cloud LLM support for Gemini, OpenAI, Claude, Groq, DeepSeek, and custom OpenAI-compatible providers
-- Screenshot-aware prompts and image analysis
-- RAG-backed grounding from meeting history and saved context
+### 🧠 Advanced Intelligence
+- **Dynamic Routing**: Automatically switch between local performance and cloud-scale logic.
+- **Visual Intelligence**: Screenshot-aware answering with multimodal support for code and diagrams.
+- **Strategic RAG**: Semantic retrieval from meeting history and custom knowledge bases.
 
 </td>
 </tr>
 <tr>
 <td width="50%">
 
-### Stealth-oriented overlay
-- Overlay-first UI with global shortcuts
-- Content-protection and disguise-oriented behavior
-- Screenshot attach and quick-answer actions
-- Guided onboarding and recovery actions for packaged installs
+### 🕶️ Stealth-First UI
+- **Glassmorphic Overlay**: A non-intrusive UI that stays in your line of sight without obscuring content.
+- **Disguise Modes**: Dynamic content protection to keep your assistance private.
+- **Global Shortcuts**: Total control via system-wide hotkeys.
 
 </td>
 <td width="50%">
 
-### Packaged for open-source release
-- Windows installer flow
-- macOS Apple Silicon `.dmg` flow
-- Clean `artifacts/` output for maintainers
-- CI aligned to supported Node versions
+### 📊 Business Intelligence
+- **Owner Dashboard**: Real-time conversion funnel and usage analytics.
+- **Monetization Ready**: Integrated checkout session bridge and license validation.
+- **Enterprise Telemetry**: High-fidelity logging for engagement and ROI tracking.
 
 </td>
 </tr>
 </table>
 
-<div align="center">
-  <img src="assets/docs/overlay_showcase.png" width="82%" alt="Ghost Writer overlay showcase">
-</div>
-
-## Core Capabilities
-
-- Real-time transcription from microphone and system audio
-- Fast answer generation for live interviews and meetings
-- Screenshot attach and image-aware responses
-- Local-first operation with Ollama and local Whisper
-- Meeting history, summaries, and local RAG grounding
-- Guided onboarding, demo meeting seeding, and settings-based recovery actions
-
-## Platforms
-
-- Windows: supported
-- macOS: Apple Silicon `arm64` `.dmg` build supported
-
-## Downloads
-
-Official releases are published here:
-
-- [GitHub Releases](https://github.com/chintuai2026/Ghost_Writer/releases)
-
-Stable download asset names:
-
-- Windows: `Ghost.Writer.Setup.exe`
-- macOS: `Ghost.Writer.arm64.dmg`
-
-- **Windows**: [Ghost.Writer.Setup.exe](https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe)
-- **macOS**: [Ghost.Writer.arm64.dmg](https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg)
-
-###  macOS Seamless Installation (Recommended)
-If you want an easy, automated setup that bypasses macOS "damaged" errors, open your **Terminal** and paste this command:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install-mac.sh)"
-```
-
-*This script automatically detects your Mac architecture (Intel or Apple Silicon), downloads the latest release, installs it to your Applications folder, and fixes all security permissions.*
-
-## Quick Start
-
-1. Download the latest installer from GitHub Releases.
-2. Install and launch Ghost Writer.
-3. Complete the Setup Wizard.
-4. Pick your model provider.
-5. Start a meeting session and use quick actions like `What to Answer`, `Recap`, or `Follow Up`.
-
-The packaged app checks GitHub Releases for updates and surfaces update status in Settings.
-
-## Demo And Onboarding
-
-Ghost Writer includes a built-in demo path for first-time testing.
-
-If the demo meeting is missing:
-
-1. Open `Settings`
-2. Go to `Appearance`
-3. Use `Restore Demo Meeting`
-
-If you want to replay onboarding:
-
-1. Open `Settings`
-2. Go to `Appearance`
-3. Use `Replay Onboarding`
-
-If you want to restore the built-in interview or meeting defaults:
-
-1. Open `Settings`
-2. Go to the relevant prompt settings section
-3. Use `Use Default`
-
-These recovery actions are important for packaged installs because they keep the installed app behavior aligned with development runs.
-
-```mermaid
-flowchart LR
-    A["Launch Ghost Writer"] --> B["Run Setup Wizard"]
-    B --> C["Choose STT + LLM provider"]
-    C --> D["Start meeting session"]
-    D --> E["Use quick actions or manual answer box"]
-    E --> F["Need sample data? Restore Demo Meeting"]
-    E --> G["Need first-run flow again? Replay Onboarding"]
-```
-
-## Recommended Setup
-
-### Fastest text-first setup
-
-- STT: local Whisper or Deepgram
-- LLM: Gemini Flash, Groq, or other low-latency cloud model
-
-### Best local-first setup
-
-- STT: local Whisper
-- LLM: Ollama
-
-### Best multimodal interview setup
-
-- Use a vision-capable model for screenshot answering
-- Attach screenshots with `Ctrl/Cmd+H`
-
-## Keyboard Shortcuts
-
-- `Ctrl/Cmd+B` or `Alt+G`: toggle visibility
-- `Ctrl/Cmd+Shift+Space`: show and center window
-- `Ctrl/Cmd+R` or `Alt+C`: reset current state
-- `F9`: start or end meeting session
-- `F8` or `Ctrl/Cmd+J`: quick "what should I answer"
-- `Ctrl/Cmd+Enter`: process current context
-- `Ctrl/Cmd+H`: attach screenshot
-- `Ctrl/Cmd+Shift+H`: contextual selection capture
-
-## Architecture
-
-```mermaid
-graph TD
-    A["Microphone input"] --> C["Native audio pipeline"]
-    B["System audio loopback"] --> C
-    C --> D["Whisper STT"]
-    D --> E{"LLM routing"}
-    E --> F["Ollama / local models"]
-    E --> G["Cloud providers"]
-    H["Screenshot + OCR"] --> E
-    I["RAG / meeting memory"] --> E
-    F --> J["Overlay answer UI"]
-    G --> J
-```
-
-Ghost Writer uses a layered desktop architecture with clear separation of concerns:
+## 🛠️ Technology Stack
+Ghost Writer Enterprise is built on a high-performance natively-bound architecture:
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Frontend | React 18 + Tailwind CSS + Framer Motion | Overlay UI, settings, onboarding |
-| IPC bridge | Electron IPC with context isolation | Secure communication between renderer and main process |
-| LLM orchestration | TypeScript helpers and providers | Routing, prompt construction, fallback, post-processing |
-| RAG engine | all-MiniLM-L6-v2 + SQLite FTS | Local semantic memory and context retrieval |
-| Whisper STT | `whisper.cpp` server | GPU-accelerated or local speech-to-text |
-| Audio capture | Rust N-API module | Native microphone + system audio loopback |
-| Storage | SQLite + encrypted credentials | Meetings, embeddings, preferences, credentials |
+| **Core** | Electron 32 + Rust N-API | Secure cross-platform native orchestration |
+| **Frontend** | React 18 + Vanilla CSS | Ultra-low latency, custom-branded UI |
+| **STT Engine** | `whisper.cpp` + Native Loopback | Sub-second transcription from any audio source |
+| **Storage** | SQLite + `safeStorage` | Fast local search with hardware-backed encryption |
+| **Cloud Bridge** | Unified Provider Gateway | Seamless integration with Gemini, OpenAI, Claude, Groq, and more |
 
-More detail:
+## 🕹️ Quick Start
 
-- [Architecture](docs/ARCHITECTURE.md)
+1. **Deployment**: Download the latest Enterprise installer.
+2. **Onboarding**: Complete the 60-second hardware diagnosis and setup.
+3. **Master Hotkey**: Use `Ctrl/Cmd+B` to toggle your strategic overlay.
+4. **Session Control**: Press `F9` to initiate intelligence capture.
 
-## Development
+## 📈 Owner Dashboards
+Administrators can access the built-in BI views via the Supabase integration to track:
+- **Conversion Funnel**: From installation to trial to paid license.
+- **Token Economy**: Monitor intelligence consumption and estimated costs.
+- **User Engagement**: Track active minutes and session frequency.
 
-### Requirements
+---
 
-- Node.js `20` or `22+`
-- npm `10+`
-- Rust stable toolchain
+## 📜 Intellectual Property & Licensing
+This software is **Proprietary**. All rights reserved.
 
-The repo includes:
+- **Exclusive Monetization**: Only the original owner is authorized to commercialize this product.
+- **Restricted Access**: Redistribution or unauthorized modification of the source code is strictly prohibited.
+- **Full Agreement**: See the [LICENSE](LICENSE) file for the full Proprietary EULA.
 
-- [.nvmrc](.nvmrc)
-- `package.json` engines for the supported Node versions
+---
 
-### Install
-
-```bash
-git clone https://github.com/chintuai2026/Ghost_Writer.git
-cd Ghost_Writer
-npm install
-```
-
-### Run in development
-
-```bash
-npm run build:native
-npm run app:dev
-```
-
-### Run checks
-
-```bash
-npm run lint
-npx tsc -p electron/tsconfig.json --noEmit
-npm test
-```
-
-### Build production artifacts
-
-```bash
-npm run app:build -- --win --x64
-```
-
-This produces clean deliverables in `artifacts/`.
-
-## Release Notes For Maintainers
-
-The packaged app can download an external runtime bundle from the GitHub release for the current app version.
-
-Important:
-
-- the release should include `ai-runtime.zip`
-- the app looks for that asset at:
-  - `https://github.com/chintuai2026/Ghost_Writer/releases/download/v<appVersion>/ai-runtime.zip`
-
-If `ai-runtime.zip` is not uploaded to the release, runtime installation will fail for users who need that bundle.
-
-## Environment Variables
-
-Typical optional variables:
-
-```bash
-GEMINI_API_KEY=
-OPENAI_API_KEY=
-CLAUDE_API_KEY=
-GROQ_API_KEY=
-DEEPSEEK_API_KEY=
-LOG_LEVEL=info
-NODE_ENV=development
-```
-
-See [.env.example](.env.example) for the full example template.
-
-## Notes About Stealth
-
-Ghost Writer includes stealth-oriented behavior such as content protection, disguise options, and overlay-first usage.
-Do not describe it as universally undetectable without validating the exact target app, OS, and screen-sharing mode.
-
-## Current State
-
-`v1.0.0` is the first official release baseline.
-
-It includes:
-
-- packaged Windows and macOS release flow
-- cleaned release artifact naming
-- corrected packaged app user-data handling
-- onboarding replay and demo restoration
-- fixed model-selection propagation
-- improved screenshot-aware chat flow
-- CI aligned with supported Node versions
-
-## License
-
-Ghost Writer is licensed under the [AGPL-3.0 License](docs/LICENSE).
-
-## Contributing
-
-- open an issue for bugs or feature requests
-- open a pull request for fixes and improvements
-- keep changes aligned with the current Node and Electron toolchain
-
-Useful docs:
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Changelog](docs/CHANGELOG.md)
-- [Contributing](docs/CONTRIBUTING.md)
-- [Security](docs/SECURITY.md)
+<div align="center">
+  Generated with ❤️ for the Ghost Writer Enterprise Team.
+</div>

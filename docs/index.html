@@ -63,11 +63,11 @@
             <div class="hidden md:flex gap-8 items-center text-sm font-medium text-gray-400">
                 <a href="#features" class="hover:text-brand-white transition-colors">Architecture</a>
                 <a href="#privacy" class="hover:text-brand-white transition-colors">Stealth</a>
-                <a href="https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
                     class="bg-brand-white text-brand-black px-5 py-2 rounded-full hover:bg-gray-200 transition-colors cursor-pointer font-semibold flex items-center gap-2">
                     <i class="fa-brands fa-windows"></i> Windows
                 </a>
-                <a href="https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
                     class="bg-brand-darkGray border border-gray-700 text-brand-white px-5 py-2 rounded-full hover:bg-gray-800 transition-colors cursor-pointer font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.05)]">
                     <i class="fa-brands fa-apple"></i> macOS
                 </a>
@@ -100,28 +100,40 @@
             </p>
 
             <div class="flex flex-col sm:flex-row gap-4 justify-center animate-in delay-400">
-                <a href="https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
                     class="group relative px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                     <i class="fa-brands fa-windows text-xl"></i>
                     Download for Windows
                 </a>
-                <a href="https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
                     class="group relative px-8 py-4 glass-card text-brand-white font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:bg-white/10">
                     <i class="fa-brands fa-apple text-xl"></i>
                     Download for macOS
                 </a>
             </div>
 
-            <!-- Seamless Mac Install Block -->
-            <div id="mac-installer" class="mt-10 max-w-lg mx-auto animate-in delay-500 hidden md:block">
-                <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80">Seamless macOS Installation</p>
-                <div class="glass-card p-3 flex items-center justify-between gap-4 border-brand-blue/30 shadow-[0_0_25px_rgba(59,130,246,0.1)] group">
-                    <code id="installCommand" class="text-[10px] font-mono text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap pl-2">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install-mac.sh)"</code>
-                    <button onclick="copyInstallCommand()" id="copyBtn" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-brand-blue/20 hover:scale-105 active:scale-95">
-                        Copy
-                    </button>
+            <!-- One-Liner Installers -->
+            <div class="mt-12 grid md:grid-cols-2 gap-6 max-w-4xl mx-auto animate-in delay-500">
+                <!-- Windows One-Liner -->
+                <div class="glass-card p-4 text-left border-brand-blue/30">
+                    <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80 flex items-center gap-2">
+                        <i class="fa-brands fa-windows"></i> Windows One-Liner
+                    </p>
+                    <div class="bg-black/40 p-2.5 rounded-lg flex items-center justify-between gap-4 border border-white/5">
+                        <code class="text-[9px] font-mono text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap">iwr -useb https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex</code>
+                        <button onclick="copyCmd('win')" id="copyBtnWin" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all">Copy</button>
+                    </div>
                 </div>
-                <p class="text-[9px] text-gray-500 mt-2 font-medium">Bypasses "damaged file" errors automatically. Supports Apple Silicon & Intel.</p>
+                <!-- macOS One-Liner -->
+                <div class="glass-card p-4 text-left border-brand-purple/30">
+                    <p class="text-[10px] text-brand-purple uppercase tracking-[0.3em] mb-3 font-black opacity-80 flex items-center gap-2">
+                        <i class="fa-brands fa-apple"></i> macOS One-Liner
+                    </p>
+                    <div class="bg-black/40 p-2.5 rounded-lg flex items-center justify-between gap-4 border border-white/5">
+                        <code class="text-[9px] font-mono text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh)"</code>
+                        <button onclick="copyCmd('mac')" id="copyBtnMac" class="shrink-0 bg-brand-purple/10 hover:bg-brand-purple/20 text-brand-purple px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all">Copy</button>
+                    </div>
+                </div>
             </div>
 
             <div class="mt-8 animate-in delay-500">
@@ -272,11 +284,11 @@
             <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto font-light">Experience the most technically advanced
                 copilot built for professionals. Ace your next interview or dominate your next meeting.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
                     class="px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3">
                     <i class="fa-brands fa-windows"></i> Windows
                 </a>
-                <a href="https://github.com/chintuai2026/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
+                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
                     class="px-8 py-4 glass-card text-brand-white font-semibold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3">
                     <i class="fa-brands fa-apple"></i> macOS
                 </a>
@@ -294,25 +306,23 @@
     </footer>
 
     <script>
-        function copyInstallCommand() {
-            const cmd = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install-mac.sh)"';
+        function copyCmd(os) {
+            const cmd = os === 'win' 
+                ? 'iwr -useb https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex'
+                : '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh)"';
+            
             navigator.clipboard.writeText(cmd);
             
-            const btn = document.getElementById('copyBtn');
+            const btnId = os === 'win' ? 'copyBtnWin' : 'copyBtnMac';
+            const btn = document.getElementById(btnId);
             const originalText = btn.innerText;
             btn.innerText = 'Copied!';
-            btn.classList.add('bg-green-500/20', 'text-green-400', 'border-green-500/30');
+            btn.classList.add('bg-green-500/20', 'text-green-400');
             
             setTimeout(() => {
                 btn.innerText = originalText;
-                btn.classList.remove('bg-green-500/20', 'text-green-400', 'border-green-500/30');
+                btn.classList.remove('bg-green-500/20', 'text-green-400');
             }, 2000);
-        }
-
-        // Optional: Show only on Mac
-        if (navigator.platform.toUpperCase().indexOf('MAC') === -1) {
-            // Uncomment below if you want to hide the command for Windows users
-            // document.getElementById('mac-installer').style.display = 'none';
         }
     </script>
 </body>
