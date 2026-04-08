@@ -25,7 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_activity_event_type ON activity_logs(event_type);
 -- 3. Add summary_stats metadata to installations for at-a-glance usage
 ALTER TABLE installations 
 ADD COLUMN IF NOT EXISTS total_tokens_used BIGINT DEFAULT 0,
-ADD COLUMN IF NOT EXISTS total_meetings_summarized INTEGER DEFAULT 0;
+ADD COLUMN IF NOT EXISTS total_meetings_summarized INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT now();
 
 -- 4. RPC to log an interaction and update stats atomically
 CREATE OR REPLACE FUNCTION log_enterprise_interaction(
@@ -63,3 +64,21 @@ BEGIN
     WHERE machine_id = p_machine_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5. Row Level Security Heightening
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- Policy: PUBLIC WRITE-ONLY
+-- Allows the app to log activity but prevents anyone from reading it back
+DROP POLICY IF EXISTS "Public can log activity" ON activity_logs;
+CREATE POLICY "Public can log activity"
+  ON activity_logs FOR INSERT
+  WITH CHECK (true);
+
+-- Policy: SERVICE ROLE ONLY READ
+-- Ensures your Owner Dashboard can still see everything
+DROP POLICY IF EXISTS "Dashboard can read activity" ON activity_logs;
+CREATE POLICY "Dashboard can read activity"
+  ON activity_logs FOR SELECT
+  TO service_role
+  USING (true);

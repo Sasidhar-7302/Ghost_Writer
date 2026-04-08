@@ -129,20 +129,35 @@ ALTER TABLE global_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE installations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkout_sessions ENABLE ROW LEVEL SECURITY;
 
--- Public read for config
+-- Public read for config (Keep it simple, only SELECT)
 DROP POLICY IF EXISTS "Anyone can read config" ON global_config;
 CREATE POLICY "Anyone can read config"
   ON global_config FOR SELECT USING (true);
 
--- Allow the RPC function to manage installations (SECURITY DEFINER handles this)
+-- RESTRICTED: installations
+-- We deny all public access (SELECT, INSERT, UPDATE, DELETE).
+-- All interaction MUST go through the register_beta_user RPC (SECURITY DEFINER).
 DROP POLICY IF EXISTS "Service can manage installations" ON installations;
-CREATE POLICY "Service can manage installations"
-  ON installations FOR ALL USING (true);
+CREATE POLICY "Installations are RPC-only"
+  ON installations FOR ALL
+  TO postgres, service_role
+  USING (true);
 
--- Allow anyone to manage checkout sessions (needed for Realtime + Edge Function)
+-- RESTRICTED: checkout_sessions
+-- Users can only see and create sessions for their own machine_id.
 DROP POLICY IF EXISTS "Anyone can manage checkout sessions" ON checkout_sessions;
-CREATE POLICY "Anyone can manage checkout sessions"
-  ON checkout_sessions FOR ALL USING (true);
+CREATE POLICY "Users can only see their own sessions"
+  ON checkout_sessions FOR SELECT
+  USING (machine_id = current_setting('request.headers')::json->>'x-machine-id');
+
+CREATE POLICY "Users can only create their own sessions"
+  ON checkout_sessions FOR INSERT
+  WITH CHECK (machine_id = current_setting('request.headers')::json->>'x-machine-id');
+
+CREATE POLICY "Service role can update sessions"
+  ON checkout_sessions FOR UPDATE
+  TO service_role
+  USING (true);
 
 -- 6. Enable Realtime for checkout_sessions
 DO $$
