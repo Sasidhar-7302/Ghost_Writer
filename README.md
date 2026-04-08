@@ -6,14 +6,14 @@
   <br>
 
   [![License](https://img.shields.io/badge/license-PROPRIETARY-red?style=for-the-badge)](LICENSE)
-  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
-  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
-  [![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-emerald?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer)
+  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+  [![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-emerald?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer)
 
   **Ghost Writer Enterprise** is the world's most sophisticated desktop copilot for professional interviews and high-stakes meetings.
   *Engineered for stealth, privacy, and actionable intelligence.*
 
-  [Download](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Enterprise Security](docs/SECURITY.md)
+  [Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Enterprise Security](docs/SECURITY.md)
 </div>
 
 ---
@@ -75,7 +75,19 @@ Ghost Writer Enterprise is built on a high-performance natively-bound architectu
 
 ## 🕹️ Quick Start
 
-1. **Deployment**: Download the latest Enterprise installer.
+### ⚡ One-Command Installation
+**Windows (PowerShell)**:
+```powershell
+iwr -useb https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex
+```
+
+**macOS (Bash)**:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh)"
+```
+
+### 🛠️ Manual Setup
+1. **Deployment**: Download the latest Enterprise installer from [GitHub Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases).
 2. **Onboarding**: Complete the 60-second hardware diagnosis and setup.
 3. **Master Hotkey**: Use `Ctrl/Cmd+B` to toggle your strategic overlay.
 4. **Session Control**: Press `F9` to initiate intelligence capture.
