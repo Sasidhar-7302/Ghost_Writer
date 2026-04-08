@@ -26,6 +26,9 @@ export interface ILLMProvider {
     /** Whether this provider supports image/multimodal input */
     supportsMultimodal(): boolean;
 
+    /** Whether this provider is generally capable of vision tasks (even if current model isn't) */
+    readonly isVisionCapable: boolean;
+
     /** Non-streaming generation */
     generate(payload: ChatPayload): Promise<string>;
 

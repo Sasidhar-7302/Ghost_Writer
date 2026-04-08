@@ -11,13 +11,19 @@ interface CustomProvider {
 
 
 export const AIProvidersSettings: React.FC = () => {
-    // --- Standard Providers ---
-    const [apiKey, setApiKey] = useState('');
-    const [groqApiKey, setGroqApiKey] = useState('');
-    const [openaiApiKey, setOpenaiApiKey] = useState('');
-    const [claudeApiKey, setClaudeApiKey] = useState('');
-    const [nvidiaApiKey, setNvidiaApiKey] = useState('');
-    const [deepseekApiKey, setDeepseekApiKey] = useState('');
+    // Unified Cloud Providers
+    const CLOUD_PROVIDERS = [
+        { id: 'gemini', name: 'Google Gemini', placeholder: 'AIzaSy...', description: 'Advanced multimodal models' },
+        { id: 'groq', name: 'Groq', placeholder: 'gsk_...', description: 'Ultra-fast inference' },
+        { id: 'openai', name: 'OpenAI', placeholder: 'sk-...', description: 'GPT-4o and o1 reasoning' },
+        { id: 'claude', name: 'Anthropic Claude', placeholder: 'sk-ant-...', description: 'Claude 3.5 Sonnet' },
+        { id: 'nvidia', name: 'NVIDIA NIM', placeholder: 'nvapi-...', description: 'Powers Kimi K2.5' },
+        { id: 'deepseek', name: 'DeepSeek', placeholder: 'sk-...', description: 'DeepSeek R1 Reasoning' },
+        { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-...', description: 'Access 100+ models' }
+    ];
+
+    const [selectedProviderId, setSelectedProviderId] = useState('gemini');
+    const [activeKeyInput, setActiveKeyInput] = useState('');
 
     // Status
     const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
@@ -56,7 +62,8 @@ export const AIProvidersSettings: React.FC = () => {
                         openai: creds.hasOpenaiKey,
                         claude: creds.hasClaudeKey,
                         nvidia: creds.hasNvidiaKey,
-                        deepseek: creds.hasDeepseekKey
+                        deepseek: creds.hasDeepseekKey,
+                        openrouter: creds.hasOpenrouterKey
                     });
                 }
 
@@ -119,28 +126,33 @@ export const AIProvidersSettings: React.FC = () => {
         }
     };
 
-    const handleSaveKey = async (provider: string, key: string, setter: (val: string) => void) => {
+    const handleSaveKey = async () => {
+        const provider = selectedProviderId;
+        const key = activeKeyInput;
         if (!key.trim()) return;
+        
         setSavingStatus(prev => ({ ...prev, [provider]: true }));
         try {
             let result;
             // @ts-ignore
             if (provider === 'gemini') result = await window.electronAPI.setGeminiApiKey(key);
             // @ts-ignore
-            if (provider === 'groq') result = await window.electronAPI.setGroqApiKey(key);
+            else if (provider === 'groq') result = await window.electronAPI.setGroqApiKey(key);
             // @ts-ignore
-            if (provider === 'openai') result = await window.electronAPI.setOpenaiApiKey(key);
+            else if (provider === 'openai') result = await window.electronAPI.setOpenaiApiKey(key);
             // @ts-ignore
-            if (provider === 'claude') result = await window.electronAPI.setClaudeApiKey(key);
+            else if (provider === 'claude') result = await window.electronAPI.setClaudeApiKey(key);
             // @ts-ignore
-            if (provider === 'nvidia') result = await window.electronAPI.setNvidiaApiKey(key);
+            else if (provider === 'nvidia') result = await window.electronAPI.setNvidiaApiKey(key);
             // @ts-ignore
-            if (provider === 'deepseek') result = await window.electronAPI.setDeepseekApiKey(key);
+            else if (provider === 'deepseek') result = await window.electronAPI.setDeepseekApiKey(key);
+            // @ts-ignore
+            else if (provider === 'openrouter') result = await window.electronAPI.invoke('set-openrouter-api-key', key);
 
             if (result && result.success) {
                 setSavedStatus(prev => ({ ...prev, [provider]: true }));
                 setHasStoredKey(prev => ({ ...prev, [provider]: true }));
-                setter('');
+                setActiveKeyInput('');
                 setTimeout(() => setSavedStatus(prev => ({ ...prev, [provider]: false })), 2000);
             }
         } catch (e) {
@@ -150,8 +162,34 @@ export const AIProvidersSettings: React.FC = () => {
         }
     };
 
-    const handleTestKey = async (provider: string, key: string) => {
+    const handleDeleteKey = async (provider: string) => {
+        if (!confirm(`Clear API key for ${provider}?`)) return;
+        try {
+            // Re-using set-api-key with empty string effectively clears it in most managers
+            // Or use specific clear logic if available
+            // @ts-ignore
+            let result;
+            if (provider === 'gemini') result = await window.electronAPI.setGeminiApiKey('');
+            else if (provider === 'groq') result = await window.electronAPI.setGroqApiKey('');
+            else if (provider === 'openai') result = await window.electronAPI.setOpenaiApiKey('');
+            else if (provider === 'claude') result = await window.electronAPI.setClaudeApiKey('');
+            else if (provider === 'nvidia') result = await window.electronAPI.setNvidiaApiKey('');
+            else if (provider === 'deepseek') result = await window.electronAPI.setDeepseekApiKey('');
+            else if (provider === 'openrouter') result = await window.electronAPI.invoke('set-openrouter-api-key', '');
+
+            if (result && result.success) {
+                setHasStoredKey(prev => ({ ...prev, [provider]: false }));
+            }
+        } catch (e) {
+            console.error(`Failed to delete ${provider} key:`, e);
+        }
+    };
+
+    const handleTestKey = async () => {
+        const provider = selectedProviderId;
+        const key = activeKeyInput;
         if (!key.trim()) return;
+        
         setTestingStatus(prev => ({ ...prev, [provider]: true }));
         setTestResult(prev => ({ ...prev, [provider]: null }));
 
@@ -240,257 +278,133 @@ export const AIProvidersSettings: React.FC = () => {
         <div className="space-y-5 animated fadeIn pb-10">
 
 
-            {/* Cloud Providers */}
-            <div className="space-y-5">
+            {/* Cloud Providers Management */}
+            <div className="space-y-6">
                 <div>
                     <h3 className="text-sm font-bold text-text-primary mb-1">Cloud Providers</h3>
-                    <p className="text-xs text-text-secondary mb-2">Add API keys to unlock cloud AI models.</p>
+                    <p className="text-xs text-text-secondary mb-2">Connect to premium LLM services via API keys.</p>
                 </div>
 
-                <div className="space-y-4">
+                {/* Main Setup Card */}
+                <div className="bg-[var(--bg-card-alpha)] backdrop-blur-3xl rounded-2xl p-6 border border-border-subtle shadow-xl relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-accent-primary/5 via-transparent to-transparent pointer-events-none" />
+                    
+                    <div className="relative space-y-6">
+                        {/* Row 1: Provider Selection */}
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-bold text-text-tertiary uppercase tracking-widest pl-1">Target Service</label>
+                            <div className="relative group/select">
+                                <select
+                                    value={selectedProviderId}
+                                    onChange={(e) => {
+                                        setSelectedProviderId(e.target.value);
+                                        setTestResult(prev => ({ ...prev, [e.target.value]: null }));
+                                    }}
+                                    className="w-full bg-bg-input border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-text-primary transition-all appearance-none cursor-pointer"
+                                >
+                                    {CLOUD_PROVIDERS.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none group-hover/select:text-text-primary transition-colors" />
+                            </div>
+                            <p className="text-[10px] text-text-tertiary pl-1 italic">
+                                {CLOUD_PROVIDERS.find(p => p.id === selectedProviderId)?.description}
+                            </p>
+                        </div>
 
-                    {/* Gemini */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
-                        <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
-                            Gemini API Key
-                            {hasStoredKey.gemini && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
-                        </label>
-                        <div className="flex gap-3">
+                        {/* Row 2: API Key Input */}
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-bold text-text-tertiary uppercase tracking-widest pl-1">
+                                API Key
+                                {hasStoredKey[selectedProviderId] && <span className="ml-2 text-green-500 normal-case">✓ Stored</span>}
+                            </label>
                             <input
                                 type="password"
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                placeholder={hasStoredKey.gemini ? "••••••••••••" : "AIzaSy..."}
-                                className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary transition-colors"
+                                value={activeKeyInput}
+                                onChange={(e) => setActiveKeyInput(e.target.value)}
+                                placeholder={hasStoredKey[selectedProviderId] ? "••••••••••••" : CLOUD_PROVIDERS.find(p => p.id === selectedProviderId)?.placeholder}
+                                className="w-full bg-bg-input border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-text-primary transition-all font-mono"
                             />
+                        </div>
+
+                        {/* Test Result Display */}
+                        {testResult[selectedProviderId] && (
+                            <div className={`animated slideInDown flex items-center gap-2 p-3 rounded-xl border ${testResult[selectedProviderId].success ? 'bg-green-500/5 border-green-500/20 text-green-400' : 'bg-red-500/5 border-red-500/20 text-red-400'}`}>
+                                {testResult[selectedProviderId].success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                                <span className="text-xs">{testResult[selectedProviderId].success ? 'Connection verified!' : `Verification failed: ${testResult[selectedProviderId].error}`}</span>
+                            </div>
+                        )}
+
+                        {/* Row 3: Actions */}
+                        <div className="flex items-center justify-end gap-3 pt-2">
                             <button
-                                onClick={() => handleTestKey('gemini', apiKey)}
-                                disabled={testingStatus.gemini || !apiKey.trim()}
-                                className="px-4 py-2.5 rounded-lg text-xs font-medium bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50 transition-colors"
+                                onClick={handleTestKey}
+                                disabled={testingStatus[selectedProviderId] || !activeKeyInput.trim()}
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-bg-elevated hover:bg-bg-input border border-border-subtle text-text-primary disabled:opacity-30 transition-all hover:scale-[1.02] active:scale-95"
                             >
-                                {testingStatus.gemini ? 'Testing...' : 'Test'}
+                                {testingStatus[selectedProviderId] ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+                                Test Connection
                             </button>
                             <button
-                                onClick={() => handleSaveKey('gemini', apiKey, setApiKey)}
-                                disabled={savingStatus.gemini || !apiKey.trim()}
-                                className={`px-5 py-2.5 rounded-lg text-xs font-medium transition-colors ${savedStatus.gemini
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50'
+                                onClick={handleSaveKey}
+                                disabled={savingStatus[selectedProviderId] || !activeKeyInput.trim()}
+                                className={`flex items-center gap-2 px-8 py-2.5 rounded-xl text-xs font-black transition-all hover:scale-[1.02] active:scale-95 shadow-lg ${savedStatus[selectedProviderId]
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-white text-black disabled:opacity-30'
                                     }`}
                             >
-                                {savingStatus.gemini ? 'Saving...' : savedStatus.gemini ? 'Saved!' : 'Save'}
+                                <Save size={14} />
+                                {savingStatus[selectedProviderId] ? 'Saving...' : savedStatus[selectedProviderId] ? 'Saved Successfully!' : 'Synchronize Provider'}
                             </button>
                         </div>
-                        {testResult.gemini && (
-                            <div className={`mt-2 text-xs flex items-center gap-2 ${testResult.gemini.success ? 'text-green-400' : 'text-red-400'}`}>
-                                {testResult.gemini.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                                <span>{testResult.gemini.success ? 'Connection successful!' : `Connection failed: ${testResult.gemini.error}`}</span>
+                    </div>
+                </div>
+
+                {/* Active Providers Monitor */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <h4 className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Verified Connections</h4>
+                        <div className="h-[1px] flex-1 mx-4 bg-border-subtle opacity-30" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {CLOUD_PROVIDERS.filter(p => hasStoredKey[p.id]).map(provider => (
+                            <div 
+                                key={provider.id} 
+                                className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-4 border border-border-subtle flex items-center justify-between group/card hover:border-accent-primary/50 transition-all cursor-default"
+                                onClick={() => {
+                                    setSelectedProviderId(provider.id);
+                                    setActiveKeyInput('');
+                                }}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-bg-input flex items-center justify-center text-accent-primary border border-accent-primary/10 group-hover/card:bg-accent-primary/10 transition-colors">
+                                        <Check size={16} />
+                                    </div>
+                                    <div>
+                                        <h5 className="text-xs font-bold text-text-primary group-hover/card:text-accent-primary transition-colors">{provider.name}</h5>
+                                        <p className="text-[9px] text-text-tertiary uppercase tracking-tighter">Active Connection</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteKey(provider.id);
+                                    }}
+                                    className="p-2 opacity-0 group-hover/card:opacity-100 text-text-tertiary hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                    title="Disconnect Provider"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
+                        {CLOUD_PROVIDERS.filter(p => hasStoredKey[p.id]).length === 0 && (
+                            <div className="col-span-full py-8 text-center bg-bg-input/30 rounded-2xl border border-dashed border-border-subtle">
+                                <p className="text-xs text-text-tertiary italic">No cloud providers connected. Use the form above to get started.</p>
                             </div>
                         )}
                     </div>
-
-                    {/* Groq */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
-                        <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
-                            Groq API Key
-                            {hasStoredKey.groq && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
-                        </label>
-                        <div className="flex gap-3">
-                            <input
-                                type="password"
-                                value={groqApiKey}
-                                onChange={(e) => setGroqApiKey(e.target.value)}
-                                placeholder={hasStoredKey.groq ? "••••••••••••" : "gsk_..."}
-                                className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary transition-colors"
-                            />
-                            <button
-                                onClick={() => handleTestKey('groq', groqApiKey)}
-                                disabled={testingStatus.groq || !groqApiKey.trim()}
-                                className="px-4 py-2.5 rounded-lg text-xs font-medium bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50 transition-colors"
-                            >
-                                {testingStatus.groq ? 'Testing...' : 'Test'}
-                            </button>
-                            <button
-                                onClick={() => handleSaveKey('groq', groqApiKey, setGroqApiKey)}
-                                disabled={savingStatus.groq || !groqApiKey.trim()}
-                                className={`px-5 py-2.5 rounded-lg text-xs font-medium transition-colors ${savedStatus.groq
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50'
-                                    }`}
-                            >
-                                {savingStatus.groq ? 'Saving...' : savedStatus.groq ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        {testResult.groq && (
-                            <div className={`mt-2 text-xs flex items-center gap-2 ${testResult.groq.success ? 'text-green-400' : 'text-red-400'}`}>
-                                {testResult.groq.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                                <span>{testResult.groq.success ? 'Connection successful!' : `Connection failed: ${testResult.groq.error}`}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* OpenAI */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
-                        <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
-                            OpenAI API Key
-                            {hasStoredKey.openai && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
-                        </label>
-                        <div className="flex gap-3">
-                            <input
-                                type="password"
-                                value={openaiApiKey}
-                                onChange={(e) => setOpenaiApiKey(e.target.value)}
-                                placeholder={hasStoredKey.openai ? "••••••••••••" : "sk-..."}
-                                className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary transition-colors"
-                            />
-                            <button
-                                onClick={() => handleTestKey('openai', openaiApiKey)}
-                                disabled={testingStatus.openai || !openaiApiKey.trim()}
-                                className="px-4 py-2.5 rounded-lg text-xs font-medium bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50 transition-colors"
-                            >
-                                {testingStatus.openai ? 'Testing...' : 'Test'}
-                            </button>
-                            <button
-                                onClick={() => handleSaveKey('openai', openaiApiKey, setOpenaiApiKey)}
-                                disabled={savingStatus.openai || !openaiApiKey.trim()}
-                                className={`px-5 py-2.5 rounded-lg text-xs font-medium transition-colors ${savedStatus.openai
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50'
-                                    }`}
-                            >
-                                {savingStatus.openai ? 'Saving...' : savedStatus.openai ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        {testResult.openai && (
-                            <div className={`mt-2 text-xs flex items-center gap-2 ${testResult.openai.success ? 'text-green-400' : 'text-red-400'}`}>
-                                {testResult.openai.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                                <span>{testResult.openai.success ? 'Connection successful!' : `Connection failed: ${testResult.openai.error}`}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Claude */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
-                        <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
-                            Claude API Key
-                            {hasStoredKey.claude && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
-                        </label>
-                        <div className="flex gap-3">
-                            <input
-                                type="password"
-                                value={claudeApiKey}
-                                onChange={(e) => setClaudeApiKey(e.target.value)}
-                                placeholder={hasStoredKey.claude ? "••••••••••••" : "sk-ant-..."}
-                                className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary transition-colors"
-                            />
-                            <button
-                                onClick={() => handleTestKey('claude', claudeApiKey)}
-                                disabled={testingStatus.claude || !claudeApiKey.trim()}
-                                className="px-4 py-2.5 rounded-lg text-xs font-medium bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50 transition-colors"
-                            >
-                                {testingStatus.claude ? 'Testing...' : 'Test'}
-                            </button>
-                            <button
-                                onClick={() => handleSaveKey('claude', claudeApiKey, setClaudeApiKey)}
-                                disabled={savingStatus.claude || !claudeApiKey.trim()}
-                                className={`px-5 py-2.5 rounded-lg text-xs font-medium transition-colors ${savedStatus.claude
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50'
-                                    }`}
-                            >
-                                {savingStatus.claude ? 'Saving...' : savedStatus.claude ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        {testResult.claude && (
-                            <div className={`mt-2 text-xs flex items-center gap-2 ${testResult.claude.success ? 'text-green-400' : 'text-red-400'}`}>
-                                {testResult.claude.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                                <span>{testResult.claude.success ? 'Connection successful!' : `Connection failed: ${testResult.claude.error}`}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* NVIDIA NIM */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
-                        <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
-                            NVIDIA NIM API Key
-                            {hasStoredKey.nvidia && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
-                        </label>
-                        <p className="text-[10px] text-text-tertiary mb-2">Powers Kimi K2.5 via NVIDIA's inference platform.</p>
-                        <div className="flex gap-3">
-                            <input
-                                type="password"
-                                value={nvidiaApiKey}
-                                onChange={(e) => setNvidiaApiKey(e.target.value)}
-                                placeholder={hasStoredKey.nvidia ? "••••••••••••" : "nvapi-..."}
-                                className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary transition-colors"
-                            />
-                            <button
-                                onClick={() => handleTestKey('nvidia', nvidiaApiKey)}
-                                disabled={testingStatus.nvidia || !nvidiaApiKey.trim()}
-                                className="px-4 py-2.5 rounded-lg text-xs font-medium bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50 transition-colors"
-                            >
-                                {testingStatus.nvidia ? 'Testing...' : 'Test'}
-                            </button>
-                            <button
-                                onClick={() => handleSaveKey('nvidia', nvidiaApiKey, setNvidiaApiKey)}
-                                disabled={savingStatus.nvidia || !nvidiaApiKey.trim()}
-                                className={`px-5 py-2.5 rounded-lg text-xs font-medium transition-colors ${savedStatus.nvidia
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50'
-                                    }`}
-                            >
-                                {savingStatus.nvidia ? 'Saving...' : savedStatus.nvidia ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        {testResult.nvidia && (
-                            <div className={`mt-2 text-xs flex items-center gap-2 ${testResult.nvidia.success ? 'text-green-400' : 'text-red-400'}`}>
-                                {testResult.nvidia.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                                <span>{testResult.nvidia.success ? 'Connection successful!' : `Connection failed: ${testResult.nvidia.error}`}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* DeepSeek */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
-                        <label className="block text-xs font-medium text-text-primary uppercase tracking-wide mb-1">
-                            DeepSeek API Key
-                            {hasStoredKey.deepseek && <span className="ml-2 text-green-500 normal-case">✓ Saved</span>}
-                        </label>
-                        <p className="text-[10px] text-text-tertiary mb-2">Powers DeepSeek R1 reasoning model.</p>
-                        <div className="flex gap-3">
-                            <input
-                                type="password"
-                                value={deepseekApiKey}
-                                onChange={(e) => setDeepseekApiKey(e.target.value)}
-                                placeholder={hasStoredKey.deepseek ? "••••••••••••" : "sk-..."}
-                                className="flex-1 bg-bg-input border border-border-subtle rounded-lg px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-primary transition-colors"
-                            />
-                            <button
-                                onClick={() => handleTestKey('deepseek', deepseekApiKey)}
-                                disabled={testingStatus.deepseek || !deepseekApiKey.trim()}
-                                className="px-4 py-2.5 rounded-lg text-xs font-medium bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50 transition-colors"
-                            >
-                                {testingStatus.deepseek ? 'Testing...' : 'Test'}
-                            </button>
-                            <button
-                                onClick={() => handleSaveKey('deepseek', deepseekApiKey, setDeepseekApiKey)}
-                                disabled={savingStatus.deepseek || !deepseekApiKey.trim()}
-                                className={`px-5 py-2.5 rounded-lg text-xs font-medium transition-colors ${savedStatus.deepseek
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-bg-input hover:bg-bg-secondary border border-border-subtle text-text-primary disabled:opacity-50'
-                                    }`}
-                            >
-                                {savingStatus.deepseek ? 'Saving...' : savedStatus.deepseek ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        {testResult.deepseek && (
-                            <div className={`mt-2 text-xs flex items-center gap-2 ${testResult.deepseek.success ? 'text-green-400' : 'text-red-400'}`}>
-                                {testResult.deepseek.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                                <span>{testResult.deepseek.success ? 'Connection successful!' : `Connection failed: ${testResult.deepseek.error}`}</span>
-                            </div>
-                        )}
-                    </div>
-
                 </div>
             </div>
 
@@ -556,13 +470,48 @@ export const AIProvidersSettings: React.FC = () => {
                                 <span>Ollama connected</span>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-2">
-                                {ollamaModels.map(model => (
-                                    <div key={model} className="flex items-center justify-between p-2 bg-bg-input rounded-lg border border-border-subtle">
-                                        <span className="text-xs text-text-primary font-mono">{model}</span>
-                                        <span className="text-[10px] text-bg-elevated bg-text-secondary px-1.5 py-0.5 rounded-full font-bold">LOCAL</span>
+                            <div className="grid grid-cols-2 gap-6">
+                                {/* Left Column: Local */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                        <h4 className="text-[10px] uppercase font-bold text-text-tertiary tracking-widest">Native Local</h4>
                                     </div>
-                                ))}
+                                    <div className="space-y-1.5">
+                                        {ollamaModels
+                                            .filter(m => !(m.toLowerCase().includes('cloud') || m.toLowerCase().includes('gemini') || m.toLowerCase().includes('gpt')))
+                                            .map(model => (
+                                                <div key={model} className="flex items-center justify-between p-2 bg-bg-input rounded-lg border border-border-subtle group hover:border-slate-700/50 transition-colors">
+                                                    <span className="text-[11px] text-text-primary font-mono truncate mr-2" title={model}>{model}</span>
+                                                    <span className="text-[9px] text-bg-elevated bg-text-secondary px-1.5 py-0.5 rounded-full font-bold shrink-0">LOCAL</span>
+                                                </div>
+                                            ))}
+                                        {ollamaModels.filter(m => !(m.toLowerCase().includes('cloud') || m.toLowerCase().includes('gemini') || m.toLowerCase().includes('gpt'))).length === 0 && (
+                                            <div className="text-[10px] text-text-tertiary italic p-2 border border-dashed border-border-subtle rounded-lg">None discovered</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Cloud */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
+                                        <h4 className="text-[10px] uppercase font-bold text-text-tertiary tracking-widest">Cloud Proxies</h4>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {ollamaModels
+                                            .filter(m => (m.toLowerCase().includes('cloud') || m.toLowerCase().includes('gemini') || m.toLowerCase().includes('gpt')))
+                                            .map(model => (
+                                                <div key={model} className="flex items-center justify-between p-2 bg-bg-input rounded-lg border border-border-subtle group hover:border-accent-primary/20 transition-colors">
+                                                    <span className="text-[11px] text-text-primary font-mono truncate mr-2" title={model}>{model}</span>
+                                                    <span className="text-[9px] text-bg-elevated bg-text-secondary px-1.5 py-0.5 rounded-full font-bold shrink-0">CLOUD</span>
+                                                </div>
+                                            ))}
+                                        {ollamaModels.filter(m => (m.toLowerCase().includes('cloud') || m.toLowerCase().includes('gemini') || m.toLowerCase().includes('gpt'))).length === 0 && (
+                                            <div className="text-[10px] text-text-tertiary italic p-2 border border-dashed border-border-subtle rounded-lg">None discovered</div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

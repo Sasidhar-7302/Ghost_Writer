@@ -6,7 +6,8 @@ export class OpenAICompatProvider implements ILLMProvider {
     constructor(
         private client: OpenAI,
         private modelId: string,
-        public readonly name: string
+        public readonly name: string,
+        public readonly isVisionCapable: boolean = true
     ) { }
 
     public isAvailable(): boolean {

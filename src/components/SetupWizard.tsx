@@ -290,8 +290,8 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         </div>
                         <div className={`mx-auto max-w-sm rounded-2xl border px-4 py-3 text-left text-sm ${systemInfo.fullPrivacy?.enabled
                             ? (fullPrivacyBlocking
-                                ? 'border-red-500/30 bg-red-500/10 text-red-100'
-                                : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100')
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+                                : 'border-teal-500/20 bg-teal-500/10 text-teal-100')
                             : 'border-white/10 bg-white/5 text-white/70'
                             }`}>
                             {!diagnosisComplete ? (

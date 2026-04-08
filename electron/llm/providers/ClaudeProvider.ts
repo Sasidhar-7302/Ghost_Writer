@@ -6,6 +6,7 @@ let CLAUDE_MODEL = "claude-3-5-sonnet-latest";
 
 export class ClaudeProvider implements ILLMProvider {
     readonly name = "Claude";
+    readonly isVisionCapable = true;
 
     constructor(private client: Anthropic) { }
 

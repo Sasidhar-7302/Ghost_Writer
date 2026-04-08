@@ -150,7 +150,7 @@ export class MultimodalHelper {
                 withoutEnlargement: true
             })
             .png({
-                compressionLevel: options.pngCompressionLevel ?? 9
+                compressionLevel: options.pngCompressionLevel ?? 3
             })
             .toFile(outputPath);
 

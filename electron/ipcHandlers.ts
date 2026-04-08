@@ -217,11 +217,19 @@ export function initializeIpcHandlers(appState: AppState): void {
   safeIpcHandle("minimize-current-window", async (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
     const overlayWindow = appState.getWindowHelper().getOverlayWindow()
+    const isUndetectable = appState.getUndetectable()
 
     if (!senderWindow || senderWindow.isDestroyed()) {
       return
     }
 
+    if (isUndetectable) {
+      // In Ghost Mode, minimize means completely disappear (hide)
+      senderWindow.hide()
+      return
+    }
+
+    // Normal Mode
     if (overlayWindow && senderWindow === overlayWindow) {
       appState.getWindowHelper().switchToLauncher()
       return
@@ -993,6 +1001,10 @@ export function initializeIpcHandlers(appState: AppState): void {
   safeIpcHandle("get-meeting-details", async (event, id) => {
     // Helper to fetch full details
     return DatabaseManager.getInstance().getMeetingDetails(id);
+  });
+
+  safeIpcHandle("regenerate-meeting-summary", async (event, id: string) => {
+    return appState.getIntelligenceManager().regenerateMeetingSummary(id);
   });
 
   safeIpcHandle("update-meeting-title", async (_, { id, title }: { id: string; title: string }) => {

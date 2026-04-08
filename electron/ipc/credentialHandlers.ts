@@ -78,6 +78,8 @@ function mapCurrentModelToSelectionId(appState: AppState): string | undefined {
       return 'nvidia';
     case 'deepseek':
       return 'deepseek';
+    case 'openrouter':
+      return 'openrouter';
     default:
       return undefined;
   }
@@ -199,6 +201,9 @@ export function registerCredentialHandlers(appState: AppState): void {
   makeApiKeySetter(appState, "set-deepseek-api-key",
     (c, k) => c.setDeepseekApiKey(k), (l, k) => l.setDeepseekApiKey(k));
 
+  makeApiKeySetter(appState, "set-openrouter-api-key",
+    (c, k) => c.setOpenrouterApiKey(k), (l, k) => l.setOpenrouterApiKey(k));
+
   // ==========================================
   // Custom Provider Handlers
   // ==========================================
@@ -276,6 +281,7 @@ export function registerCredentialHandlers(appState: AppState): void {
         hasClaudeKey: !!creds.claudeApiKey,
         hasNvidiaKey: !!creds.nvidiaApiKey,
         hasDeepseekKey: !!creds.deepseekApiKey,
+        hasOpenrouterKey: !!creds.openrouterApiKey,
         googleServiceAccountPath: creds.googleServiceAccountPath || null,
         sttProvider: creds.sttProvider || 'google',
         groqSttModel: creds.groqSttModel || 'whisper-large-v3-turbo',
@@ -292,7 +298,14 @@ export function registerCredentialHandlers(appState: AppState): void {
         airGapMode: !!creds.airGapMode,
       };
     } catch (error: any) {
-      return { hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, hasNvidiaKey: false, hasDeepseekKey: false, googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', hasResume: false, hasJobDescription: false, airGapMode: false };
+      return { 
+        hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, 
+        hasNvidiaKey: false, hasDeepseekKey: false, hasOpenrouterKey: false,
+        googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', 
+        hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, 
+        hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', 
+        hasResume: false, hasJobDescription: false, airGapMode: false 
+      };
     }
   });
 

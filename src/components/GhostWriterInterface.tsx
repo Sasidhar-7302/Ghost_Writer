@@ -119,6 +119,7 @@ interface Message {
     screenshotPreview?: string;
     isCode?: boolean;
     intent?: string;
+    model?: string;
 }
 
 interface GhostWriterInterfaceProps {
@@ -145,6 +146,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
     // Analytics State
     const requestStartTimeRef = useRef<number | null>(null);
     const [isMeetingMode, setIsMeetingMode] = useState(false);
+    const [isUserTalking, setIsUserTalking] = useState(false);
+    const talkingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Sync transcript setting and meeting mode
     useEffect(() => {
@@ -330,7 +333,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
         return () => unsubscribe();
     }, []);
 
-    // Sync Window Visibility with Expanded State
+    // Sync Window Visibility with Expanded State - REMOVED so window stays visible as a pill when "hidden"
+    /*
     useEffect(() => {
         if (isExpanded) {
             window.electronAPI.showWindow();
@@ -341,6 +345,7 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
             setTimeout(() => window.electronAPI.hideWindow(), 400);
         }
     }, [isExpanded]);
+    */
 
     // Keyboard shortcut to toggle expanded state (via Main Process)
     useEffect(() => {
@@ -406,6 +411,11 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
             // When Answer button is active, capture USER transcripts for voice input
             // Use ref to avoid stale closure issue
             if (isRecordingRef.current && transcript.speaker === 'user') {
+                // Visual feedback: user is speaking
+                setIsUserTalking(true);
+                if (talkingTimeoutRef.current) clearTimeout(talkingTimeoutRef.current);
+                talkingTimeoutRef.current = setTimeout(() => setIsUserTalking(false), 500);
+
                 if (transcript.final) {
                     // Accumulate final transcripts
                     setVoiceInput(prev => {
@@ -523,7 +533,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                     text: token,
                     reasoning: reasoning,
                     intent: 'what_to_answer',
-                    isStreaming: true
+                    isStreaming: true,
+                    model: currentModel
                 }];
             });
         }));
@@ -576,7 +587,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                     role: 'system',
                     text: data.token,
                     intent: data.intent,
-                    isStreaming: true
+                    isStreaming: true,
+                    model: currentModel
                 }];
             });
         }));
@@ -623,7 +635,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                     role: 'system',
                     text: data.token,
                     intent: 'recap',
-                    isStreaming: true
+                    isStreaming: true,
+                    model: currentModel
                 }];
             });
         }));
@@ -678,7 +691,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                     role: 'system',
                     text: data.token,
                     intent: 'follow_up_questions',
-                    isStreaming: true
+                    isStreaming: true,
+                    model: currentModel
                 }];
             });
         }));
@@ -779,6 +793,10 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
 
         // Use attached image context if present
         const currentAttachment = attachedContext;
+        if (currentAttachment) {
+            setAttachedContext(null);
+        }
+        
         if (currentAttachment) {
             setMessages(prev => [...prev, {
                 id: Date.now().toString(),
@@ -969,19 +987,33 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
             isRecordingRef.current = false;  // Update ref immediately
             setIsManualRecording(false);
             setManualTranscript('');  // Clear live preview
-
+            
             const currentAttachment = attachedContext;
+
+            // Wait briefly for in-flight whisper chunks to arrive
+            await new Promise(r => setTimeout(r, 600));
+
+            // Final check: if no final transcript was received, use the current partial/preview
+            if (voiceInputRef.current.trim() === '' && manualTranscript.trim() !== '') {
+                voiceInputRef.current = manualTranscript.trim();
+                setVoiceInput(voiceInputRef.current);
+            }
 
             const question = voiceInputRef.current.trim();
             setVoiceInput('');
             voiceInputRef.current = '';
+
+            // Clear context immediately for instant UI feedback
+            if (currentAttachment) {
+                setAttachedContext(null);
+            }
 
             if (!question && !currentAttachment) {
                 // No voice input and no image
                 setMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     role: 'system',
-                    text: '⚠️ No speech detected. Try speaking closer to your microphone.'
+                    text: '⚠️ No voice detected from your microphone. (Note: Interviewer transcription is handled separately via "What to answer?").'
                 }]);
                 return;
             }
@@ -1000,7 +1032,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                 id: Date.now().toString(),
                 role: 'system',
                 text: '',
-                isStreaming: true
+                isStreaming: true,
+                model: currentModel
             }]);
 
             setIsProcessing(true);
@@ -1096,11 +1129,17 @@ Provide only the answer, nothing else.`;
             id: Date.now().toString(),
             role: 'system',
             text: '',
-            isStreaming: true
+            isStreaming: true,
+            model: currentModel
         }]);
 
         setIsExpanded(true);
         setIsProcessing(true);
+
+        // Clear context immediately for instant UI feedback
+        if (currentAttachment) {
+            setAttachedContext(null);
+        }
 
         try {
             // Pass imagePath if attached, AND conversation context
@@ -1139,13 +1178,36 @@ Provide only the answer, nothing else.`;
 
 
     const renderMessageText = (msg: Message) => {
+        // Base rendering for any message that has a screenshot
+        const screenshotPreview = msg.hasScreenshot && msg.screenshotPreview ? (
+            <div className="mb-4 group/img relative">
+                <div className="
+                    relative rounded-[16px] overflow-hidden 
+                    border border-white/20 shadow-xl shadow-black/20 
+                    w-fit max-w-[280px] transition-all duration-300
+                    hover:border-white/40 hover:shadow-white/5
+                    interaction-base
+                ">
+                    <img 
+                        src={msg.screenshotPreview} 
+                        alt="Attached screenshot" 
+                        className="w-full h-auto object-contain block" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                </div>
+                {/* Visual Label */}
+                <div className="absolute -bottom-1 -right-1 bg-[#1E1E1E] border border-white/10 rounded-full p-1 shadow-lg opacity-0 group-hover/img:opacity-100 transition-opacity">
+                    <Image className="w-3 h-3 text-slate-400" />
+                </div>
+            </div>
+        ) : null;
+
         // Code-containing messages get special styling
-        // We split by code blocks to keep the "Code Solution" UI intact for the code parts
-        // But use ReactMarkdown for the text parts around it
         if (msg.isCode || (msg.role === 'system' && msg.text.includes('```'))) {
             const parts = msg.text.split(/(```[\s\S]*?```)/g);
             return (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 my-1">
+                    {screenshotPreview}
                     <div className="flex items-center gap-2 mb-2 text-purple-300 font-semibold text-xs uppercase tracking-wide">
                         <Code className="w-3.5 h-3.5" />
                         <span>Code Solution</span>
@@ -1228,6 +1290,7 @@ Provide only the answer, nothing else.`;
         if (msg.intent === 'shorten') {
             return (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 my-1">
+                    {screenshotPreview}
                     <div className="flex items-center gap-2 mb-2 text-cyan-300 font-semibold text-xs uppercase tracking-wide">
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span>Shortened</span>
@@ -1251,6 +1314,7 @@ Provide only the answer, nothing else.`;
         if (msg.intent === 'recap') {
             return (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 my-1">
+                    {screenshotPreview}
                     <div className="flex items-center gap-2 mb-2 text-indigo-300 font-semibold text-xs uppercase tracking-wide">
                         <RefreshCw className="w-3.5 h-3.5" />
                         <span>Recap</span>
@@ -1274,6 +1338,7 @@ Provide only the answer, nothing else.`;
         if (msg.intent === 'follow_up_questions') {
             return (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 my-1">
+                    {screenshotPreview}
                     <div className="flex items-center gap-2 mb-2 text-[#FFD60A] font-semibold text-xs uppercase tracking-wide">
                         <HelpCircle className="w-3.5 h-3.5" />
                         <span>Follow-Up Questions</span>
@@ -1300,6 +1365,7 @@ Provide only the answer, nothing else.`;
 
             return (
                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 my-1">
+                    {screenshotPreview}
                     <div className="flex items-center gap-2 mb-2 text-emerald-400 font-semibold text-xs uppercase tracking-wide">
                         <span>Say this</span>
                     </div>
@@ -1387,11 +1453,7 @@ Provide only the answer, nothing else.`;
         // We still want basic markdown support here too
         return (
             <div className="markdown-content">
-                {msg.hasScreenshot && msg.screenshotPreview && (
-                    <div className="mb-3 rounded-lg overflow-hidden border border-white/10 w-fit max-w-[250px]">
-                        <img src={msg.screenshotPreview} alt="Attached screenshot" className="w-full h-auto object-contain" />
-                    </div>
-                )}
+                {screenshotPreview}
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeKatex]}
@@ -1417,28 +1479,30 @@ Provide only the answer, nothing else.`;
     return (
         <div ref={contentRef} className="flex flex-col items-center w-fit mx-auto h-fit min-h-0 bg-transparent p-0 rounded-[24px] font-sans text-slate-200 gap-2">
 
+            <TopPill
+                expanded={isExpanded}
+                onToggle={() => setIsExpanded(!isExpanded)}
+                onMinimize={() => window.electronAPI.minimizeCurrentWindow()}
+                onQuit={() => onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp()}
+            />
+
             <AnimatePresence>
                 {isExpanded && (
                     <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                        exit={{ opacity: 0, height: 0, scale: 0.95 }}
                         transition={{ duration: 0.3, ease: "easeInOut" }}
-                        className="flex flex-col items-center gap-2 w-full"
+                        className="flex flex-col items-center gap-2 w-full overflow-hidden"
                     >
-                        <TopPill
-                            expanded={isExpanded}
-                            onToggle={() => setIsExpanded(!isExpanded)}
-                            onMinimize={() => window.electronAPI.setWindowMode('launcher')}
-                            onQuit={() => onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp()}
-                        />
                         <div className="
                     relative w-[1000px] max-w-full
-                    bg-[#1E1E1E]/95
-                    backdrop-blur-2xl
-                    border border-white/10
-                    shadow-2xl shadow-black/40
-                    rounded-[24px] 
+                    bg-[#121212]/75
+                    backdrop-blur-[40px]
+                    border border-white/20
+                    border-t-white/30
+                    shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset]
+                    rounded-[32px] 
                     overflow-hidden 
                     flex flex-col
                 ">
@@ -1502,12 +1566,6 @@ Provide only the answer, nothing else.`;
                                                                 {msg.isStreaming && <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />}
                                                             </div>
                                                         )}
-                                                        {msg.role === 'user' && msg.hasScreenshot && (
-                                                            <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1 border-b border-white/10 pb-1">
-                                                                <Image className="w-2.5 h-2.5" />
-                                                                <span>Screenshot attached</span>
-                                                            </div>
-                                                        )}
                                                         {msg.role === 'system' && !msg.isStreaming && (
                                                             <button
                                                                 onClick={() => handleCopy(msg.text)}
@@ -1518,6 +1576,15 @@ Provide only the answer, nothing else.`;
                                                             </button>
                                                         )}
                                                         {renderMessageText(msg)}
+                                                        
+                                                        {/* Model Attribution Tag */}
+                                                        {msg.role === 'system' && msg.model && !msg.isStreaming && (
+                                                            <div className="mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">
+                                                                <div className="px-1.5 py-0.5 rounded-sm bg-white/5 border border-white/5 text-[8px] font-black uppercase tracking-widest text-white/30">
+                                                                    via {msg.model.replace('-preview', '').replace('-latest', '').replace('gemini-', 'G-').toUpperCase()}
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {msg.role === 'system' && !msg.isStreaming && (
                                                             <div className="flex flex-wrap gap-1.5 mt-3 pt-2 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1557,10 +1624,12 @@ Provide only the answer, nothing else.`;
                                                         </div>
                                                     )}
                                                     <div className="px-3 py-2 flex gap-1.5 items-center">
-                                                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                                        <span className="text-[10px] text-emerald-400/70 ml-1">Listening...</span>
+                                                        <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isUserTalking ? 'bg-emerald-400 scale-125 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-emerald-800'}`} />
+                                                        <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isUserTalking ? 'bg-emerald-400 scale-125 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-emerald-800'} delay-75`} />
+                                                        <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isUserTalking ? 'bg-emerald-400 scale-125 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-emerald-800'} delay-150`} />
+                                                        <span className={`text-[10px] ml-1 transition-colors ${isUserTalking ? 'text-emerald-400' : 'text-emerald-400/50'}`}>
+                                                            {isUserTalking ? 'Hearing you...' : 'Listening to mic...'}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             )}
@@ -1617,7 +1686,7 @@ Provide only the answer, nothing else.`;
                                             Stop
                                         </>
                                     ) : (
-                                        <><Zap className="w-3 h-3 opacity-70" /> Answer</>
+                                        <><Mic className="w-3 h-3 opacity-70" /> Voice Prompt</>
                                     )}
                                 </button>
                             </div>

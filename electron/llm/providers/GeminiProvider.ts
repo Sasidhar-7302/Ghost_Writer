@@ -10,6 +10,7 @@ const MAX_OUTPUT_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS;
 
 export class GeminiProvider implements ILLMProvider {
     readonly name = "Gemini";
+    readonly isVisionCapable = true;
 
     constructor(private client: GoogleGenAI) { }
 

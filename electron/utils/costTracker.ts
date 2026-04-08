@@ -1,4 +1,5 @@
 import { DatabaseManager } from '../db/DatabaseManager';
+import { AnalyticsManager } from '../services/AnalyticsManager';
 
 interface TokenUsage {
     provider: string;
@@ -77,6 +78,18 @@ class CostTracker {
         try {
             const dbManager = DatabaseManager.getInstance();
             await dbManager.saveTokenUsage(usage);
+
+            // SYNC TO SUPABASE (Enterprise Analytics)
+            const analytics = AnalyticsManager.getInstance();
+            analytics.reportInteraction({
+                provider,
+                modelId: model,
+                inputTokens,
+                outputTokens,
+                cost,
+                durationMs: 0, // Duration tracking can be added later if needed
+                metadata: { source: 'CostTracker' }
+            }).catch(() => {}); // Fire and forget to not block DB write
         } catch (error) {
             console.error('Failed to save token usage:', error);
         }

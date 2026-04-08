@@ -19,13 +19,12 @@ const OLLAMA_VISION_MODEL_HINTS = [
     'qwen2-vl',
     'qwen3-vl',
     'qwen3.5',
-    'minimax',
-    'kimi',
-    'glm',
-    'medllama',
-    'gemini',
     'vl',
-    'vision'
+    'vision',
+    'pixtral',
+    'llama-3.2-vision',
+    'llama-3-vision',
+    'internvl'
 ];
 
 export function isLikelyVisionModelName(modelName: string): boolean {
@@ -35,6 +34,7 @@ export function isLikelyVisionModelName(modelName: string): boolean {
 
 export class OllamaProvider implements ILLMProvider {
     readonly name = "Ollama";
+    readonly isVisionCapable = true;
     private gpuInfo: GPUInfo | null = null;
     private initPromise: Promise<void> | null = null;
     private isInitializing: boolean = false;
@@ -169,6 +169,44 @@ export class OllamaProvider implements ILLMProvider {
 
     public supportsMultimodal(): boolean {
         return true;
+    }
+
+    /**
+     * Finds all installed models that are likely vision-capable, returning metadata about cloud status.
+     */
+    public async getAvailableVisionModels(): Promise<Array<{ name: string, isCloud: boolean }>> {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const response = await fetch(`${this.ollamaUrl}/api/tags`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!response.ok) return [];
+
+            const data = await response.json();
+            const rawModels = data.models || [];
+            
+            const visionModels = rawModels.filter((m: any) => isLikelyVisionModelName(m.name));
+            
+            return visionModels.map((m: any) => {
+                const name = m.name.toLowerCase();
+                // Heuristic for Cloud Models:
+                // 1. Explicitly tagged with :cloud
+                // 2. Reported size is 0 (cloud manifest)
+                // 3. Known cloud-only keywords (gemini, gpt, claude, etc.)
+                const isCloudExplicit = name.includes(':cloud');
+                const isCloudBySize = m.size === 0 || m.size === undefined;
+                const isCloudByKeyword = ['gemini', 'gpt', 'claude', 'deepseek-v3', 'kimi', 'glm'].some(k => name.includes(k));
+                
+                return {
+                    name: m.name,
+                    isCloud: isCloudExplicit || isCloudBySize || isCloudByKeyword
+                };
+            });
+        } catch (error) {
+            console.warn("[OllamaProvider] Error detecting vision models:", error);
+            return [];
+        }
     }
 
     public async testConnection(): Promise<{ success: boolean; error?: string }> {

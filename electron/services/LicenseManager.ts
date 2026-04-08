@@ -20,6 +20,7 @@
 import { app, shell } from 'electron';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { CredentialsManager } from './CredentialsManager';
+import { AnalyticsManager } from './AnalyticsManager';
 import * as https from 'https';
 import * as crypto from 'crypto';
 
@@ -171,8 +172,11 @@ export class LicenseManager {
         this.subscribeToCheckout(sessionId, (licenseKey) => {
             if (licenseKey) {
                 console.log('[LicenseManager] Background checkout auto-unlock successful');
+                AnalyticsManager.getInstance().reportBusinessEvent('checkout_completed', { source: 'auto_monitor' });
             }
         });
+
+        AnalyticsManager.getInstance().reportBusinessEvent('checkout_started', { sessionId });
 
         return sessionId;
     }
@@ -285,6 +289,12 @@ export class LicenseManager {
                 .from('installations')
                 .update({ has_paid_license: true })
                 .eq('machine_id', this.machineId);
+
+            // Log conversion success
+            AnalyticsManager.getInstance().reportBusinessEvent('checkout_completed', { 
+                source: 'activation',
+                licenseKey: licenseKey.substring(0, 8) + '...' 
+            });
 
             // Update in-memory state
             this.currentState = {
@@ -415,8 +425,27 @@ export class LicenseManager {
     }
 
     /**
-     * Verify a Gumroad license key via their API
+     * Get global community statistics
      */
+    public async getGlobalStats(): Promise<{ totalMeetings: number; totalTokens: number }> {
+        try {
+            const { data, error } = await this.supabase
+                .from('installations')
+                .select('total_meetings_summarized, total_tokens_used');
+
+            if (error) throw error;
+
+            const stats = (data || []).reduce((acc, curr) => ({
+                totalMeetings: acc.totalMeetings + (Number(curr.total_meetings_summarized) || 0),
+                totalTokens: acc.totalTokens + (Number(curr.total_tokens_used) || 0)
+            }), { totalMeetings: 0, totalTokens: 0 });
+
+            return stats;
+        } catch (err) {
+            console.error('[LicenseManager] Failed to fetch global stats:', err);
+            return { totalMeetings: 0, totalTokens: 0 };
+        }
+    }
     private verifyGumroadLicense(licenseKey: string): Promise<boolean> {
         return new Promise((resolve) => {
             const postData = `product_id=${GUMROAD_PRODUCT_PERMALINK}&license_key=${encodeURIComponent(licenseKey)}`;

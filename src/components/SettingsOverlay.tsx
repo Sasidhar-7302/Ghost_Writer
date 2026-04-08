@@ -903,7 +903,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                             ) : (
                                                                 <Ghost size={18} className="text-text-primary" />
                                                             )}
-                                                            <h3 className="text-lg font-bold text-text-primary">{isUndetectable ? 'Undetectable Mode' : 'Standard Mode'}</h3>
+                                                            <h3 className="text-lg font-bold text-text-primary">{isUndetectable ? 'Ghost Mode' : 'Visible Mode'}</h3>
                                                         </div>
                                                         <p className="text-xs text-text-secondary">
                                                             {isUndetectable

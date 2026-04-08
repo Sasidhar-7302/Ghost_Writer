@@ -89,12 +89,12 @@ const SettingsPopup = () => {
                             stroke={isUndetectable ? "none" : "currentColor"}
                             eyeColor={isUndetectable ? "black" : "white"}
                         />
-                        <span className={`text-[12px] font-medium transition-colors ${isUndetectable ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{isUndetectable ? 'Stealth Mode' : 'Standard Mode'}</span>
+                        <span className={`text-[12px] font-medium transition-colors ${isUndetectable ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{isUndetectable ? 'Ghost Mode' : 'Visible Mode'}</span>
                     </div>
                     <button
                         onClick={() => setIsUndetectable(!isUndetectable)}
                         className={`w-[30px] h-[18px] rounded-full p-[1.5px] transition-all duration-300 ease-spring active:scale-[0.92] ${isUndetectable ? 'bg-white shadow-[0_2px_8px_rgba(255,255,255,0.2)]' : 'bg-white/10'}`}
-                        title={isUndetectable ? "Switch to Standard Mode" : "Switch to Stealth Mode"}
+                        title={isUndetectable ? "Switch to Visible Mode" : "Switch to Ghost Mode"}
                     >
                         <div className={`w-[15px] h-[15px] rounded-full bg-black shadow-sm transition-transform duration-300 ease-spring ${isUndetectable ? 'translate-x-[12px]' : 'translate-x-0'}`} />
                     </button>

@@ -71,9 +71,115 @@ export class AnalyticsManager {
 
         console.log(`[AnalyticsManager] Meeting ended. Duration: ${durationMinutes} minutes.`);
 
-        // We could log specific meeting duration events here if needed
+        // Report to Enterprise Analytics (metadata only)
+        this.reportMeetingSession({
+            duration_ms: Math.round(durationSeconds * 1000),
+            summary_status: 'complete'
+        });
+
         this.isMeetingInProgress = false;
         this.meetingStartTime = null;
+    }
+
+    /**
+     * Report an LLM interaction (tokens, provider, cost)
+     */
+    public async reportInteraction(params: {
+        eventType?: string;
+        provider: string;
+        modelId: string;
+        inputTokens: number;
+        outputTokens: number;
+        cost: number;
+        durationMs: number;
+        metadata?: any;
+    }): Promise<void> {
+        try {
+            const license = LicenseManager.getInstance();
+            const state = license.getState();
+            if (!state || !state.machineId) return;
+
+            const { error } = await this.supabase.rpc('log_enterprise_interaction', {
+                p_machine_id: state.machineId,
+                p_event_type: params.eventType || 'ai_interaction',
+                p_provider: params.provider,
+                p_model_id: params.modelId,
+                p_input_tokens: params.inputTokens,
+                p_output_tokens: params.outputTokens,
+                p_cost: params.cost,
+                p_duration_ms: params.durationMs,
+                p_metadata: params.metadata || {}
+            });
+
+            if (error) {
+                // If RPC doesn't exist yet, we fail silently to not disrupt the app
+                if (error.code === 'P0001' || error.message.includes('function does not exist')) {
+                    console.warn('[AnalyticsManager] log_enterprise_interaction RPC not found. Skipping.');
+                } else {
+                    console.error('[AnalyticsManager] Interaction logging failed:', error.message);
+                }
+            }
+        } catch (err: any) {
+            console.error('[AnalyticsManager] Interaction logging error:', err?.message);
+        }
+    }
+
+    /**
+     * Report a meeting session summary event
+     */
+    public async reportMeetingSession(params: {
+        duration_ms: number;
+        summary_status: string;
+        metadata?: any;
+    }): Promise<void> {
+        try {
+            const license = LicenseManager.getInstance();
+            const state = license.getState();
+            if (!state || !state.machineId) return;
+
+            await this.supabase.rpc('log_enterprise_interaction', {
+                p_machine_id: state.machineId,
+                p_event_type: 'meeting_summary',
+                p_provider: 'none',
+                p_model_id: 'none',
+                p_input_tokens: 0,
+                p_output_tokens: 0,
+                p_cost: 0,
+                p_duration_ms: params.duration_ms,
+                p_metadata: {
+                    ...params.metadata,
+                    status: params.summary_status
+                }
+            });
+        } catch (err) {
+            // Silently fail if DB not prepared
+        }
+    }
+
+    /**
+     * Report a business event (e.g., checkout_started, checkout_completed)
+     */
+    public async reportBusinessEvent(eventType: string, metadata?: any): Promise<void> {
+        try {
+            const license = LicenseManager.getInstance();
+            const state = license.getState();
+            if (!state || !state.machineId) return;
+
+            await this.supabase.rpc('log_enterprise_interaction', {
+                p_machine_id: state.machineId,
+                p_event_type: eventType,
+                p_provider: 'none',
+                p_model_id: 'none',
+                p_input_tokens: 0,
+                p_output_tokens: 0,
+                p_cost: 0,
+                p_duration_ms: 0,
+                p_metadata: metadata || {}
+            });
+            console.log(`[AnalyticsManager] Business event reported: ${eventType}`);
+        } catch (err) {
+            // Silently fail to protect user experience
+        }
     }
 
     /**

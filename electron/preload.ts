@@ -133,9 +133,11 @@ interface ElectronAPI {
   endMeeting: () => Promise<{ success: boolean; error?: string }>
   getRecentMeetings: () => Promise<Array<{ id: string; title: string; date: string; duration: string; summary: string }>>
   getMeetingDetails: (id: string) => Promise<any>
+  regenerateMeetingSummary: (id: string) => Promise<any>
   updateMeetingTitle: (id: string, title: string) => Promise<boolean>
   updateMeetingSummary: (id: string, updates: { overview?: string, actionItems?: string[], keyPoints?: string[], actionItemsTitle?: string, keyPointsTitle?: string }) => Promise<boolean>
   onMeetingsUpdated: (callback: () => void) => () => void
+  getGlobalStats: () => Promise<{ totalMeetings: number; totalTokens: number }>
 
   // Intelligence Mode Events
   onIntelligenceAssistUpdate: (callback: (data: { insight: string }) => void) => () => void
@@ -547,9 +549,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   endMeeting: () => ipcRenderer.invoke("end-meeting"),
   getRecentMeetings: () => ipcRenderer.invoke("get-recent-meetings"),
   getMeetingDetails: (id: string) => ipcRenderer.invoke("get-meeting-details", id),
+  regenerateMeetingSummary: (id: string) => ipcRenderer.invoke("regenerate-meeting-summary", id),
   updateMeetingTitle: (id: string, title: string) => ipcRenderer.invoke("update-meeting-title", { id, title }),
   updateMeetingSummary: (id: string, updates: any) => ipcRenderer.invoke("update-meeting-summary", { id, updates }),
   deleteMeeting: (id: string) => ipcRenderer.invoke("delete-meeting", id),
+  getGlobalStats: () => ipcRenderer.invoke("get-global-stats"),
 
   onMeetingsUpdated: (callback: () => void) => {
     const subscription = () => callback()

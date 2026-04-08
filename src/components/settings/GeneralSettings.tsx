@@ -374,11 +374,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     </div>
 
                     {/* Air-Gap Mode */}
-                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle relative overflow-hidden">
-                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 to-orange-500 opacity-50"></div>
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle relative overflow-hidden transition-all">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-60"></div>
                         <div className="flex items-center justify-between mb-3">
                             <div>
-                                <label className="block text-xs font-bold text-red-400 uppercase tracking-wide">Full Privacy Mode</label>
+                                <label className="block text-xs font-bold text-emerald-400 uppercase tracking-wide">Full Privacy Mode</label>
                                 <p className="mt-1 text-[11px] text-text-tertiary">
                                     Forces Local Whisper and Ollama only. Cloud STT and cloud LLM providers are blocked until local dependencies are ready.
                                 </p>
@@ -386,7 +386,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <button
                                 onClick={handleAirGapToggle}
                                 disabled={isApplyingFullPrivacy}
-                                className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full focus:outline-none transition-colors duration-200 ease-in-out ${airGapMode ? 'bg-red-500' : 'bg-bg-input'} ${isApplyingFullPrivacy ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full focus:outline-none transition-colors duration-200 ease-in-out ${airGapMode ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-bg-input'} ${isApplyingFullPrivacy ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
                                 role="switch"
                                 aria-checked={airGapMode}
                             >
@@ -430,8 +430,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                 Active local model: <span className="text-text-primary">{fullPrivacyStatus.activeOllamaModel || 'None detected'}</span>
                             </p>
                             {airGapMode && fullPrivacyStatus.errors.length > 0 && (
-                                <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[11px] text-red-200">
-                                    <div className="font-semibold text-red-300">Full Privacy Mode is enabled but blocked.</div>
+                                <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-[11px] text-emerald-200">
+                                    <div className="font-semibold text-emerald-300">Full Privacy Mode is enabled but pending dependencies.</div>
                                     <ul className="mt-2 list-disc pl-4 space-y-1">
                                         {fullPrivacyStatus.errors.includes('missing_whisper_runtime') && <li>Install or repair the Local Whisper runtime.</li>}
                                         {fullPrivacyStatus.errors.includes('missing_whisper_model') && <li>Download or point Ghost Writer to a Local Whisper model.</li>}

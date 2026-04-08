@@ -12,7 +12,8 @@ import { OpenAICompatProvider } from "./llm/providers/OpenAICompatProvider";
 import { ClaudeProvider } from "./llm/providers/ClaudeProvider";
 import { GroqProvider } from "./llm/providers/GroqProvider";
 import { CustomCurlProvider } from "./llm/providers/CustomCurlProvider";
-import { ILLMProvider, ChatPayload } from "./llm/providers/ILLMProvider";
+import { ILLMProvider, ChatPayload, estimateTokens } from "./llm/providers/ILLMProvider";
+import { AnalyticsManager } from "./services/AnalyticsManager";
 
 import { extractFromCommonFormats } from "./llm/providers/CustomCurlProvider";
 
@@ -33,8 +34,8 @@ import {
   GEMINI_FLASH_MODEL
 } from "./llm/prompts";
 
-export const OPENAI_MODEL = "gpt-4o";
-export const CLAUDE_MODEL = "claude-3-5-sonnet-latest";
+export const OPENAI_MODEL = "gpt-4o-mini";
+export const CLAUDE_MODEL = "claude-3-5-haiku-latest";
 export const DEEPSEEK_MODEL = "deepseek-reasoner";
 export const RUNPOD_MODEL = "openai/runpod-model";
 export const NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
@@ -73,6 +74,9 @@ export class LLMHelper extends EventEmitter {
 
   private deepseekApiKey: string = ""
   private deepseekClient: OpenAI | null = null
+  
+  private openrouterApiKey: string = ""
+  private openrouterModelsCache: { models: any[], timestamp: number } | null = null;
 
   private gpuInfo: GPUInfo | null = null
   private isInitializing: boolean = false
@@ -161,6 +165,21 @@ export class LLMHelper extends EventEmitter {
     this.deepseekClient = new OpenAI({ apiKey, baseURL: 'https://api.deepseek.com', dangerouslyAllowBrowser: true });
   }
 
+  public setOpenrouterApiKey(apiKey: string): void {
+    if (!apiKey) return;
+    this.openrouterApiKey = apiKey;
+    // OpenAI client for OpenRouter
+    this.openaiClient = new OpenAI({ 
+      apiKey, 
+      baseURL: 'https://openrouter.ai/api/v1', 
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        "HTTP-Referer": "https://ghostwriter.ai", // Required by OpenRouter
+        "X-Title": "Ghost Writer"
+      }
+    });
+  }
+
   public getGroqApiKey(): string { return this.groqApiKey; }
   public getClient(): GoogleGenAI | null { return this.client }
   public getGroqClient(): Groq | null { return this.groqClient }
@@ -175,12 +194,16 @@ export class LLMHelper extends EventEmitter {
   public getCurrentProvider(): string {
     if (this.useOllama) return 'ollama';
     if (this.customProvider) return 'custom';
-    if (this.currentModelId === GEMINI_PRO_MODEL || this.currentModelId === GEMINI_FLASH_MODEL) return 'gemini';
-    if (this.currentModelId === GROQ_MODEL) return 'groq';
-    if (this.currentModelId === OPENAI_MODEL) return 'openai';
-    if (this.currentModelId === CLAUDE_MODEL) return 'claude';
-    if (this.currentModelId === NVIDIA_MODEL) return 'nvidia';
+    if (this.currentModelId.startsWith('gemini-')) return 'gemini';
+    if (this.currentModelId.startsWith('gpt-')) return 'openai';
+    if (this.currentModelId.startsWith('claude-')) return 'claude';
+    if (this.currentModelId.startsWith('llama-') || this.currentModelId.includes('mixtral')) {
+      if (this.currentModelId.includes('groq')) return 'groq';
+      if (this.currentModelId.includes('nvidia') || this.currentModelId.includes('meta/')) return 'nvidia';
+      return 'groq'; // Default to groq for llama if unsure
+    }
     if (this.currentModelId === DEEPSEEK_MODEL) return 'deepseek';
+    if (this.currentModelId.includes('/') || this.openrouterApiKey) return 'openrouter';
     return 'unknown';
   }
 
@@ -390,6 +413,139 @@ export class LLMHelper extends EventEmitter {
     return `${systemPrompt ?? ""}${screenshotRule}`.trim();
   }
 
+  private async getBestVisionHelper(): Promise<ILLMProvider | null> {
+    const isPrivacyActive = this.airGapMode;
+
+    // 1. Native Cloud High-Speed Models (Skip if Privacy Active)
+    if (!isPrivacyActive) {
+      if (this.client) return new GeminiProvider(this.client);
+      if (this.openaiClient) return new OpenAICompatProvider(this.openaiClient, OPENAI_MODEL, "OpenAI");
+      if (this.claudeClient) return new ClaudeProvider(this.claudeClient);
+    }
+    
+    // 2. Scan Ollama (Cloud vs Local)
+    const ollama = new OllamaProvider(this.ollamaUrl, this.ollamaModel);
+    const visionModelsWithMetadata = await ollama.getAvailableVisionModels();
+    
+    if (visionModelsWithMetadata.length > 0) {
+      // Sort models: prioritize fast/small ones, but keep Cloud vs Local distinction if not in privacy mode
+      const sortedModels = [...visionModelsWithMetadata]
+        .filter(m => {
+          // If Privacy Active, strictly skip any cloud models (explicit or heuristic)
+          if (isPrivacyActive && m.isCloud) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          // Priority A: Cloud models (unless in privacy mode)
+          if (!isPrivacyActive) {
+            if (a.isCloud && !b.isCloud) return -1;
+            if (!a.isCloud && b.isCloud) return 1;
+          }
+
+          // Priority B: Small/Fast models (heuristics)
+          const speedPriority = ['moondream', 'llava', 'qwen:4b', 'qwen:7b', 'qwen2:7b', 'phi3'];
+          const getScore = (name: string) => {
+            const index = speedPriority.findIndex(p => name.toLowerCase().includes(p));
+            return index === -1 ? 100 : index;
+          };
+          return getScore(a.name) - getScore(b.name);
+        });
+
+      if (sortedModels.length > 0) {
+        const modeLabel = isPrivacyActive ? "Local-Only" : "Hybrid";
+        const modelNames = visionModelsWithMetadata.map(m => `${m.name}${m.isCloud ? '(Cloud)' : ''}`);
+        console.log(`[VisionGateway] Discovery [${modeLabel}]. Available: ${modelNames.join(', ')}. Selected: ${sortedModels[0].name}`);
+        return new OllamaProvider(this.ollamaUrl, sortedModels[0].name);
+      }
+    }
+
+    return null;
+  }
+
+  private async generateVisualDescriptionFromHelper(helper: ILLMProvider, imagePath: string): Promise<string> {
+    console.log(`[VisionGateway] Delegating image analysis to ${helper.name}...`);
+
+    const proxyPrompt = `Analyze the attached screenshot in detail. 
+Focus on:
+1. Text, code, or data visible.
+2. UI elements, active windows, and their state.
+3. The overall context of what the user is looking at.
+
+Provide a comprehensive, objective description that will allow a text-only LLM to understand the visual context perfectly. 
+Be literal and detailed. Do NOT include any filler, meta-talk, or advice. Just describe the visual reality.`;
+
+    const description = await helper.generate({
+      message: proxyPrompt,
+      imagePath: imagePath,
+      options: { skipSystemPrompt: true }
+    });
+
+    if (!description || description.length < 10) {
+      throw new Error(`Vision helper ${helper.name} returned an empty or invalid description.`);
+    }
+
+    return description;
+  }
+
+  private async generateVisualDescription(imagePath: string): Promise<string> {
+    const helper = await this.getBestVisionHelper();
+    if (!helper) {
+      throw new Error("No vision-capable providers available for image analysis.");
+    }
+    return this.generateVisualDescriptionFromHelper(helper, imagePath);
+  }
+
+  private isProviderMultimodal(): boolean {
+    const modelId = (this.currentModelId || "").toLowerCase();
+    
+    // Explicit blacklist for known text-only models (even if they have multimodal APIs)
+    const textOnlyModelBlacklist = [
+      'deepseek-reasoner',
+      'deepseek-chat',
+      'minimax',
+      'minimax-m2',
+      'llama-3.3',
+      'llama-3.1',
+      'r1',
+    ];
+
+    if (textOnlyModelBlacklist.some(id => modelId.includes(id))) {
+      return false;
+    }
+
+    if (this.useOllama) {
+      const lower = this.ollamaModel.toLowerCase();
+      return (
+        lower.includes("llava") ||
+        lower.includes("v") ||
+        lower.includes("vision") ||
+        lower.includes("qwen2") ||
+        lower.includes("qwen3")
+      );
+    }
+
+    if (this.customProvider) {
+      // If Custom provider has {{IMAGE_BASE64}} in its curlCommand, 
+      // AND it's not in our text-only blacklist, we assume multimodal.
+      const hasBase64 = this.customProvider.curlCommand?.includes("{{IMAGE_BASE64}}") ?? false;
+      const customName = (this.customProvider.name || "").toLowerCase();
+      
+      if (textOnlyModelBlacklist.some(id => customName.includes(id))) {
+        return false;
+      }
+      return hasBase64;
+    }
+
+    // Default LLM IDs that support vision natives
+    const multimodalIds = [
+      GEMINI_FLASH_MODEL,
+      GEMINI_PRO_MODEL,
+      OPENAI_MODEL,
+      CLAUDE_MODEL,
+    ];
+    return multimodalIds.includes(this.currentModelId);
+  }
+
   private async preparePayload(payload: ChatPayload): Promise<PreparedChatPayload> {
     const normalizedPayload: ChatPayload = {
       ...payload,
@@ -419,7 +575,10 @@ export class LLMHelper extends EventEmitter {
 
     try {
       const multimodal = MultimodalHelper.getInstance();
-      const processed = await multimodal.prepareImage(payload.imagePath, { runOCR: true });
+      const processed = await multimodal.prepareImage(payload.imagePath, { 
+        runOCR: true,
+        ocrTimeoutMs: 5000 // Cap OCR at 5s to keep things "instant"
+      });
       const cleanupPaths =
         processed.metadata.temporary && processed.processedPath !== payload.imagePath
           ? [processed.processedPath]
@@ -429,12 +588,37 @@ export class LLMHelper extends EventEmitter {
         `[LLMHelper] Prepared image ${path.basename(payload.imagePath)} -> ${path.basename(processed.processedPath)} (ocr=${processed.metadata.usedOCR}, size=${processed.metadata.processedSize})`
       );
 
+      let finalPayload = {
+        ...normalizedPayload,
+        imagePath: processed.processedPath,
+        message: this.buildMessageWithOCR(payload.message, processed.ocrText),
+      };
+
+      // --- VISION GATEWAY PROXY LOGIC ---
+      if (!this.isProviderMultimodal()) {
+        try {
+          const visualDescription = await this.generateVisualDescription(processed.processedPath);
+          const formattedContext = `
+[VISUAL ANALYSIS OF ATTACHED SCREENSHOT]
+This is what I can see in the screenshot you shared:
+${visualDescription}
+[END VISUAL ANALYSIS]`;
+          
+          finalPayload.context = this.appendContextNote(
+            finalPayload.context,
+            formattedContext
+          );
+          // Strip imagePath so text-only provider doesn't attempt native multimodal
+          finalPayload.imagePath = undefined;
+          console.log(`[VisionGateway] Successfully injected visual context into primary text-only model. Model ID: ${this.currentModelId}`);
+        } catch (proxyError: any) {
+          console.warn(`[VisionGateway] Proxy analysis failed:`, proxyError.message);
+          // Continue with text-only, at least OCR might be present
+        }
+      }
+
       return {
-        payload: {
-          ...normalizedPayload,
-          imagePath: processed.processedPath,
-          message: this.buildMessageWithOCR(payload.message, processed.ocrText),
-        },
+        payload: finalPayload,
         cleanupPaths,
       };
     } catch (error) {
@@ -822,20 +1006,24 @@ export class LLMHelper extends EventEmitter {
 
     if (model) {
       this.ollamaModel = model;
+      this.currentModelId = model;
     } else {
       if (this.initPromise) {
         await this.initPromise;
         if (this.ollamaModel) {
+          this.currentModelId = this.ollamaModel;
           return;
         }
       }
       await this.initializeOllamaModel();
+      this.currentModelId = this.ollamaModel;
     }
   }
 
   public async switchToGemini(apiKey?: string, modelId?: string): Promise<void> {
     if (modelId) {
       this.geminiModel = modelId;
+      this.currentModelId = modelId;
     }
 
     if (apiKey) {
@@ -859,6 +1047,7 @@ export class LLMHelper extends EventEmitter {
     this.groqClient = null;
     this.openaiClient = null;
     this.claudeClient = null;
+    this.currentModelId = provider.name;
     console.log(`[LLMHelper] Switched to Custom Provider: ${provider.name}`);
   }
 
@@ -950,6 +1139,19 @@ export class LLMHelper extends EventEmitter {
       if (this.currentModelId === DEEPSEEK_MODEL && this.deepseekClient && !isMultimodal) {
         const provider = new OpenAICompatProvider(this.deepseekClient, DEEPSEEK_MODEL, "DeepSeek");
         return await processProviderResponse(provider.generate(openaiPayload));
+      }
+
+      if (this.openrouterApiKey && (this.currentModelId.includes('/') || this.currentModelId.startsWith('openrouter-'))) {
+        const provider = new OpenAICompatProvider(this.openaiClient!, this.currentModelId, "OpenRouter");
+        try {
+          return await processProviderResponse(provider.generate(openaiPayload));
+        } catch (error: any) {
+          // OpenRouter specific: catch 402 Payment Required
+          if (error.status === 402 || error.message?.includes('402') || error.message?.includes('insufficient_credits')) {
+            throw new Error("Payment Required: Your OpenRouter account has insufficient credits. Please switch to a :free model or add credits at openrouter.ai.");
+          }
+          throw error;
+        }
       }
 
       type ProviderAttempt = { name: string; execute: () => Promise<string> };
@@ -1084,6 +1286,7 @@ export class LLMHelper extends EventEmitter {
         addAttempt("Groq", !!this.groqClient && this.currentModelId === GROQ_MODEL, () => this.streamWithGroq(groqPayload));
         addAttempt("NVIDIA", !!this.nvidiaClient && this.currentModelId === NVIDIA_MODEL, () => this.streamWithNvidia(openaiPayload));
         addAttempt("DeepSeek", !!this.deepseekClient && this.currentModelId === DEEPSEEK_MODEL, () => this.streamWithDeepseek(openaiPayload));
+        addAttempt("OpenRouter", !!this.openrouterApiKey && (this.currentModelId.includes('/') || this.currentModelId.startsWith('openrouter-')), () => this.streamWithOpenai(openaiPayload));
         addAttempt("Gemini", !!this.client && (this.currentModelId === GEMINI_FLASH_MODEL || this.currentModelId === GEMINI_PRO_MODEL), () => this.streamWithGeminiModel(geminiPayload));
         addAttempt("Claude", !!this.claudeClient, () => this.streamWithClaude(claudePayload));
         addAttempt("Gemini", !!this.client, () => this.streamWithGeminiModel(geminiPayload));
@@ -1257,15 +1460,71 @@ export class LLMHelper extends EventEmitter {
     }
 
     let fullResponse = "";
+    const startTime = Date.now();
     try {
       const stream = this.streamChat(payload);
       for await (const chunk of stream) {
         fullResponse += chunk;
       }
-      if (fullResponse.trim().length > 0) return this.processResponse(fullResponse);
-      return await this.chatWithGemini(payload);
+      
+      const result = (fullResponse.trim().length > 0) 
+        ? this.processResponse(fullResponse) 
+        : await this.chatWithGemini(payload);
+
+      // Enterprise Analytics Reporting
+      try {
+        const durationMs = Date.now() - startTime;
+        const inputTokens = estimateTokens(payload.message + (payload.context || ""));
+        const outputTokens = estimateTokens(result);
+        AnalyticsManager.getInstance().reportInteraction({
+          provider: this.getCurrentProvider(),
+          modelId: this.currentModelId,
+          inputTokens,
+          outputTokens,
+          cost: 0, // Cost is calculated server-side or via CostTracker
+          durationMs,
+          metadata: { type: 'chat' }
+        }).catch(() => {});
+      } catch (e) {}
+
+      return result;
     } catch (error: any) {
       return this.chatWithGemini(payload);
+    }
+  }
+
+  public async getOpenRouterModels(): Promise<any[]> {
+    if (!this.openrouterApiKey) return [];
+
+    // Cache for 1 hour
+    if (this.openrouterModelsCache && Date.now() - this.openrouterModelsCache.timestamp < 3600000) {
+      return this.openrouterModelsCache.models;
+    }
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          "HTTP-Referer": "https://ghostwriter.ai",
+          "X-Title": "Ghost Writer"
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch OpenRouter models');
+
+      const data = await response.json();
+      const models = (data.data || []).map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        isFree: m.pricing?.prompt === "0" && m.pricing?.completion === "0",
+        context_length: m.context_length
+      }));
+
+      this.openrouterModelsCache = { models, timestamp: Date.now() };
+      return models;
+    } catch (error) {
+      console.error("[LLMHelper] OpenRouter discovery failed:", error);
+      return [];
     }
   }
 }

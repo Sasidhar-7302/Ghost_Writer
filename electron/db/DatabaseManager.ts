@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { app } from 'electron';
 import fs from 'fs';
+import { logger, ModuleLogger } from '../utils/logger';
 
 // Interfaces for our data objects
 export interface Meeting {
@@ -49,8 +50,10 @@ export class DatabaseManager {
     private static instance: DatabaseManager;
     private db: Database.Database | null = null;
     private dbPath: string;
+    private log: ModuleLogger;
 
     private constructor() {
+        this.log = logger.createChild('DatabaseManager');
         const userDataPath = app.getPath('userData');
         this.dbPath = path.join(userDataPath, 'ghost-writer.db');
         this.init();
@@ -75,7 +78,7 @@ export class DatabaseManager {
             this.db = new Database(this.dbPath);
             this.runMigrations();
         } catch (error) {
-            console.error('[DatabaseManager] Failed to initialize database:', error);
+            this.log.error('Failed to initialize database', error);
             throw error;
         }
     }

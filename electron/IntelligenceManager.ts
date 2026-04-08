@@ -6,6 +6,8 @@ import { EventEmitter } from 'events';
 import { LLMHelper } from './LLMHelper';
 import fs from 'fs';
 import path from 'path';
+import { logger, ModuleLogger } from './utils/logger';
+import { AnalyticsManager } from './services/AnalyticsManager';
 
 export interface TranscriptSegment {
     marker?: string;
@@ -111,6 +113,8 @@ export class IntelligenceManager extends EventEmitter {
         source?: 'manual' | 'calendar';
     } | null = null;
 
+    private log: ModuleLogger;
+
     private currentScreenshots: string[] = [];
     private meetingScreenshotSessionDir: string | null = null;
 
@@ -161,7 +165,7 @@ export class IntelligenceManager extends EventEmitter {
             fs.copyFileSync(sourcePath, targetPath);
             return targetPath;
         } catch (error) {
-            console.warn(`[IntelligenceManager] Failed to persist meeting screenshot ${sourcePath}: ${error instanceof Error ? error.message : error}`);
+            this.log.error(`Failed to persist meeting screenshot ${sourcePath}`, error);
             return sourcePath;
         }
     }
@@ -184,13 +188,14 @@ export class IntelligenceManager extends EventEmitter {
     // Timestamps for tracking
     private lastTranscriptTime: number = 0;
     private lastTriggerTime: number = 0;
-    private readonly triggerCooldown: number = 3000; // 3 seconds
+    private readonly triggerCooldown: number = 2000; // 2 seconds
     private currentModel: string = GEMINI_FLASH_MODEL;
 
 
 
     constructor(llmHelper: LLMHelper) {
         super();
+        this.log = logger.createChild('IntelligenceManager');
         this.llmHelper = llmHelper;
         this.initializeLLMs();
 
@@ -1062,6 +1067,61 @@ export class IntelligenceManager extends EventEmitter {
     /**
      * Heavy lifting: LLM Title, Summary, and DB Write
      */
+    public async regenerateMeetingSummary(meetingId: string): Promise<Meeting | null> {
+        this.log.info(`Regenerating summary for meeting: ${meetingId}`);
+        const db = DatabaseManager.getInstance();
+        const meeting = db.getMeetingDetails(meetingId);
+
+        if (!meeting || !meeting.transcript || meeting.transcript.length === 0) {
+            this.log.warn(`Cannot regenerate: meeting not found or has no transcript.`);
+            return null;
+        }
+
+        // 1. Prepare context from transcript
+        const transcriptText = meeting.transcript.map(s => `[${this.mapSpeakerToRole(s.speaker).toUpperCase()}]: ${s.text}`).join('\n');
+
+        try {
+            // Use the unified RecapLLM for high-fidelity technical summaries
+            // This ensures we use the exact same logic for both auto and manual regeneration
+            if (!this.recapLLM) {
+                this.recapLLM = new RecapLLM(this.llmHelper);
+            }
+
+            const generatedSummary = await this.recapLLM.generate(transcriptText.substring(0, 45000));
+
+            if (generatedSummary) {
+                const jsonStr = this.llmHelper.cleanJsonResponse(generatedSummary);
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    const summaryData = {
+                        overview: parsed.overview || '',
+                        keyPoints: parsed.keyPoints || [],
+                        actionItems: parsed.actionItems || []
+                    };
+                    
+                    db.updateMeetingSummary(meetingId, summaryData);
+                    this.log.info(`Successfully regenerated and saved summary for ${meetingId}`);
+
+                    // Report to Enterprise Analytics (Supabase)
+                    AnalyticsManager.getInstance().reportMeetingSession({
+                        duration_ms: 0, // Regeneration doesn't change duration
+                        summary_status: 'regenerated',
+                        metadata: { meetingId, source: 'manual_regeneration' }
+                    }).catch(() => {});
+                    
+                    // Fetch updated meeting to return
+                    return db.getMeetingDetails(meetingId);
+                } catch (e) {
+                    this.log.error("Failed to parse regenerated summary JSON", e, { raw: generatedSummary });
+                }
+            }
+        } catch (error) {
+            this.log.error("Error during regeneration phase", error);
+        }
+
+        return null;
+    }
+
     private async processAndSaveMeeting(data: {
         transcript: TranscriptSegment[],
         usage: any[],
@@ -1192,6 +1252,15 @@ export class IntelligenceManager extends EventEmitter {
 
             // Save to SQLite
             DatabaseManager.getInstance().saveMeeting(meetingData, data.startTime, data.durationMs);
+
+            AnalyticsManager.getInstance().reportMeetingSession({
+                duration_ms: data.durationMs,
+                summary_status: 'complete',
+                metadata: {
+                    model: this.currentModel,
+                    title: title
+                }
+            }).catch(() => {});
 
             // Notify Frontend to refresh list
             const wins = require('electron').BrowserWindow.getAllWindows();

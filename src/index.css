@@ -131,10 +131,42 @@ body {
   /* cursor: default; -> Removed to let app dictate cursor */
 }
 
-/* Scrollbar Styling - Minimal hidden style */
+/* Scrollbar Styling - Minimal hidden style by default */
 ::-webkit-scrollbar {
   width: 0px;
   background: transparent;
+}
+
+/* Custom Visible Scrollbar for specific containers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.custom-scrollbar:hover::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  border: 3px solid transparent; /* Acts as padding to make the thumb look slimmer but the hit area larger */
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.5);
+  background-clip: padding-box;
 }
 
 /* Liquid Glass Effect Base - Refined Matte Look */

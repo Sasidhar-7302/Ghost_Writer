@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Search, Mail, Link, ChevronDown, Play, ArrowUp, Copy, Check, MoreHorizontal, Settings, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Search, Mail, Link, ChevronDown, Play, ArrowUp, Copy, Check, MoreHorizontal, Settings, ArrowRight, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MeetingChatOverlay from './MeetingChatOverlay';
 import EditableTextBlock from './EditableTextBlock';
@@ -82,6 +82,25 @@ const MeetingDetails: React.FC<MeetingDetailsProps> = ({ meeting: initialMeeting
     const [isCopied, setIsCopied] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [submittedQuery, setSubmittedQuery] = useState('');
+    const [isRegenerating, setIsRegenerating] = useState(false);
+
+    const handleRegenerate = async () => {
+        if (!meeting.id || isRegenerating) return;
+        
+        setIsRegenerating(true);
+        try {
+            if (window.electronAPI?.regenerateMeetingSummary) {
+                const updatedMeeting = await window.electronAPI.regenerateMeetingSummary(meeting.id);
+                if (updatedMeeting) {
+                    setMeeting(updatedMeeting);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to regenerate summary:', err);
+        } finally {
+            setIsRegenerating(false);
+        }
+    };
 
     const handleSubmitQuestion = () => {
         if (query.trim()) {
@@ -195,74 +214,94 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
 
     return (
         <div className="h-full w-full flex flex-col bg-bg-main text-text-secondary font-sans overflow-hidden">
-            {/* Main Content */}
-            <main className="flex-1 overflow-y-auto custom-scrollbar">
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1, duration: 0.3 }}
-                    className="max-w-4xl mx-auto px-8 py-8 pb-32" // Added pb-32 for floating footer clearance
-                >
-                    {/* Meta Info & Actions Row */}
-                    <div className="flex items-start justify-between mb-6">
-                        <div className="w-full pr-4">
-                            {/* Date formatting could be improved to use meeting.date if it's an ISO string */}
-                            <div className="text-xs text-text-tertiary font-medium mb-1">
-                                {new Date(meeting.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.3 }}
+                className="flex flex-col h-full"
+            >
+                {/* Fixed Header: Meta Info & Tabs */}
+                <header className="flex-none bg-bg-main z-10">
+                    <div className="max-w-4xl mx-auto px-8 pt-8 pb-4">
+                        {/* Meta Info & Actions Row */}
+                        <div className="flex items-start justify-between mb-6">
+                            <div className="w-full pr-4">
+                                {/* Date formatting could be improved to use meeting.date if it's an ISO string */}
+                                <div className="text-xs text-text-tertiary font-medium mb-1">
+                                    {new Date(meeting.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                </div>
+
+                                {/* Editable Title */}
+                                <EditableTextBlock
+                                    initialValue={meeting.title}
+                                    onSave={handleTitleSave}
+                                    tagName="h1"
+                                    className="text-3xl font-bold text-text-primary tracking-tight -ml-2 px-2 py-1 rounded-md transition-colors"
+                                    multiline={false}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        {/* Designing Tabs to match reference 1:1 (Dark Pill Container) */}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="bg-white/5 p-1.5 rounded-2xl inline-flex items-center gap-1 border border-white/5 backdrop-blur-3xl">
+                                {['summary', 'transcript', 'usage', 'screenshots'].map((tab) => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab as any)}
+                                        className={`
+                                            relative px-5 py-2 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-500 z-10
+                                            ${activeTab === tab ? 'text-black' : 'text-text-tertiary hover:text-text-primary'}
+                                        `}
+                                    >
+                                        {activeTab === tab && (
+                                            <motion.div
+                                                layoutId="activeTabBackground"
+                                                className="absolute inset-0 bg-white rounded-xl -z-10 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)]"
+                                                initial={false}
+                                                transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                                            />
+                                        )}
+                                        {tab}
+                                    </button>
+                                ))}
                             </div>
 
-                            {/* Editable Title */}
-                            <EditableTextBlock
-                                initialValue={meeting.title}
-                                onSave={handleTitleSave}
-                                tagName="h1"
-                                className="text-3xl font-bold text-text-primary tracking-tight -ml-2 px-2 py-1 rounded-md transition-colors"
-                                multiline={false}
-                            />
-                        </div>
-
-                        {/* Moved Actions: Follow-up & Share (REMOVED per user request) */}
-                        {/* <div className="flex items-center gap-2 mt-1"> ... </div> */}
-                    </div>
-
-                    {/* Tabs */}
-                    {/* Designing Tabs to match reference 1:1 (Dark Pill Container) */}
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="bg-white/5 p-1.5 rounded-2xl inline-flex items-center gap-1 border border-white/5 backdrop-blur-3xl">
-                            {['summary', 'transcript', 'usage', 'screenshots'].map((tab) => (
+                            {/* Actions: Regenerate & Copy */}
+                            <div className="flex items-center gap-4">
+                                {activeTab === 'summary' && (
+                                    <button
+                                        onClick={handleRegenerate}
+                                        disabled={isRegenerating}
+                                        className={`flex items-center gap-2 text-xs font-medium transition-all ${isRegenerating ? 'text-text-tertiary animate-pulse' : 'text-text-secondary hover:text-text-primary'}`}
+                                    >
+                                        <RefreshCw size={14} className={isRegenerating ? 'animate-spin' : ''} />
+                                        {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+                                    </button>
+                                )}
+                                
                                 <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab as any)}
-                                    className={`
-                                        relative px-5 py-2 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-500 z-10
-                                        ${activeTab === tab ? 'text-black' : 'text-text-tertiary hover:text-text-primary'}
-                                    `}
+                                    onClick={handleCopy}
+                                    className="flex items-center gap-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
                                 >
-                                    {activeTab === tab && (
-                                        <motion.div
-                                            layoutId="activeTabBackground"
-                                            className="absolute inset-0 bg-white rounded-xl -z-10 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)]"
-                                            initial={false}
-                                            transition={{ type: "spring", stiffness: 500, damping: 40 }}
-                                        />
-                                    )}
-                                    {tab}
+                                    {isCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                    {isCopied ? 'Copied' : activeTab === 'summary' ? 'Copy full summary' : activeTab === 'transcript' ? 'Copy full transcript' : 'Copy usage'}
                                 </button>
-                            ))}
+                            </div>
                         </div>
-
-                        {/* Copy Button - Inline with Tabs (Always visible) */}
-                        <button
-                            onClick={handleCopy}
-                            className="flex items-center gap-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
-                        >
-                            {isCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                            {isCopied ? 'Copied' : activeTab === 'summary' ? 'Copy full summary' : activeTab === 'transcript' ? 'Copy full transcript' : 'Copy usage'}
-                        </button>
                     </div>
+                    {/* Subtle Divider */}
+                    <div className="max-w-4xl mx-auto px-8">
+                        <div className="h-px bg-white/5" />
+                    </div>
+                </header>
 
-                    {/* Tab Content */}
-                    <div className="space-y-8">
+                {/* Main Content Area: Now scrollable independently */}
+                <main className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                    <div className="max-w-4xl mx-auto px-8 py-8 pb-40">
+                        {/* Tab Content */}
+                        <div className="space-y-8">
                         {/* Using standard divs for content, framer motion for layout */}
                         {activeTab === 'summary' && (
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -460,9 +499,10 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                                 )}
                             </motion.section>
                         )}
-                    </div>
-                </motion.div>
-            </main>
+                        </div> {/* space-y-8 */}
+                    </div> {/* max-w-4xl centerer */}
+                </main>
+            </motion.div>
 
             {/* Floating Footer (Ask Bar) */}
             <div className={`absolute bottom-0 left-0 right-0 p-8 flex justify-center pointer-events-none ${isChatOpen ? 'z-50' : 'z-20'}`}>

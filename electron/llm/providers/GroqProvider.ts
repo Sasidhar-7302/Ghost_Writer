@@ -5,6 +5,7 @@ let GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export class GroqProvider implements ILLMProvider {
     readonly name = "Groq";
+    readonly isVisionCapable = false;
 
     constructor(private client: Groq) { }
 

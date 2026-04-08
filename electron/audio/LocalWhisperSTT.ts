@@ -26,10 +26,10 @@ import * as net from 'net';
 import { GPUHelper } from '../utils/GPUHelper';
 
 // Upload interval in milliseconds (how often we process buffered audio)
-const PROCESS_INTERVAL_MS = 2000; // 2s chunks balance latency and transcript stability
+const PROCESS_INTERVAL_MS = 1500; // 1.5s chunks balance latency and transcript stability
 
 // Minimum buffer size before processing (16kHz * 2 bytes * 1ch * 2s ≈ 64000)
-const MIN_BUFFER_BYTES = 64000;
+const MIN_BUFFER_BYTES = 48000;
 
 // Silence threshold - skip processing if audio is too quiet
 const SILENCE_RMS_THRESHOLD = 50;

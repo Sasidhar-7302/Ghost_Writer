@@ -448,25 +448,25 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
 
                                         {/* CENTER: Mode Toggle */}
                                         <div className="flex justify-center">
-                                            <div
-                                                className="flex items-center p-1 bg-white/5 border border-white/10 rounded-full h-9 min-w-[170px] relative cursor-pointer select-none hover:bg-white/10 transition-all duration-300"
-                                                onClick={toggleDetectable}
-                                                title={isDetectable ? "Switch to Stealth Mode" : "Switch to Visible Mode"}
-                                            >
-                                                <motion.div
-                                                    className="absolute inset-1 w-[calc(50%-4px)] bg-white text-black rounded-full shadow-2xl z-0"
-                                                    animate={{ x: isDetectable ? 0 : '100%' }}
-                                                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
-                                                />
-                                                <div className={`flex-1 flex items-center justify-center gap-1.5 z-10 transition-all duration-500 ${isDetectable ? 'text-black' : 'text-text-tertiary/60'}`}>
-                                                    <Eye size={12} className={isDetectable ? 'font-black' : ''} />
-                                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Visible</span>
+                                                <div
+                                                    className="flex items-center p-1 bg-white/5 border border-white/10 rounded-full h-9 min-w-[170px] relative cursor-pointer select-none hover:bg-white/10 transition-all duration-300"
+                                                    onClick={toggleDetectable}
+                                                    title={isDetectable ? "Switch to Ghost Mode" : "Switch to Visible Mode"}
+                                                >
+                                                    <motion.div
+                                                        className="absolute inset-1 w-[calc(50%-4px)] bg-white text-black rounded-full shadow-2xl z-0"
+                                                        animate={{ x: isDetectable ? 0 : '100%' }}
+                                                        transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                                                    />
+                                                    <div className={`flex-1 flex items-center justify-center gap-1.5 z-10 transition-all duration-500 ${isDetectable ? 'text-black' : 'text-text-tertiary/60'}`}>
+                                                        <Eye size={12} className={isDetectable ? 'font-black' : ''} />
+                                                        <span className="text-[9px] font-black uppercase tracking-[0.15em]">Visible</span>
+                                                    </div>
+                                                    <div className={`flex-1 flex items-center justify-center gap-1.5 z-10 transition-all duration-500 ${!isDetectable ? 'text-black' : 'text-text-tertiary/60'}`}>
+                                                        <Ghost size={12} className={!isDetectable ? 'font-black' : ''} />
+                                                        <span className="text-[9px] font-black uppercase tracking-[0.15em]">Ghost</span>
+                                                    </div>
                                                 </div>
-                                                <div className={`flex-1 flex items-center justify-center gap-1.5 z-10 transition-all duration-500 ${!isDetectable ? 'text-black' : 'text-text-tertiary/60'}`}>
-                                                    <Ghost size={12} className={!isDetectable ? 'font-black' : ''} />
-                                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Stealth</span>
-                                                </div>
-                                            </div>
                                         </div>
 
                                         {/* RIGHT: Actions */}

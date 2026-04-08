@@ -275,6 +275,10 @@ export class ShortcutsHelper {
     }
 
     if (currentMode === "overlay" && overlayWindow) {
+      if (!overlayWindow.isVisible()) {
+        overlayWindow.show();
+        overlayWindow.focus();
+      }
       overlayWindow.webContents.send("toggle-expand");
     } else if (launcherWindow) {
       if (launcherWindow.isVisible()) {

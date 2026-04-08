@@ -17,6 +17,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ currentModel, onSe
     const [activeTab, setActiveTab] = useState<'cloud' | 'custom' | 'local'>('cloud');
     const [ollamaModels, setOllamaModels] = useState<string[]>([]);
     const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
+    const [openrouterModels, setOpenrouterModels] = useState<any[]>([]);
     const [credentials, setCredentials] = useState<any>(null);
     const [loadingStatus, setLoadingStatus] = useState<{ model: string, status: 'loading' | 'ready' | 'error' } | null>(null);
     const [activeUsage, setActiveUsage] = useState<{ model: string, provider: string } | null>(null);
@@ -79,7 +80,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ currentModel, onSe
 
                 // Load Credentials Status
                 const creds = await window.electronAPI?.invoke('get-stored-credentials');
-                if (creds) setCredentials(creds);
+                if (creds) {
+                    setCredentials(creds);
+                    if (creds.hasOpenrouterKey) {
+                        const orModels = await window.electronAPI?.invoke('get-available-openrouter-models');
+                        if (orModels) setOpenrouterModels(orModels);
+                    }
+                }
             } catch (e) {
                 console.error("Failed to load models or credentials:", e);
             }
@@ -101,15 +108,25 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ currentModel, onSe
 
     const getModelDisplayName = (model: string) => {
         if (model.startsWith('ollama-')) return model.replace('ollama-', '');
-        if (model === 'gemini-3-flash-preview') return 'Gemini 3 Flash';
-        if (model === 'gemini-3-pro-preview') return 'Gemini 3 Pro';
-        if (model === 'llama-3.3-70b-versatile') return 'Groq Llama 3.3';
-        if (model === 'gpt-5.2-chat-latest') return 'GPT 5.2';
-        if (model === 'claude-sonnet-4-5') return 'Sonnet 4.5';
+        if (model.includes('gemini-1.5-flash')) return 'Gemini 1.5 Flash';
+        if (model.includes('gemini-1.5-pro')) return 'Gemini 1.5 Pro';
+        if (model.includes('gpt-4o-mini')) return 'GPT-4o Mini';
+        if (model.includes('gpt-4o')) return 'GPT-4o';
+        if (model.includes('claude-3-5-sonnet')) return 'Claude 3.5 Sonnet';
+        if (model.includes('claude-3-5-haiku')) return 'Claude 3.5 Haiku';
+        if (model.includes('llama-3.3-70b')) return 'Llama 3.3 70B';
+        if (model.includes('llama-3.1-405b')) return 'Llama 3.1 405B';
+        if (model === 'liquid/lfm-40b') return 'Liquid LFM';
+        if (model === 'anthropic/claude-3.5-sonnet') return 'Claude 3.5 (OR)';
+        if (model === 'meta-llama/llama-3.1-405b') return 'Llama 3.1 405B';
 
         // Check custom providers
         const custom = customProviders.find(p => p.id === model || p.name === model);
         if (custom) return custom.name;
+
+        // Check OpenRouter dynamic models
+        const orModel = openrouterModels.find(m => m.id === model);
+        if (orModel) return orModel.name.split('/').pop() || orModel.name;
 
         return model;
     };
@@ -177,57 +194,169 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ currentModel, onSe
                             <div className="space-y-1">
                                 {(!credentials || credentials.hasGeminiKey) && (
                                     <>
+                                        <div className="px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-white/30">Google Gemini</div>
                                         <ModelOption
-                                            id="gemini-3-flash-preview"
-                                            name="Gemini 3 Flash"
-                                            desc="Fastest • Multimodal"
+                                            id="gemini-1.5-flash"
+                                            name="Gemini 1.5 Flash"
+                                            desc="Fastest • Balanced"
                                             icon={<Monitor size={14} />}
-                                            selected={currentModel === 'gemini-3-flash-preview'}
-                                            onSelect={() => handleSelect('gemini-3-flash-preview')}
+                                            selected={currentModel === 'gemini-1.5-flash'}
+                                            onSelect={() => handleSelect('gemini-1.5-flash')}
                                         />
                                         <ModelOption
-                                            id="gemini-3-pro-preview"
-                                            name="Gemini 3 Pro"
-                                            desc="Reasoning • High Quality"
+                                            id="gemini-1.5-pro"
+                                            name="Gemini 1.5 Pro"
+                                            desc="Deep Research • High Quality"
                                             icon={<Monitor size={14} />}
-                                            selected={currentModel === 'gemini-3-pro-preview'}
-                                            onSelect={() => handleSelect('gemini-3-pro-preview')}
+                                            selected={currentModel === 'gemini-1.5-pro'}
+                                            onSelect={() => handleSelect('gemini-1.5-pro')}
                                         />
-                                        <div className="h-px bg-border-subtle my-1" />
                                     </>
                                 )}
 
                                 {credentials?.hasOpenaiKey && (
-                                    <ModelOption
-                                        id="gpt-5.2-chat-latest"
-                                        name="GPT 5.2"
-                                        desc="OpenAI"
-                                        icon={<Cloud size={14} />}
-                                        selected={currentModel === 'gpt-5.2-chat-latest'}
-                                        onSelect={() => handleSelect('gpt-5.2-chat-latest')}
-                                    />
+                                    <>
+                                        <div className="h-px bg-white/5 my-1" />
+                                        <div className="px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-white/30">OpenAI</div>
+                                        <ModelOption
+                                            id="gpt-4o-mini"
+                                            name="GPT-4o Mini"
+                                            desc="Extremely Fast • Versatile"
+                                            icon={<Cloud size={14} />}
+                                            selected={currentModel === 'gpt-4o-mini'}
+                                            onSelect={() => handleSelect('gpt-4o-mini')}
+                                        />
+                                        <ModelOption
+                                            id="gpt-4o"
+                                            name="GPT-4o"
+                                            desc="SOTA Reasoning • Multimodal"
+                                            icon={<Cloud size={14} />}
+                                            selected={currentModel === 'gpt-4o'}
+                                            onSelect={() => handleSelect('gpt-4o')}
+                                        />
+                                    </>
                                 )}
 
                                 {credentials?.hasClaudeKey && (
-                                    <ModelOption
-                                        id="claude-sonnet-4-5"
-                                        name="Sonnet 4.5"
-                                        desc="Anthropic"
-                                        icon={<Cloud size={14} />}
-                                        selected={currentModel === 'claude-sonnet-4-5'}
-                                        onSelect={() => handleSelect('claude-sonnet-4-5')}
-                                    />
+                                    <>
+                                        <div className="h-px bg-white/5 my-1" />
+                                        <div className="px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-white/30">Anthropic Claude</div>
+                                        <ModelOption
+                                            id="claude-3-5-haiku-latest"
+                                            name="Claude 3.5 Haiku"
+                                            desc="Instant • Coding"
+                                            icon={<Cloud size={14} />}
+                                            selected={currentModel === 'claude-3-5-haiku-latest'}
+                                            onSelect={() => handleSelect('claude-3-5-haiku-latest')}
+                                        />
+                                        <ModelOption
+                                            id="claude-3-5-sonnet-latest"
+                                            name="Claude 3.5 Sonnet"
+                                            desc="Best Reasoning/Speed Balance"
+                                            icon={<Cloud size={14} />}
+                                            selected={currentModel === 'claude-3-5-sonnet-latest'}
+                                            onSelect={() => handleSelect('claude-3-5-sonnet-latest')}
+                                        />
+                                    </>
                                 )}
 
                                 {credentials?.hasGroqKey && (
-                                    <ModelOption
-                                        id="llama-3.3-70b-versatile"
-                                        name="Groq Llama 3.3"
-                                        desc="Ultra Fast"
-                                        icon={<Cloud size={14} />}
-                                        selected={currentModel === 'llama-3.3-70b-versatile'}
-                                        onSelect={() => handleSelect('llama-3.3-70b-versatile')}
-                                    />
+                                    <>
+                                        <div className="h-px bg-white/5 my-1" />
+                                        <div className="px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-white/30">Groq (Ultra-Fast)</div>
+                                        <ModelOption
+                                            id="llama-3.3-70b-versatile"
+                                            name="Llama 3.3 70B"
+                                            desc="Low Latency • Versatile"
+                                            icon={<Cloud size={14} />}
+                                            selected={currentModel === 'llama-3.3-70b-versatile'}
+                                            onSelect={() => handleSelect('llama-3.3-70b-versatile')}
+                                        />
+                                    </>
+                                )}
+
+                                {credentials?.hasOpenrouterKey && openrouterModels.length > 0 && (
+                                    <>
+                                        <div className="h-px bg-white/5 my-2" />
+                                        
+                                        {/* Free Models Section */}
+                                        {openrouterModels.some(m => m.isFree) && (
+                                            <>
+                                                <div className="px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-green-400/50">OpenRouter Free (SOTA)</div>
+                                                {/* Prioritize April 2026 Elite Set */}
+                                                {[
+                                                    { id: 'google/gemma-4-26b-a4b-it:free', tag: 'Fastest • Vision' },
+                                                    { id: 'stepfun/step-3.5-flash:free', tag: 'Instant • Real-time' },
+                                                    { id: 'google/gemma-4-31b-it:free', tag: 'Deep Logic • Summary SOTA' },
+                                                    { id: 'qwen/qwen3-next-80b-a3b-instruct:free', tag: '262k Context • Stable' },
+                                                    { id: 'minimax/minimax-m2.5:free', tag: 'Professional • Office Logic' }
+                                                ].map(elite => {
+                                                    const m = openrouterModels.find(mod => mod.id === elite.id);
+                                                    return m ? (
+                                                        <ModelOption
+                                                            key={m.id}
+                                                            id={m.id}
+                                                            name={m.name}
+                                                            desc={elite.tag}
+                                                            icon={<Plus size={14} className="text-green-400" />}
+                                                            selected={currentModel === m.id}
+                                                            onSelect={() => handleSelect(m.id)}
+                                                            isFree={true}
+                                                        />
+                                                    ) : null;
+                                                })}
+                                                
+                                                {/* Show other free models that aren't in the elite set */}
+                                                <div className="h-px bg-white/5 mx-2 my-1" />
+                                                <div className="px-2 py-1 text-[7px] font-bold text-white/20">Additional Free Models</div>
+                                                {openrouterModels
+                                                    .filter(m => m.isFree && ![
+                                                        'google/gemma-4-26b-a4b-it:free',
+                                                        'stepfun/step-3.5-flash:free',
+                                                        'google/gemma-4-31b-it:free',
+                                                        'qwen/qwen3-next-80b-a3b-instruct:free',
+                                                        'minimax/minimax-m2.5:free'
+                                                    ].includes(m.id))
+                                                    .slice(0, 5)
+                                                    .map(model => (
+                                                        <ModelOption
+                                                            key={model.id}
+                                                            id={model.id}
+                                                            name={model.name}
+                                                            desc="Universal Free"
+                                                            icon={<Plus size={14} className="text-white/30" />}
+                                                            selected={currentModel === model.id}
+                                                            onSelect={() => handleSelect(model.id)}
+                                                            isFree={true}
+                                                        />
+                                                    ))}
+                                            </>
+                                        )}
+
+                                        {/* Featured/Paid Section */}
+                                        <div className="px-2 py-1 mt-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/30">OpenRouter Featured</div>
+                                        {['deepseek/deepseek-chat', 'liquid/lfm-40b', 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-405b'].map(id => {
+                                            const m = openrouterModels.find(mod => mod.id === id);
+                                            return m ? (
+                                                <ModelOption
+                                                    key={m.id}
+                                                    id={m.id}
+                                                    name={m.name}
+                                                    desc={m.isFree ? "Free Model" : "Premium Model"}
+                                                    icon={<Cloud size={14} />}
+                                                    selected={currentModel === m.id}
+                                                    onSelect={() => handleSelect(m.id)}
+                                                    isFree={m.isFree}
+                                                />
+                                            ) : null;
+                                        })}
+                                    </>
+                                )}
+
+                                {credentials?.hasOpenrouterKey && openrouterModels.length === 0 && (
+                                    <div className="px-3 py-2 text-[10px] text-white/30 italic">
+                                        Loading OpenRouter catalog...
+                                    </div>
                                 )}
 
                                 {credentials && !credentials.hasGeminiKey && !credentials.hasOpenaiKey && !credentials.hasClaudeKey && !credentials.hasGroqKey && (
@@ -310,9 +439,10 @@ interface ModelOptionProps {
     selected: boolean;
     loading?: 'loading' | 'ready' | 'error';
     onSelect: () => void;
+    isFree?: boolean;
 }
 
-const ModelOption: React.FC<ModelOptionProps> = ({ name, desc, icon, selected, loading, onSelect }) => (
+const ModelOption: React.FC<ModelOptionProps> = ({ name, desc, icon, selected, loading, isFree, onSelect }) => (
     <button
         onClick={onSelect}
         className={`w-full flex items-center justify-between p-2 rounded-xl transition-all group ${selected ? 'bg-white/10 ring-1 ring-white/10' : 'hover:bg-white/5'}`}
@@ -322,7 +452,12 @@ const ModelOption: React.FC<ModelOptionProps> = ({ name, desc, icon, selected, l
                 {loading === 'loading' ? <RefreshCw size={14} className="animate-spin" /> : React.cloneElement(icon as React.ReactElement, { size: 14 })}
             </div>
             <div className="text-left">
-                <div className={`text-xs font-bold uppercase tracking-widest truncate max-w-[140px] ${selected ? 'text-white' : 'text-white/70'}`}>{name}</div>
+                <div className="flex items-center gap-1.5">
+                    <div className={`text-xs font-bold uppercase tracking-widest truncate max-w-[140px] ${selected ? 'text-white' : 'text-white/70'}`}>{name}</div>
+                    {isFree && (
+                        <span className="px-1 py-0 rounded bg-green-500/10 text-green-400 text-[7px] font-black border border-green-500/20">FREE</span>
+                    )}
+                </div>
                 <div className="text-[10px] text-white/50 font-medium">
                     {loading === 'loading' ? 'Mapping VRAM...' : loading === 'ready' ? 'Active' : loading === 'error' ? 'Load failed' : desc}
                 </div>

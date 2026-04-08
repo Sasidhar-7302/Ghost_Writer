@@ -14,6 +14,11 @@ import {
 export class CustomCurlProvider implements ILLMProvider {
     readonly name = "Custom";
 
+    public get isVisionCapable(): boolean {
+        // If the user's cURL command has the IMAGE_BASE64 variable, we treat it as vision-capable
+        return this.provider?.curlCommand?.includes("{{IMAGE_BASE64}}") || false;
+    }
+
     constructor(private provider: CustomProvider) { }
 
     public getProvider(): CustomProvider { return this.provider; }

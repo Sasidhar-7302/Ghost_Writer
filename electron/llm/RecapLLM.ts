@@ -69,7 +69,7 @@ export class RecapLLM {
 
     private clampRecapResponse(text: string): string {
         if (!text) return "";
-        // Simple clamp: max 5 lines
-        return text.split('\n').filter(l => l.trim()).slice(0, 5).join('\n');
+        // Remove the hardcoded 5-line limit to allow for high-fidelity summaries
+        return text.trim();
     }
 }

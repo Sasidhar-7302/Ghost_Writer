@@ -63,6 +63,7 @@ export interface StoredCredentials {
     licenseStatus?: 'beta' | 'trial' | 'paid' | 'expired';
     betaRegisteredAt?: string;
     modelPreference?: string;
+    openrouterApiKey?: string;
 }
 
 export class CredentialsManager {
@@ -125,6 +126,10 @@ export class CredentialsManager {
 
     public getModelPreference(): string | undefined {
         return this.credentials.modelPreference;
+    }
+
+    public getOpenrouterApiKey(): string | undefined {
+        return this.credentials.openrouterApiKey;
     }
 
     public getResumePath(): string | undefined {
@@ -286,6 +291,12 @@ export class CredentialsManager {
         this.credentials.modelPreference = modelId;
         this.saveCredentials();
         console.log(`[CredentialsManager] Model preference set to: ${modelId}`);
+    }
+
+    public setOpenrouterApiKey(key: string): void {
+        this.credentials.openrouterApiKey = key;
+        this.saveCredentials();
+        console.log('[CredentialsManager] OpenRouter API Key updated');
     }
 
     public setResumePath(filePath: string): void {
