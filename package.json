@@ -11,16 +11,16 @@
     "build:desktop": "npm run clean && tsc && vite build && tsc -p electron/tsconfig.json",
     "preview": "vite preview",
     "postinstall": "cross-env SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm rebuild sharp",
-    "electron:dev": "rimraf dist-electron && tsc -p electron/tsconfig.json && node scripts/run_electron_dev.js",
+    "electron:dev": "rimraf dist-electron && tsc -p electron/tsconfig.json && node platform/automation/run_electron_dev.js",
     "electron:build": "tsc -p electron/tsconfig.json && cross-env NODE_ENV=production electron .",
-    "app:dev": "node scripts/app_dev.js",
-    "app:build": "npm run clean:release && npm run build:desktop && node scripts/package_release.js",
+    "app:dev": "node platform/automation/app_dev.js",
+    "app:build": "npm run clean:release && npm run build:desktop && node platform/automation/package_release.js",
     "watch": "tsc -p electron/tsconfig.json --watch",
     "start": "npm run app:dev",
     "dist": "npm run app:build",
-    "build:native": "cd native-module && napi build --platform --release",
-    "lint": "eslint . --max-warnings 1000",
-    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "build:native": "cd electron/native && napi build --platform --release",
+    "lint": "eslint . --config config/eslint.config.mjs --max-warnings 1000",
+    "lint:fix": "eslint . --config config/eslint.config.mjs --ext .ts,.tsx,.js,.jsx --fix",
     "test": "npm run test:accuracy && npm run test:interview-naturalness && npm run test:audio-echo-suppression && npm run test:e2e && npm run test:system-audio && npm run test:smoke && npm run test:meeting-summary-routing && npm run test:meeting-screenshot-persistence && npm run test:fallback",
     "test:accuracy": "node tests/test_accuracy.js",
     "test:interview-naturalness": "node tests/test_interview_naturalness.js",
@@ -44,9 +44,9 @@
       "dist-electron/**/*",
       "package.json",
       "node_modules/**/*",
-      "!**/native-module/target/**",
-      "!**/native-module/src/**",
-      "!**/native-module/.cargo/**"
+      "!**/electron/native/target/**",
+      "!**/electron/native/src/**",
+      "!**/electron/native/.cargo/**"
     ],
     "asarUnpack": [
       "**/*.node",
@@ -215,6 +215,6 @@
     "ws": "^8.19.0"
   },
   "optionalDependencies": {
-    "ghost-writer-audio": "file:./native-module"
+    "ghost-writer-audio": "file:./electron/native"
   }
 }

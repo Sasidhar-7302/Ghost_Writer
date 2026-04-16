@@ -1,0 +1,529 @@
+    Checking natively-audio v0.1.0 (C:\Users\yepur\Desktop\My_Projects\Ghost_Writer\native-module)
+error[E0432]: unresolved import `wasapi::StreamMode`
+ --> src\speaker\windows.rs:8:75
+  |
+8 | use wasapi::{get_default_device, DeviceCollection, Direction, SampleType, StreamMode, WaveFormat};
+  |                                                                           ^^^^^^^^^^ no `StreamMode` in the root
+
+error[E0432]: unresolved import `tracing`
+ --> src\speaker\windows.rs:7:5
+  |
+7 | use tracing::error;
+  |     ^^^^^^^ use of unresolved module or unlinked crate `tracing`
+  |
+  = help: if you wanted to use a crate named `tracing`, use `cargo add tracing` to add it to your `Cargo.toml`
+
+error[E0425]: cannot find type `SpeakerStream` in module `speaker`
+  --> src\lib.rs:42:29
+   |
+42 |     stream: Option<speaker::SpeakerStream>,
+   |                             ^^^^^^^^^^^^^ not found in `speaker`
+   |
+note: found an item that was configured out
+  --> src\speaker\mod.rs:14:16
+   |
+13 | #[cfg(target_os = "macos")]
+   |       ------------------- the item is gated behind the `macos` feature
+14 | pub use macos::SpeakerStream;
+   |                ^^^^^^^^^^^^^
+help: consider importing this struct
+   |
+ 6 + use crate::speaker::windows::SpeakerStream;
+   |
+help: if you import `SpeakerStream`, refer to it directly
+   |
+42 -     stream: Option<speaker::SpeakerStream>,
+42 +     stream: Option<SpeakerStream>,
+   |
+
+warning: unused import: `Consumer`
+  --> src\microphone.rs:11:34
+   |
+11 | use ringbuf::{traits::{Producer, Consumer, Split}, HeapRb, HeapProd, HeapCons};
+   |                                  ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+  --> src\speaker\windows.rs:63:63
+   |
+62 | pub fn list_output_devices() -> Result<Vec<(String, String)>> {
+   |                                 ----------------------------- required `dyn std::error::Error: Send` because of this
+63 |     let collection = DeviceCollection::new(&Direction::Render)?;
+   |                      -----------------------------------------^ `dyn std::error::Error` cannot be sent between threads safely
+   |                      |
+   |                      this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+   |
+   = help: the trait `Send` is not implemented for `dyn std::error::Error`
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+   = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+  --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+   = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+  --> src\speaker\windows.rs:63:63
+   |
+62 | pub fn list_output_devices() -> Result<Vec<(String, String)>> {
+   |                                 ----------------------------- required `dyn std::error::Error: Sync` because of this
+63 |     let collection = DeviceCollection::new(&Direction::Render)?;
+   |                      -----------------------------------------^ `dyn std::error::Error` cannot be shared between threads safely
+   |                      |
+   |                      this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+   |
+   = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+   = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+  --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+   = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+  --> src\speaker\windows.rs:63:63
+   |
+62 | pub fn list_output_devices() -> Result<Vec<(String, String)>> {
+   |                                 ----------------------------- required `dyn std::error::Error: Sized` because of this
+63 |     let collection = DeviceCollection::new(&Direction::Render)?;
+   |                      -----------------------------------------^ doesn't have a size known at compile-time
+   |                      |
+   |                      this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+   |
+   = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+   = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+   = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+  --> src\speaker\windows.rs:64:45
+   |
+62 | pub fn list_output_devices() -> Result<Vec<(String, String)>> {
+   |                                 ----------------------------- required `dyn std::error::Error: Send` because of this
+63 |     let collection = DeviceCollection::new(&Direction::Render)?;
+64 |     let count = collection.get_nbr_devices()?;
+   |                            -----------------^ `dyn std::error::Error` cannot be sent between threads safely
+   |                            |
+   |                            this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+   |
+   = help: the trait `Send` is not implemented for `dyn std::error::Error`
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+   = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+  --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+   = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+  --> src\speaker\windows.rs:64:45
+   |
+62 | pub fn list_output_devices() -> Result<Vec<(String, String)>> {
+   |                                 ----------------------------- required `dyn std::error::Error: Sync` because of this
+63 |     let collection = DeviceCollection::new(&Direction::Render)?;
+64 |     let count = collection.get_nbr_devices()?;
+   |                            -----------------^ `dyn std::error::Error` cannot be shared between threads safely
+   |                            |
+   |                            this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+   |
+   = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+   = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+  --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+   = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+  --> src\speaker\windows.rs:64:45
+   |
+62 | pub fn list_output_devices() -> Result<Vec<(String, String)>> {
+   |                                 ----------------------------- required `dyn std::error::Error: Sized` because of this
+63 |     let collection = DeviceCollection::new(&Direction::Render)?;
+64 |     let count = collection.get_nbr_devices()?;
+   |                            -----------------^ doesn't have a size known at compile-time
+   |                            |
+   |                            this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+   |
+   = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+   = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+   = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:134:63
+    |
+134 |                 None => get_default_device(&Direction::Render)?,
+    |                         --------------------------------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:134:63
+    |
+134 |                 None => get_default_device(&Direction::Render)?,
+    |                         --------------------------------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:134:63
+    |
+134 |                 None => get_default_device(&Direction::Render)?,
+    |                         --------------------------------------^ doesn't have a size known at compile-time
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:137:61
+    |
+137 |             let mut audio_client = device.get_iaudioclient()?;
+    |                                           ------------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                                           |
+    |                                           this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:137:61
+    |
+137 |             let mut audio_client = device.get_iaudioclient()?;
+    |                                           ------------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                                           |
+    |                                           this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:137:61
+    |
+137 |             let mut audio_client = device.get_iaudioclient()?;
+    |                                           ------------------^ doesn't have a size known at compile-time
+    |                                           |
+    |                                           this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:138:61
+    |
+138 |             let device_format = audio_client.get_mixformat()?;
+    |                                              ---------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                                              |
+    |                                              this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:138:61
+    |
+138 |             let device_format = audio_client.get_mixformat()?;
+    |                                              ---------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                                              |
+    |                                              this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:138:61
+    |
+138 |             let device_format = audio_client.get_mixformat()?;
+    |                                              ---------------^ doesn't have a size known at compile-time
+    |                                              |
+    |                                              this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0599]: no method named `get_device_period` found for struct `AudioClient` in the current scope
+   --> src\speaker\windows.rs:142:54
+    |
+142 |             let (_def_time, min_time) = audio_client.get_device_period()?;
+    |                                                      ^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `get_periods` with a similar name
+    |
+142 -             let (_def_time, min_time) = audio_client.get_device_period()?;
+142 +             let (_def_time, min_time) = audio_client.get_periods()?;
+    |
+
+error[E0061]: this method takes 5 arguments but 3 arguments were supplied
+   --> src\speaker\windows.rs:148:26
+    |
+148 |             audio_client.initialize_client(&desired_format, &Direction::Capture, &mode)?;
+    |                          ^^^^^^^^^^^^^^^^^---------------------------------------------
+    |                                           |                 |
+    |                                           |                 expected `i64`, found `&Direction`
+    |                                           two arguments of type `&ShareMode` and `bool` are missing
+    |
+note: method defined here
+   --> C:\Users\yepur\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wasapi-0.13.0\src\api.rs:498:12
+    |
+498 |     pub fn initialize_client(
+    |            ^^^^^^^^^^^^^^^^^
+help: provide the arguments
+    |
+148 -             audio_client.initialize_client(&desired_format, &Direction::Capture, &mode)?;
+148 +             audio_client.initialize_client(&desired_format, /* i64 */, &mode, /* &ShareMode */, /* bool */)?;
+    |
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:148:88
+    |
+148 |             audio_client.initialize_client(&desired_format, &Direction::Capture, &mode)?;
+    |                          --------------------------------------------------------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:148:88
+    |
+148 |             audio_client.initialize_client(&desired_format, &Direction::Capture, &mode)?;
+    |                          --------------------------------------------------------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:148:88
+    |
+148 |             audio_client.initialize_client(&desired_format, &Direction::Capture, &mode)?;
+    |                          --------------------------------------------------------------^ doesn't have a size known at compile-time
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:149:61
+    |
+149 |             let h_event = audio_client.set_get_eventhandle()?;
+    |                                        ---------------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                                        |
+    |                                        this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:149:61
+    |
+149 |             let h_event = audio_client.set_get_eventhandle()?;
+    |                                        ---------------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                                        |
+    |                                        this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:149:61
+    |
+149 |             let h_event = audio_client.set_get_eventhandle()?;
+    |                                        ---------------------^ doesn't have a size known at compile-time
+    |                                        |
+    |                                        this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:150:70
+    |
+150 |             let render_client = audio_client.get_audiocaptureclient()?;
+    |                                              ------------------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                                              |
+    |                                              this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:150:70
+    |
+150 |             let render_client = audio_client.get_audiocaptureclient()?;
+    |                                              ------------------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                                              |
+    |                                              this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:150:70
+    |
+150 |             let render_client = audio_client.get_audiocaptureclient()?;
+    |                                              ------------------------^ doesn't have a size known at compile-time
+    |                                              |
+    |                                              this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Send` is not satisfied
+   --> src\speaker\windows.rs:151:40
+    |
+151 |             audio_client.start_stream()?;
+    |                          --------------^ `dyn std::error::Error` cannot be sent between threads safely
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Send` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Send`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sync` is not satisfied
+   --> src\speaker\windows.rs:151:40
+    |
+151 |             audio_client.start_stream()?;
+    |                          --------------^ `dyn std::error::Error` cannot be shared between threads safely
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sync` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Unique<dyn std::error::Error>` to implement `Sync`
+note: required because it appears within the type `Box<dyn std::error::Error>`
+   --> /rustc/01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\library\alloc\src\boxed.rs:234:12
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0277]: `?` couldn't convert the error: `dyn std::error::Error: Sized` is not satisfied
+   --> src\speaker\windows.rs:151:40
+    |
+151 |             audio_client.start_stream()?;
+    |                          --------------^ doesn't have a size known at compile-time
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Box<(dyn std::error::Error + 'static)>>`
+    |
+    = help: the trait `Sized` is not implemented for `dyn std::error::Error`
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+    = note: required for `Box<dyn std::error::Error>` to implement `std::error::Error`
+    = note: required for `anyhow::Error` to implement `From<Box<dyn std::error::Error>>`
+
+error[E0061]: this method takes 2 arguments but 1 argument was supplied
+   --> src\speaker\windows.rs:173:51
+    |
+173 |                     if let Err(e) = render_client.read_from_device_to_deque(&mut temp_queue) {
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^ --------------- argument #1 of type `usize` is missing
+    |
+note: method defined here
+   --> C:\Users\yepur\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wasapi-0.13.0\src\api.rs:883:12
+    |
+883 |     pub fn read_from_device_to_deque(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+help: provide the argument
+    |
+173 |                     if let Err(e) = render_client.read_from_device_to_deque(/* usize */, &mut temp_queue) {
+    |                                                                             ++++++++++++
+
+error[E0599]: no method named `take_consumer` found for struct `SpeakerStream` in the current scope
+   --> src\lib.rs:100:35
+    |
+100 |         let mut consumer = stream.take_consumer()
+    |                                   ^^^^^^^^^^^^^ method not found in `SpeakerStream`
+    |
+   ::: src\speaker\windows.rs:19:1
+    |
+ 19 | pub struct SpeakerStream {
+    | ------------------------ method `take_consumer` not found for this struct
+
+warning: variable `batch_count` is assigned to, but never used
+   --> src\lib.rs:257:21
+    |
+257 |                 let mut batch_count = 0;
+    |                     ^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_batch_count` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `batch_count` is never read
+   --> src\lib.rs:260:21
+    |
+260 |                     batch_count += 1;
+    |                     ^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0061, E0277, E0425, E0432, E0599.
+For more information about an error, try `rustc --explain E0061`.
+warning: `natively-audio` (lib) generated 3 warnings
+error: could not compile `natively-audio` (lib) due to 34 previous errors; 3 warnings emitted
