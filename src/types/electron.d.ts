@@ -239,10 +239,12 @@ export interface ElectronAPI {
   // Remote Display
   getRemoteDisplayUrl: () => Promise<{ url: string; port: number; isActive: boolean }>
   restartRemoteServer: () => Promise<{ success: boolean; url: string }>
+  getRemoteDisplayPin: () => Promise<string>
+  setRemoteDisplayPin: (pin: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {
   interface Window {
     electronAPI: ElectronAPI
   }
-} 
+}
