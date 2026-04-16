@@ -201,6 +201,10 @@ interface ElectronAPI {
   onRAGStreamChunk: (callback: (data: { meetingId?: string; global?: boolean; chunk: string }) => void) => () => void
   onRAGStreamComplete: (callback: (data: { meetingId?: string; global?: boolean }) => void) => () => void
   onRAGStreamError: (callback: (data: { meetingId?: string; global?: boolean; error: string }) => void) => () => void
+
+  // Remote Display
+  getRemoteDisplayUrl: () => Promise<{ url: string; port: number; isActive: boolean }>
+  restartRemoteServer: () => Promise<{ success: boolean; url: string }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -822,10 +826,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
   onRAGStreamError: (callback: (data: { meetingId?: string; global?: boolean; error: string }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on('rag:stream-error', subscription)
+    const handler = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('rag:stream-error', handler)
     return () => {
-      ipcRenderer.removeListener('rag:stream-error', subscription)
+      ipcRenderer.removeListener('rag:stream-error', handler)
     }
   },
-} as ElectronAPI)
+
+  // Remote Display
+  getRemoteDisplayUrl: () => ipcRenderer.invoke("get-remote-display-url"),
+  restartRemoteServer: () => ipcRenderer.invoke("restart-remote-server"),
+})

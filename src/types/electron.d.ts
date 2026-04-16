@@ -64,7 +64,7 @@ export interface ElectronAPI {
   setClaudeApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setNvidiaApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepseekApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
-  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; hasOpenrouterKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean }>
+  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; hasOpenrouterKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean; telemetryEnabled: boolean }>
 
   // Native Audio Service Events
   onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean }) => void) => () => void
@@ -181,6 +181,24 @@ export interface ElectronAPI {
   uploadProject: (filePath: string) => Promise<{ success: boolean; text?: string; error?: string }>
   uploadAgenda: (filePath: string) => Promise<{ success: boolean; text?: string; error?: string }>
   getContextDocuments: () => Promise<{ resumeText: string; jdText: string; projectText: string; agendaText: string; isMeetingMode: boolean }>
+  getUserProfile: () => Promise<{
+    fullName: string
+    preferredName?: string
+    email?: string
+    currentRole?: string
+    company?: string
+    targetRole?: string
+    createdAt?: string
+    updatedAt?: string
+  } | null>
+  saveUserProfile: (profile: {
+    fullName: string
+    preferredName?: string
+    email?: string
+    currentRole?: string
+    company?: string
+    targetRole?: string
+  }) => Promise<{ success: boolean; error?: string }>
   clearProject: () => Promise<{ success: boolean }>
   clearAgenda: () => Promise<{ success: boolean }>
   clearResume: () => Promise<{ success: boolean }>
@@ -206,11 +224,21 @@ export interface ElectronAPI {
 
 
   // Customizable Prompts
+  getPromptSettings: () => Promise<Record<string, { defaultPromptId: string; extraInstructions?: string; fullOverride?: string; enabled: boolean; validation?: { isValid: boolean; error?: string } }>>
+  updatePromptSettings: (mode: string, patch: { extraInstructions?: string; fullOverride?: string; enabled?: boolean }) => Promise<{ success: boolean; error?: string }>
+  getDefaultPromptTemplates: () => Promise<Record<string, { id: string; title: string; description: string; sessionMode: 'interview' | 'meeting' | 'global'; prompt: string }>>
   getCustomPrompts: () => Promise<{ interviewPrompt: string | null; meetingPrompt: string | null }>
   setCustomPrompt: (type: 'interview' | 'meeting', prompt: string) => Promise<{ success: boolean; error?: string }>
   getDefaultPrompts: () => Promise<{ interviewPrompt: string; meetingPrompt: string }>
   getMeetingMode: () => Promise<boolean>
   setMeetingMode: (isMeeting: boolean) => Promise<{ success: boolean; error?: string }>
+  getTelemetrySettings: () => Promise<{ enabled: boolean }>
+  setTelemetryEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+  onTelemetrySettingsChanged: (callback: (data: { enabled: boolean }) => void) => () => void
+
+  // Remote Display
+  getRemoteDisplayUrl: () => Promise<{ url: string; port: number; isActive: boolean }>
+  restartRemoteServer: () => Promise<{ success: boolean; url: string }>
 }
 
 declare global {

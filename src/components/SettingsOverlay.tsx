@@ -12,6 +12,7 @@ import { AIProvidersSettings } from './settings/AIProvidersSettings';
 import { AIModelsSettings } from './settings/AIModelsSettings';
 import { GeneralSettings } from './settings/GeneralSettings';
 import { SessionSettings } from './settings/SessionSettings';
+import { RemoteSyncSection } from './settings/RemoteSyncSection';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WebAudioFallback } from '../lib/audio/WebAudioFallback';
 import { APP_VERSION } from '../lib/appVersion';
@@ -203,7 +204,7 @@ interface SettingsOverlayProps {
 }
 
 const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) => {
-    const [activeTab, setActiveTab] = useState<'general' | 'ai-providers' | 'providers' | 'interview' | 'meeting' | 'audio' | 'keybinds' | 'about'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'ai-providers' | 'providers' | 'interview' | 'meeting' | 'audio' | 'remote-sync' | 'keybinds' | 'about'>('general');
     const [isUndetectable, setIsUndetectable] = useState(false);
     const [disguiseMode, setDisguiseMode] = useState<'terminal' | 'settings' | 'activity' | 'none'>('none');
     const [openOnLogin, setOpenOnLogin] = useState(false);
@@ -854,6 +855,15 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                     >
                                         <Info size={14} /> System Info
                                     </button>
+                                    <div className="pt-4 mt-4 border-t border-border-subtle mx-2 px-2">
+                                        <div className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-2 opacity-50">Stealth Sync</div>
+                                        <button
+                                            onClick={() => setActiveTab('remote-sync')}
+                                            className={`w-full text-left px-3 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'remote-sync' ? 'bg-white text-black shadow-2xl scale-105 z-10' : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'}`}
+                                        >
+                                            <Monitor size={14} /> Remote Display
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -2069,6 +2079,10 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                 {activeTab === 'about' && (
                                     <AboutSection />
+                                )}
+
+                                {activeTab === 'remote-sync' && (
+                                    <RemoteSyncSection />
                                 )}
                             </div>
                         </div>

@@ -1075,4 +1075,21 @@ export function initializeIpcHandlers(appState: AppState): void {
     return { success: true };
   });
 
+  // ==========================================
+  // Remote Display Handlers
+  // ==========================================
+  safeIpcHandle("get-remote-display-url", async () => {
+    return {
+      url: appState.remoteServer.getConnectionUrl(),
+      port: 4004,
+      isActive: true
+    };
+  });
+
+  safeIpcHandle("restart-remote-server", async () => {
+    appState.remoteServer.stop();
+    appState.remoteServer.start();
+    return { success: true, url: appState.remoteServer.getConnectionUrl() };
+  });
+
 }

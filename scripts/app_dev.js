@@ -132,7 +132,7 @@ function cleanupStaleWindowsDevProcesses() {
       "    $_.CommandLine -like '*scripts\\app_dev.js*' -or " +
       "    $_.CommandLine -like '*scripts\\run_electron_dev.js*' -or " +
       "    $_.CommandLine -like '*vite.js*' -or " +
-      "    $_.CommandLine -like '*dist-electron*main.js*' -or " +
+      "    $_.CommandLine -like '*dist-electron*electron*main.js*' -or " +
       "    $_.CommandLine -like '*npm run dev*' -or " +
       "    $_.CommandLine -like '*npm run electron:dev*' " +
       "  ) " +

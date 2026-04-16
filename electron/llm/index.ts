@@ -27,6 +27,9 @@ export {
 export type { ConversationIntent, IntentResult } from "./IntentClassifier";
 export { MODE_CONFIGS } from "./types";
 export type { GenerationConfig, GeminiContent, LLMClient } from "./types";
+export { buildPromptForMode, getDefaultPromptSettings, getDefaultPromptTemplates, getPromptModesForSession, normalizePromptSettings } from "./promptRegistry";
+export { PROMPT_MODES } from "./promptTypes";
+export type { LicenseVerificationRecord, PromptMode, PromptSettings, PromptSettingsMap } from "./promptTypes";
 export {
     HARD_SYSTEM_PROMPT,
     ANSWER_MODE_PROMPT,

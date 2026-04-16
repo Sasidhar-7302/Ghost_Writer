@@ -128,6 +128,7 @@ import { RestSTT } from "./audio/RestSTT"
 import { DeepgramStreamingSTT } from "./audio/DeepgramStreamingSTT"
 import { ThemeManager } from "./ThemeManager"
 import { RAGManager } from "./rag/RAGManager"
+import { RemoteServer } from "./services/RemoteServer"
 import { DatabaseManager } from "./db/DatabaseManager"
 import { CredentialsManager } from "./services/CredentialsManager"
 import { LocalWhisperSTT } from "./audio/LocalWhisperSTT"
@@ -158,6 +159,7 @@ export class AppState {
   public contextManager: ContextDocumentManager // Added Context Manager
   public credentialsManager: CredentialsManager // Added Credentials Manager
   private analyticsManager: AnalyticsManager // Added Analytics Manager
+  public remoteServer: RemoteServer // Added Remote Server
   private tray: Tray | null = null
   private updateAvailable: boolean = false
   private disguiseMode: 'terminal' | 'settings' | 'activity' | 'none' = 'none'
@@ -218,6 +220,8 @@ export class AppState {
     this.credentialsManager = CredentialsManager.getInstance();
     this.themeManager = ThemeManager.getInstance();
     this.contextManager = ContextDocumentManager.getInstance();
+    this.remoteServer = RemoteServer.getInstance();
+    this.remoteServer.start();
 
     // Native Detection
     this.isNativeAudioAvailable = SystemAudioCapture.isAvailable() && MicrophoneCapture.isAvailable();
@@ -865,6 +869,8 @@ export class AppState {
         win.webContents.send('intelligence-suggested-answer', { answer, question, confidence })
       }
 
+      // Push to mobile
+      this.remoteServer.pushAnswer(answer, question);
     })
 
     this.intelligenceManager.on('suggested_answer_token', (token: string, question: string, confidence: number) => {
@@ -872,6 +878,9 @@ export class AppState {
       if (win) {
         win.webContents.send('intelligence-suggested-answer-token', { token, question, confidence })
       }
+
+      // Push to mobile
+      this.remoteServer.pushToken(token, 'what_to_answer');
     })
 
     this.intelligenceManager.on('refined_answer_token', (token: string, intent: string) => {
@@ -879,6 +888,9 @@ export class AppState {
       if (win) {
         win.webContents.send('intelligence-refined-answer-token', { token, intent })
       }
+
+      // Push to mobile
+      this.remoteServer.pushToken(token, intent);
     })
 
     this.intelligenceManager.on('refined_answer', (answer: string, intent: string) => {
@@ -887,6 +899,8 @@ export class AppState {
         win.webContents.send('intelligence-refined-answer', { answer, intent })
       }
 
+      // Push to mobile
+      this.remoteServer.pushAnswer(answer, intent);
     })
 
     this.intelligenceManager.on('recap', (summary: string) => {
@@ -901,6 +915,9 @@ export class AppState {
       if (win) {
         win.webContents.send('intelligence-recap-token', { token })
       }
+
+      // Push to mobile
+      this.remoteServer.pushToken(token, 'recap');
     })
 
     this.intelligenceManager.on('follow_up_questions_update', (questions: string) => {
@@ -915,6 +932,9 @@ export class AppState {
       if (win) {
         win.webContents.send('intelligence-follow-up-questions-token', { token })
       }
+
+      // Push to mobile
+      this.remoteServer.pushToken(token, 'follow_up_questions');
     })
 
     this.intelligenceManager.on('manual_answer_started', () => {
@@ -930,6 +950,8 @@ export class AppState {
         win.webContents.send('intelligence-manual-result', { answer, question })
       }
 
+      // Push to mobile
+      this.remoteServer.pushAnswer(answer, question);
     })
 
     this.intelligenceManager.on('mode_changed', (mode: string) => {

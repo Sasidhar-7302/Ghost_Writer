@@ -1,6 +1,6 @@
 import { LLMHelper } from "../LLMHelper";
 import { CredentialsManager } from "../services/CredentialsManager";
-import { UNIVERSAL_WHAT_TO_ANSWER_PROMPT, UNIVERSAL_MEETING_ANSWER_PROMPT, injectUserContext } from "./prompts";
+import { buildPromptForMode } from "./promptRegistry";
 import { formatTemporalContextForPrompt, TemporalContext } from "./TemporalContextBuilder";
 import { IntentResult } from "./IntentClassifier";
 import { ContextDocumentManager } from "../services/ContextDocumentManager";
@@ -68,20 +68,18 @@ Do not restart from the same introduction, and do not restate the full previous 
             const projectKnowledge = contextManager.getProjectKnowledgeText();
             const agendaText = contextManager.getAgendaText();
 
-            // Get custom prompt from CredentialsManager
             const creds = CredentialsManager.getInstance();
             const isMeeting = creds.getIsMeetingMode();
-            const customPrompt = isMeeting ? creds.getMeetingPrompt() : creds.getInterviewPrompt();
-
-            // Select the correct base prompt based on mode
-            let basePrompt = customPrompt;
-            if (!basePrompt) {
-                basePrompt = isMeeting ? UNIVERSAL_MEETING_ANSWER_PROMPT : UNIVERSAL_WHAT_TO_ANSWER_PROMPT;
-            }
-
-            // Inject into prompt
             const prompt = this.injectTemporalContext(
-                injectUserContext(basePrompt, resumeText, jdText, projectKnowledge, agendaText, isMeeting ? 'meeting' : 'interview'),
+                buildPromptForMode({
+                    mode: isMeeting ? 'answer' : 'whatToAnswer',
+                    settings: creds.getPromptSettings(),
+                    resumeText,
+                    jdText,
+                    projectKnowledge,
+                    agendaText,
+                    sessionMode: isMeeting ? 'meeting' : 'interview'
+                }),
                 temporalContext
             );
 

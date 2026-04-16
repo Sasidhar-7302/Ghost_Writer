@@ -1,114 +1,126 @@
-# Ghost Writer Enterprise
+# Ghost Writer
 
 <div align="center">
-  <img src="assets/docs/hero_banner.png" width="100%" alt="Ghost Writer Enterprise hero banner">
+  <img src="assets/docs/hero_banner.png" width="100%" alt="Ghost Writer hero banner">
 
   <br>
 
   [![License](https://img.shields.io/badge/license-PROPRIETARY-red?style=for-the-badge)](LICENSE)
-  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
-  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
-  [![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-emerald?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer)
+  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
+  [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
+  [![Launch Mode](https://img.shields.io/badge/launch-desktop%20beta-10b981?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
 
-  **Ghost Writer Enterprise** is the world's most sophisticated desktop copilot for professional interviews and high-stakes meetings.
-  *Engineered for stealth, privacy, and actionable intelligence.*
+  Ghost Writer is a desktop beta for high-fidelity meeting and interview assistance.
+  It combines live transcription, screenshot-aware answering, local privacy options, and multi-provider LLM routing in a direct-download Electron app.
 
-  [Download](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Enterprise Security](docs/SECURITY.md)
+  [Releases](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 </div>
 
 ---
 
-## 🚀 Product Vision
-Ghost Writer Enterprise transforms live audio and visual context into actionable strategic advantages. It provides real-time, context-aware suggestions during sessions, backed by robust local-first privacy controls.
+## What It Does
 
-## 💎 Enterprise Features
+- Real-time interview and meeting assistance with overlay and launcher modes
+- **Stealth Remote Display**: View AI answers on your mobile device to bypass overlay detection
+- Local Whisper and Ollama support for privacy-sensitive workflows
+- Screenshot-aware answers and meeting recap generation
+- Retrieval over stored meeting history and context documents
+- Configurable cloud providers including Gemini, OpenAI-compatible, Claude, Groq, and custom endpoints
 
-<table>
-<tr>
-<td width="50%">
+## Supported Platforms
 
-### 🔒 Military-Grade Privacy
-- **Emerald Full Privacy Mode**: Physically block cloud STT/LLM traffic with one click.
-- **Local-First Architecture**: Run high-performance models locally via Ollama and local Whisper.
-- **Encryption at Rest**: API keys and session data are secured via system-level encryption.
+- Windows x64
+- macOS arm64
+- **Mobile Viewer**: Any smartphone on the same Wi-Fi network (via browser)
 
-</td>
-<td width="50%">
+## Install
 
-### 🧠 Advanced Intelligence
-- **Dynamic Routing**: Automatically switch between local performance and cloud-scale logic.
-- **Visual Intelligence**: Screenshot-aware answering with multimodal support for code and diagrams.
-- **Strategic RAG**: Semantic retrieval from meeting history and custom knowledge bases.
+### One-command install
 
-</td>
-</tr>
-<tr>
-<td width="50%">
+Windows PowerShell:
 
-### 🕶️ Stealth-First UI
-- **Glassmorphic Overlay**: A non-intrusive UI that stays in your line of sight without obscuring content.
-- **Disguise Modes**: Dynamic content protection to keep your assistance private.
-- **Global Shortcuts**: Total control via system-wide hotkeys.
-
-</td>
-<td width="50%">
-
-### 📊 Business Intelligence
-- **Owner Dashboard**: Real-time conversion funnel and usage analytics.
-- **Monetization Ready**: Integrated checkout session bridge and license validation.
-- **Enterprise Telemetry**: High-fidelity logging for engagement and ROI tracking.
-
-</td>
-</tr>
-</table>
-
-## 🛠️ Technology Stack
-Ghost Writer Enterprise is built on a high-performance natively-bound architecture:
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Core** | Electron 32 + Rust N-API | Secure cross-platform native orchestration |
-| **Frontend** | React 18 + Vanilla CSS | Ultra-low latency, custom-branded UI |
-| **STT Engine** | `whisper.cpp` + Native Loopback | Sub-second transcription from any audio source |
-| **Storage** | SQLite + `safeStorage` | Fast local search with hardware-backed encryption |
-| **Cloud Bridge** | Unified Provider Gateway | Seamless integration with Gemini, OpenAI, Claude, Groq, and more |
-
-## 🕹️ Quick Start
-
-### ⚡ One-Command Installation
-**Windows (PowerShell)**:
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"
 ```
 
-**macOS (Bash)**:
+macOS:
+
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh)"
+curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash
 ```
 
-### 🛠️ Manual Setup
-1. **Deployment**: Download the latest Enterprise installer from [GitHub Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases).
-2. **Onboarding**: Complete the 60-second hardware diagnosis and setup.
-3. **Master Hotkey**: Use `Ctrl/Cmd+B` to toggle your strategic overlay.
-4. **Session Control**: Press `F9` to initiate intelligence capture.
+The scripts download the latest release manifest, verify checksums, and install Ghost Writer into a user-local location. Re-running the same command upgrades an existing install in place.
 
-## 📈 Owner Dashboards
-Administrators can access the built-in BI views via the Supabase integration to track:
-- **Conversion Funnel**: From installation to trial to paid license.
-- **Token Economy**: Monitor intelligence consumption and estimated costs.
-- **User Engagement**: Track active minutes and session frequency.
+### Manual install
 
----
+1. Download the latest installer from [GitHub Releases](https://github.com/chintuai2026/Ghost_Writer/releases).
+2. Verify the published SHA256 checksum from `checksums.txt`.
+3. Run the installer.
+4. Complete the onboarding flow on first launch.
 
-## 📜 Intellectual Property & Licensing
-This software is **Proprietary**. All rights reserved.
+## Data And Privacy
 
-- **Exclusive Monetization**: Only the original owner is authorized to commercialize this product.
-- **Restricted Access**: Redistribution or unauthorized modification of the source code is strictly prohibited.
-- **Full Agreement**: See the [LICENSE](LICENSE) file for the full Proprietary EULA.
+- API keys and license data are stored with Electron `safeStorage` when available.
+- Telemetry is optional and disabled by default for v1.0.0.
+- Full Privacy Mode blocks cloud STT and cloud LLM routing until local dependencies are ready.
+- Local transcripts, meeting history, and context files stay on-device unless you explicitly use a cloud provider.
 
----
+More detail: [Privacy](docs/PRIVACY.md)
 
-<div align="center">
-  Generated with ❤️ for the Ghost Writer Enterprise Team.
-</div>
+## Current Launch Posture
+
+- Version: `1.0.0`
+- Distribution: unsigned direct-download desktop beta
+- Monetization: disabled for the v1.0.0 beta launch
+- Primary install path: terminal one-liners plus manual downloads as fallback
+
+## Known Limitations
+
+- Unsigned installers can still trigger OS trust warnings until code signing is added.
+- macOS support is currently focused on Apple Silicon.
+- Local-only mode requires both Local Whisper and Ollama to be installed and healthy.
+- Some advanced workflows depend on third-party provider API keys that you supply.
+
+## Development
+
+Install dependencies:
+
+```bash
+npm ci
+```
+
+Build the renderer:
+
+```bash
+npm run build
+```
+
+Build the desktop app:
+
+```bash
+npm run build:desktop
+```
+
+Create release artifacts:
+
+```bash
+npm run dist
+```
+
+Run key verification scripts:
+
+```bash
+node tests/test_smoke.js
+node tests/meeting_summary_routing.test.js
+node tests/prompt_settings.test.js
+```
+
+## Support
+
+- Issues: [GitHub Issues](https://github.com/chintuai2026/Ghost_Writer/issues)
+- Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- Privacy notes: [docs/PRIVACY.md](docs/PRIVACY.md)
+
+## License
+
+This software is proprietary. Redistribution and unauthorized commercial reuse are not permitted. See [LICENSE](LICENSE).

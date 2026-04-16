@@ -68,7 +68,7 @@ jobs:
 
   # ─── macOS Build ─────────────────────────────────────────────────────────────
   build-macos:
-    name: Build macOS (.dmg)
+    name: Build macOS (.dmg + .zip)
     runs-on: macos-latest
 
     steps:
@@ -117,8 +117,8 @@ jobs:
           chmod +x assets/whisper-bin/* 2>/dev/null || true
           echo "Whisper binary setup complete."
 
-      - name: Rebuild Native Modules (macOS ARM64)
-        run: ./node_modules/.bin/electron-rebuild --arch arm64
+      - name: Install Native App Dependencies (macOS ARM64)
+        run: npx electron-builder install-app-deps --platform darwin --arch arm64
 
       - name: Build macOS Installer
         run: npm run dist -- --mac --arm64 -c.extraMetadata.version=${{ github.event.inputs.version }}
@@ -131,9 +131,47 @@ jobs:
           # Create release if it doesn't exist
           gh release view "v${{ github.event.inputs.version }}" || gh release create "v${{ github.event.inputs.version }}" --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
           
-          # Upload the macOS executable
-          gh release upload "v${{ github.event.inputs.version }}" artifacts/*.dmg --clobber
+          # Upload the macOS installers
+          gh release upload "v${{ github.event.inputs.version }}" artifacts/*.dmg artifacts/*.zip --clobber
           
           # Upload auto-updater files if they were generated
           if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi
           if ls release/latest-mac.yml 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/latest-mac.yml --clobber; fi
+
+  publish-release-metadata:
+    name: Publish Release Metadata
+    runs-on: ubuntu-latest
+    needs:
+      - build-windows
+      - build-macos
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-assets
+          gh release download "v${{ github.event.inputs.version }}" --dir release-assets
+
+      - name: Generate release manifest and checksums
+        run: node scripts/collect_release_artifacts.js
+        env:
+          RELEASE_INPUT_DIR: release-assets
+
+      - name: Upload metadata to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ github.event.inputs.version }}" artifacts/release-manifest.json artifacts/checksums.txt artifacts/release-notes.md --clobber

@@ -1,0 +1,50 @@
+{
+  "appName": "Ghost Writer",
+  "productName": "Ghost Writer",
+  "companyName": "Chintu AI Team",
+  "description": "High-fidelity meeting and interview assistance",
+  "version": "1.0.0",
+  "launchMode": "beta-free",
+  "monetizationEnabled": false,
+  "telemetryDefaultEnabled": false,
+  "release": {
+    "owner": "chintuai2026",
+    "repo": "Ghost_Writer",
+    "tagPrefix": "v",
+    "manifestFileName": "release-manifest.json",
+    "checksumsFileName": "checksums.txt",
+    "notesFileName": "release-notes.md",
+    "windowsInstallerName": "Ghost.Writer.Setup.exe",
+    "macZipName": "Ghost.Writer.arm64.zip",
+    "macDmgName": "Ghost.Writer.arm64.dmg",
+    "installScriptWindows": "install.ps1",
+    "installScriptMac": "install.sh",
+    "supportedPlatforms": [
+      {
+        "id": "windows-x64",
+        "platform": "windows",
+        "arch": "x64",
+        "label": "Windows x64"
+      },
+      {
+        "id": "macos-arm64",
+        "platform": "macos",
+        "arch": "arm64",
+        "label": "macOS arm64"
+      }
+    ]
+  },
+  "remoteServices": {
+    "supabaseUrl": "https://vgsrnsrgfkdssngtpkfg.supabase.co",
+    "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnc3Juc3JnZmtkc3NuZ3Rwa2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTMwNzEsImV4cCI6MjA4Nzg4OTA3MX0.IhJV5T2xOYJBET0bV4fAAYMPBGL7l4RSxNjjpqPaj48",
+    "gumroadProductPermalink": "uwqkn",
+    "gumroadVerifyUrl": "https://api.gumroad.com/v2/licenses/verify"
+  },
+  "support": {
+    "issuesUrl": "https://github.com/chintuai2026/Ghost_Writer/issues",
+    "downloadsUrl": "https://github.com/chintuai2026/Ghost_Writer/releases",
+    "rawContentBaseUrl": "https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main",
+    "privacyDocPath": "docs/PRIVACY.md",
+    "troubleshootingDocPath": "docs/TROUBLESHOOTING.md"
+  }
+}

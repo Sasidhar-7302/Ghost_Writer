@@ -46,6 +46,17 @@ export interface TokenUsage {
     sessionId?: string;
 }
 
+export interface UserProfile {
+    fullName: string;
+    preferredName?: string;
+    email?: string;
+    currentRole?: string;
+    company?: string;
+    targetRole?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 export class DatabaseManager {
     private static instance: DatabaseManager;
     private db: Database.Database | null = null;
@@ -127,6 +138,21 @@ export class DatabaseManager {
         this.db.exec(createMeetingsTable);
         this.db.exec(createTranscriptsTable);
         this.db.exec(createAiInteractionsTable);
+
+        const createUserProfileTable = `
+            CREATE TABLE IF NOT EXISTS user_profile (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                full_name TEXT NOT NULL,
+                preferred_name TEXT,
+                email TEXT,
+                current_role TEXT,
+                company TEXT,
+                target_role TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        `;
+        this.db.exec(createUserProfileTable);
 
         // RAG: Semantic chunks with embeddings
         const createChunksTable = `
@@ -232,6 +258,78 @@ export class DatabaseManager {
     // ============================================
     // Public API
     // ============================================
+
+    public getUserProfile(): UserProfile | null {
+        if (!this.db) return null;
+
+        const row = this.db.prepare(`
+            SELECT full_name, preferred_name, email, current_role, company, target_role, created_at, updated_at
+            FROM user_profile
+            WHERE id = 1
+        `).get() as any;
+
+        if (!row) return null;
+
+        return {
+            fullName: row.full_name,
+            preferredName: row.preferred_name || '',
+            email: row.email || '',
+            currentRole: row.current_role || '',
+            company: row.company || '',
+            targetRole: row.target_role || '',
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        };
+    }
+
+    public saveUserProfile(profile: UserProfile): boolean {
+        if (!this.db) return false;
+
+        const fullName = profile.fullName?.trim();
+        if (!fullName) return false;
+
+        const now = new Date().toISOString();
+
+        try {
+            const existing = this.getUserProfile();
+            this.db.prepare(`
+                INSERT INTO user_profile (
+                    id,
+                    full_name,
+                    preferred_name,
+                    email,
+                    current_role,
+                    company,
+                    target_role,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    full_name = excluded.full_name,
+                    preferred_name = excluded.preferred_name,
+                    email = excluded.email,
+                    current_role = excluded.current_role,
+                    company = excluded.company,
+                    target_role = excluded.target_role,
+                    updated_at = excluded.updated_at
+            `).run(
+                1,
+                fullName,
+                profile.preferredName?.trim() || null,
+                profile.email?.trim() || null,
+                profile.currentRole?.trim() || null,
+                profile.company?.trim() || null,
+                profile.targetRole?.trim() || null,
+                existing?.createdAt || now,
+                now
+            );
+
+            return true;
+        } catch (error) {
+            console.error('[DatabaseManager] Failed to save user profile:', error);
+            return false;
+        }
+    }
 
     public saveMeeting(meeting: Meeting, startTimeMs: number, durationMs: number) {
         if (!this.db) {
@@ -575,6 +673,7 @@ export class DatabaseManager {
             this.db.exec('DELETE FROM ai_interactions');
             this.db.exec('DELETE FROM transcripts');
             this.db.exec('DELETE FROM meetings');
+            this.db.exec('DELETE FROM user_profile');
 
             const meetingScreenshotDir = path.join(app.getPath('userData'), 'meeting_screenshots');
             if (fs.existsSync(meetingScreenshotDir)) {

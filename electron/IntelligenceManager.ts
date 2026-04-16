@@ -24,9 +24,11 @@ export interface SuggestionTrigger {
     confidence: number;
 }
 
-import { AnswerLLM, AssistLLM, FollowUpLLM, RecapLLM, FollowUpQuestionsLLM, WhatToAnswerLLM, prepareTranscriptForWhatToAnswer, GROQ_TITLE_PROMPT, GROQ_SUMMARY_JSON_PROMPT, buildTemporalContext, AssistantResponse, classifyIntent, postProcessForInterview } from './llm';
+import { AnswerLLM, AssistLLM, FollowUpLLM, RecapLLM, FollowUpQuestionsLLM, WhatToAnswerLLM, prepareTranscriptForWhatToAnswer, GROQ_TITLE_PROMPT, GROQ_SUMMARY_JSON_PROMPT, buildPromptForMode, buildTemporalContext, AssistantResponse, classifyIntent, postProcessForInterview } from './llm';
 import { desktopCapturer } from 'electron';
 import { DatabaseManager, Meeting } from './db/DatabaseManager';
+import { ContextDocumentManager } from './services/ContextDocumentManager';
+import { CredentialsManager } from './services/CredentialsManager';
 const crypto = require('crypto');
 import { app } from 'electron';
 
@@ -1166,25 +1168,17 @@ export class IntelligenceManager extends EventEmitter {
             const tokenCount = estimateTokens(data.context);
             // Only generate if we have sufficient context/transcript
             if (this.recapLLM && data.transcript.length > 2) {
-                const summaryPrompt = `You are a silent meeting summarizer. Convert this conversation into concise internal meeting notes.
-    
-    RULES:
-    - Do NOT invent information not present in the context
-    - You MAY infer implied action items or next steps if they are logical consequences of the discussion
-    - Do NOT explain or define concepts mentioned
-    - Do NOT use filler phrases like "The meeting covered..." or "Discussed various..."
-    - Do NOT mention transcripts, AI, or summaries
-    - Do NOT sound like an AI assistant
-    - Sound like a senior PM's internal notes
-    
-    STYLE: Calm, neutral, professional, skim-friendly. Short bullets, no sub-bullets.
-    
-    Return ONLY valid JSON (no markdown code blocks):
-    {
-      "overview": "1-2 sentence description of what was discussed",
-      "keyPoints": ["3-6 specific bullets - each = one concrete topic or point discussed"],
-      "actionItems": ["specific next steps, assigned tasks, or implied follow-ups. If absolutely none found, return empty array"]
-    }`;
+                const contextManager = ContextDocumentManager.getInstance();
+                const creds = CredentialsManager.getInstance();
+                const summaryPrompt = buildPromptForMode({
+                    mode: 'recap',
+                    settings: creds.getPromptSettings(),
+                    resumeText: contextManager.getResumeText(),
+                    jdText: contextManager.getJDText(),
+                    projectKnowledge: contextManager.getProjectKnowledgeText(),
+                    agendaText: contextManager.getAgendaText(),
+                    sessionMode: 'meeting'
+                });
 
                 const groqSummaryPrompt = GROQ_SUMMARY_JSON_PROMPT; // Context is now removed from the template
 

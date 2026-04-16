@@ -1,13 +1,7 @@
-import React, { useState, useEffect } from "react" // forcing refresh
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react"
 import { QueryClient, QueryClientProvider } from "react-query"
 import { ToastProvider, ToastViewport } from "./components/ui/toast"
-import GhostWriterInterface from "./components/GhostWriterInterface"
-import SettingsPopup from "./components/SettingsPopup" // Keeping for legacy/specific window support if needed
-import Launcher from "./components/Launcher"
-import SettingsOverlay from "./components/SettingsOverlay"
 import StartupSequence from "./components/StartupSequence"
-import SetupWizard from "./components/SetupWizard"
-import ModeSelectionModal from "./components/ModeSelectionModal"
 import { AnimatePresence, motion } from "framer-motion"
 import UpdateBanner from "./components/UpdateBanner"
 import Paywall from "./components/Paywall"
@@ -18,6 +12,18 @@ import { ErrorBoundary } from "./components/ErrorBoundary"
 import { WhisperDownloadProgress } from "./components/WhisperDownloadProgress"
 
 const queryClient = new QueryClient()
+const GhostWriterInterface = lazy(() => import("./components/GhostWriterInterface"))
+const SettingsPopup = lazy(() => import("./components/SettingsPopup"))
+const Launcher = lazy(() => import("./components/Launcher"))
+const SettingsOverlay = lazy(() => import("./components/SettingsOverlay"))
+const SetupWizard = lazy(() => import("./components/SetupWizard"))
+const ModeSelectionModal = lazy(() => import("./components/ModeSelectionModal"))
+
+const LazyFallback: React.FC<{ label?: string }> = ({ label = "Loading Ghost Writer..." }) => (
+  <div className="flex h-full min-h-[240px] w-full items-center justify-center text-sm text-text-secondary">
+    {label}
+  </div>
+)
 
 const App: React.FC = () => {
   const isSettingsWindow = new URLSearchParams(window.location.search).get('window') === 'settings';
@@ -27,25 +33,57 @@ const App: React.FC = () => {
   // Default to launcher if not specified (dev mode safety)
   const isDefault = !isSettingsWindow && !isOverlayWindow;
 
-  // Initialize Analytics
+  const [telemetryEnabled, setTelemetryEnabled] = useState(false);
+  const telemetrySessionStarted = useRef(false);
+
   useEffect(() => {
-    // Only init if we are in a main window context to avoid duplicate events from helper windows
-    // Actually, we probably want to track app open from the main entry point.
-    // Let's protect initialization to ensure single run per window.
-    // The service handles single-init, but let's be thoughtful about WHICH window tracks "App Open".
-    // Launcher is the main entry. Overlay is the "Assistant".
+    let unsubscribe: (() => void) | undefined;
+    let mounted = true;
+
+    const loadTelemetry = async () => {
+      try {
+        const settings = await window.electronAPI.getTelemetrySettings();
+        if (mounted) {
+          setTelemetryEnabled(!!settings.enabled);
+        }
+      } catch (error) {
+        console.error('[App] Failed to load telemetry settings:', error);
+      }
+    };
+
+    loadTelemetry();
+
+    if (window.electronAPI.onTelemetrySettingsChanged) {
+      unsubscribe = window.electronAPI.onTelemetrySettingsChanged(({ enabled }) => {
+        setTelemetryEnabled(enabled);
+      });
+    }
+
+    return () => {
+      mounted = false;
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!telemetryEnabled) {
+      return;
+    }
 
     analytics.initAnalytics();
 
-    if (isLauncherWindow || isDefault) {
-      analytics.trackAppOpen();
+    if (!telemetrySessionStarted.current) {
+      if (isLauncherWindow || isDefault) {
+        analytics.trackAppOpen();
+      }
+
+      if (isOverlayWindow) {
+        analytics.trackAssistantStart();
+      }
+
+      telemetrySessionStarted.current = true;
     }
 
-    if (isOverlayWindow) {
-      analytics.trackAssistantStart();
-    }
-
-    // Cleanup / Session End
     const handleUnload = () => {
       if (isOverlayWindow) {
         analytics.trackAssistantStop();
@@ -59,7 +97,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, [isLauncherWindow, isOverlayWindow, isDefault]);
+  }, [telemetryEnabled, isLauncherWindow, isOverlayWindow, isDefault]);
 
   // State
   const [showStartup, setShowStartup] = useState(true);
@@ -128,13 +166,30 @@ const App: React.FC = () => {
 
   // Check for first run setup
   useEffect(() => {
-    if (!showStartup) {
-      const setupComplete = localStorage.getItem('setupComplete');
-      if (!setupComplete && isLauncherWindow) {
-        setShowSetupWizard(true);
-      }
+    const launcherSurface = isLauncherWindow || isDefault;
+    if (!showStartup && launcherSurface) {
+      const evaluateOnboarding = async () => {
+        const setupComplete = localStorage.getItem('setupComplete');
+        if (!setupComplete) {
+          setShowSetupWizard(true);
+          return;
+        }
+
+        try {
+          const profile = await window.electronAPI.getUserProfile();
+          if (!profile?.fullName?.trim()) {
+            setShowSetupWizard(true);
+          }
+        } catch (error) {
+          console.error('[App] Failed to load user profile for onboarding check:', error);
+        }
+      };
+
+      evaluateOnboarding();
+    } else if (showStartup || !launcherSurface) {
+      setShowSetupWizard(false);
     }
-  }, [showStartup, isLauncherWindow]);
+  }, [showStartup, isLauncherWindow, isDefault]);
 
   useEffect(() => {
     const restartOnboarding = () => {
@@ -235,7 +290,9 @@ const App: React.FC = () => {
         <div className="h-full min-h-0 w-full">
           <QueryClientProvider client={queryClient}>
             <ToastProvider>
-              <SettingsPopup />
+              <Suspense fallback={<LazyFallback />}>
+                <SettingsPopup />
+              </Suspense>
               <ToastViewport />
             </ToastProvider>
           </QueryClientProvider>
@@ -251,9 +308,11 @@ const App: React.FC = () => {
         <div className="w-full relative bg-transparent">
           <QueryClientProvider client={queryClient}>
             <ToastProvider>
-              <GhostWriterInterface
-                onEndMeeting={handleEndMeeting}
-              />
+              <Suspense fallback={<LazyFallback label="Loading meeting overlay..." />}>
+                <GhostWriterInterface
+                  onEndMeeting={handleEndMeeting}
+                />
+              </Suspense>
               <ToastViewport />
             </ToastProvider>
           </QueryClientProvider>
@@ -293,7 +352,9 @@ const App: React.FC = () => {
               <StartupSequence onComplete={() => setShowStartup(false)} />
             </motion.div>
           ) : showSetupWizard ? (
-            <SetupWizard onComplete={() => setShowSetupWizard(false)} />
+            <Suspense fallback={<LazyFallback />}>
+              <SetupWizard onComplete={() => setShowSetupWizard(false)} />
+            </Suspense>
           ) : (
             <motion.div
               key="main"
@@ -308,20 +369,22 @@ const App: React.FC = () => {
             >
               <QueryClientProvider client={queryClient}>
                 <ToastProvider>
-                  <Launcher
-                    onStartMeeting={handleStartMeetingTrigger}
-                    onOpenSettings={() => setIsSettingsOpen(true)}
-                    onRefresh={handleRefreshApp}
-                  />
-                  <ModeSelectionModal
-                    isOpen={showModeSelection}
-                    onClose={() => setShowModeSelection(false)}
-                    onConfirm={handleStartMeeting}
-                  />
-                  <SettingsOverlay
-                    isOpen={isSettingsOpen}
-                    onClose={() => setIsSettingsOpen(false)}
-                  />
+                  <Suspense fallback={<LazyFallback />}>
+                    <Launcher
+                      onStartMeeting={handleStartMeetingTrigger}
+                      onOpenSettings={() => setIsSettingsOpen(true)}
+                      onRefresh={handleRefreshApp}
+                    />
+                    <ModeSelectionModal
+                      isOpen={showModeSelection}
+                      onClose={() => setShowModeSelection(false)}
+                      onConfirm={handleStartMeeting}
+                    />
+                    <SettingsOverlay
+                      isOpen={isSettingsOpen}
+                      onClose={() => setIsSettingsOpen(false)}
+                    />
+                  </Suspense>
                   <ToastViewport />
                 </ToastProvider>
               </QueryClientProvider>

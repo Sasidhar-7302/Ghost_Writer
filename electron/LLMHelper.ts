@@ -1334,7 +1334,6 @@ ${visualDescription}
   // ─── UNIVERSAL STREAM ROUTING ─────────────────────────────────────
 
   public async * streamChat(payload: ChatPayload): AsyncGenerator<string, void, unknown> {
-    // ─── AIR-GAP PROTECTION ─────────────────────────────────────────
     const fullPrivacyError = await this.getFullPrivacyBlockingMessage(payload.imagePath);
     if (fullPrivacyError) {
       console.error("[LLMHelper] Full Privacy Mode block:", fullPrivacyError);
@@ -1342,72 +1341,9 @@ ${visualDescription}
       return;
     }
 
+    const startedAt = Date.now();
     yield* this.streamChatWithGemini(payload);
-    return;
-
-    const { imagePath } = payload;
-    let finalPayload = payload;
-
-    // ─── IMAGE PRE-PROCESSING (PHASE 2) ─────────────────────────────
-    if (imagePath && fs.existsSync(imagePath)) {
-      try {
-        const multimodal = MultimodalHelper.getInstance();
-        const processed = await multimodal.prepareImage(imagePath, { runOCR: true });
-
-        // Enrich the payload with processed image and OCR ground truth
-        finalPayload = {
-          ...payload,
-          imagePath: processed.processedPath,
-          message: processed.ocrText
-            ? `[OCR TEXT FROM SCREENSHOT]:\n${processed.ocrText}\n\n[USER MESSAGE]:\n${payload.message}`
-            : payload.message
-        };
-        console.log(`[LLMHelper] Image pre-processed. OCR: ${!!processed.ocrText}, Size: ${processed.metadata.processedSize} bytes`);
-      } catch (err) {
-        console.warn("[LLMHelper] Image pre-processing failed, using original:", err);
-      }
-    }
-
-    if (this.useOllama) {
-      yield* this.streamWithOllama(finalPayload);
-      return;
-    }
-
-    if (this.customProvider) {
-      yield* this.streamWithCustom(finalPayload);
-      return;
-    }
-
-    if (this.currentModelId === GROQ_MODEL && this.groqClient && !imagePath) {
-      const provider = new GroqProvider(this.groqClient);
-      yield* provider.stream(finalPayload);
-      return;
-    }
-
-    if ((this.currentModelId === NVIDIA_MODEL && this.nvidiaClient && !imagePath) ||
-      (this.currentModelId === DEEPSEEK_MODEL && this.deepseekClient && !imagePath)) {
-      const provider = new OpenAICompatProvider(
-        this.currentModelId === NVIDIA_MODEL ? this.nvidiaClient! : this.deepseekClient!,
-        this.currentModelId,
-        this.currentModelId === NVIDIA_MODEL ? "NVIDIA" : "DeepSeek"
-      );
-      yield* provider.stream({ ...finalPayload, systemPrompt: OPENAI_SYSTEM_PROMPT });
-      return;
-    }
-
-    if (this.currentModelId === CLAUDE_MODEL && this.claudeClient) {
-      const provider = new ClaudeProvider(this.claudeClient);
-      yield* provider.stream({ ...finalPayload, systemPrompt: CLAUDE_SYSTEM_PROMPT });
-      return;
-    }
-
-    if (this.currentModelId === OPENAI_MODEL && this.openaiClient) {
-      const provider = new OpenAICompatProvider(this.openaiClient, OPENAI_MODEL, "OpenAI");
-      yield* provider.stream({ ...finalPayload, systemPrompt: OPENAI_SYSTEM_PROMPT });
-      return;
-    }
-
-    yield* this.streamChatWithGemini(finalPayload);
+    console.log(`[LLMHelper] streamChat completed via ${this.getCurrentProvider()} in ${Date.now() - startedAt}ms`);
   }
 
   // ─── MEETING SUMMARY LOGIC ────────────────────────────────────────

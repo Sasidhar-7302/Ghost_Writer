@@ -24,6 +24,10 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'framer-motion'],
           ui: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-toast'],
+          markdown: ['react-markdown', 'remark-gfm'],
+          markdownMath: ['remark-math', 'rehype-katex', 'katex'],
+          syntax: ['react-syntax-highlighter', 'react-code-blocks'],
+          export: ['jspdf'],
         },
       },
     },

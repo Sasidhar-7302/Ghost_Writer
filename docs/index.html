@@ -1,324 +1,228 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ghost Writer | Enterprise Meeting & Interview Copilot</title>
-
-    <!-- Meta Tags -->
-    <meta name="description"
-        content="The ultimate stealth, local-first meeting assistant built for professionals. High-stakes interviews and meetings, mastered.">
+    <title>Ghost Writer | Desktop Beta</title>
+    <meta
+        name="description"
+        content="Ghost Writer is a desktop beta for interview and meeting assistance on Windows x64 and macOS arm64."
+    >
     <meta name="theme-color" content="#000000">
-
-    <!-- Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Tailwind CSS (CDN for zero-build setup) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            black: '#000000',
-                            white: '#ffffff',
-                            gray: '#18181b',      /* zinc-900 */
-                            darkGray: '#09090b',  /* zinc-950 */
-                            purple: '#8b5cf6',    /* violet-500 */
-                            blue: '#3b82f6',      /* blue-500 */
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- Custom Styles -->
     <link rel="stylesheet" href="styles.css">
 </head>
-
-<body
-    class="bg-brand-black text-brand-white font-sans antialiased overflow-x-hidden relative selection:bg-brand-blue selection:text-brand-white">
-
-    <!-- Ambient Glowing Background (Zero JS required) -->
+<body class="bg-brand-black text-brand-white font-sans antialiased overflow-x-hidden relative selection:bg-brand-blue selection:text-brand-white">
     <div class="ambient-glow" style="top: -10%; left: -10%;"></div>
-    <div class="ambient-glow blue" style="top: 30%; right: -15%;"></div>
-    <div class="ambient-glow" style="bottom: -20%; left: 20%;"></div>
+    <div class="ambient-glow blue" style="top: 20%; right: -15%;"></div>
+    <div class="ambient-glow" style="bottom: -20%; left: 25%;"></div>
 
-    <!-- Navigation -->
-    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 px-6 py-4 animate-in">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <a href="#" class="text-2xl font-bold tracking-tighter flex items-center gap-3">
-                <i class="fa-solid fa-ghost text-brand-white"></i>
-                Ghost Writer
-            </a>
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <a href="#" class="text-2xl font-bold tracking-tighter">Ghost Writer</a>
             <div class="hidden md:flex gap-8 items-center text-sm font-medium text-gray-400">
-                <a href="#features" class="hover:text-brand-white transition-colors">Architecture</a>
-                <a href="#privacy" class="hover:text-brand-white transition-colors">Stealth</a>
-                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
-                    class="bg-brand-white text-brand-black px-5 py-2 rounded-full hover:bg-gray-200 transition-colors cursor-pointer font-semibold flex items-center gap-2">
-                    <i class="fa-brands fa-windows"></i> Windows
-                </a>
-                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
-                    class="bg-brand-darkGray border border-gray-700 text-brand-white px-5 py-2 rounded-full hover:bg-gray-800 transition-colors cursor-pointer font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.05)]">
-                    <i class="fa-brands fa-apple"></i> macOS
-                </a>
-                <a href="onboarding.html"
-                    class="text-brand-blue hover:text-white transition-colors ml-4 font-semibold flex items-center gap-1">
-                    <i class="fa-solid fa-book-open"></i> Beginner's Guide
-                </a>
+                <a href="#install" class="hover:text-brand-white transition-colors">Install</a>
+                <a href="#platforms" class="hover:text-brand-white transition-colors">Platforms</a>
+                <a href="#faq" class="hover:text-brand-white transition-colors">FAQ</a>
+                <a href="https://github.com/chintuai2026/Ghost_Writer/releases" class="hover:text-brand-white transition-colors">Releases</a>
             </div>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="min-h-screen flex items-center justify-center pt-24 px-4 relative z-10">
-        <div class="max-w-4xl mx-auto text-center">
-            <div
-                class="inline-flex items-center gap-2 mb-8 px-4 py-1.5 rounded-full border border-gray-800 bg-brand-darkGray/80 backdrop-blur-sm text-sm text-gray-300 animate-in delay-100 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
-                <span class="w-2 h-2 rounded-full bg-brand-blue animate-pulse-fast"></span>
-                v1.0 Official Release Available
+    <main class="relative z-10">
+        <section class="min-h-screen flex items-center justify-center pt-28 px-4">
+            <div class="max-w-4xl mx-auto text-center">
+                <div class="inline-flex items-center gap-2 mb-8 px-4 py-1.5 rounded-full border border-gray-800 bg-brand-darkGray/80 backdrop-blur-sm text-sm text-gray-300">
+                    <span class="w-2 h-2 rounded-full bg-brand-blue animate-pulse-fast"></span>
+                    Public beta v1.1.0 — Now with Stealth Remote Sync
+                </div>
+
+                <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-[1.1]">
+                    Desktop assistant for
+                    <span class="text-gradient">interviews and meetings.</span>
+                </h1>
+
+                <p class="text-lg md:text-xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed font-light">
+                    Ghost Writer is a desktop beta for high-stakes interviews. Get character-by-character AI answers streamed directly to your phone while keeping your PC completely clean.
+                </p>
+
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a
+                        href="https://github.com/chintuai2026/Ghost_Writer/releases"
+                        class="group relative px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                    >
+                        View Releases
+                    </a>
+                    <a
+                        href="#stealth-mode"
+                        class="group relative px-8 py-4 glass-card text-brand-white font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:bg-white/10"
+                    >
+                        Explore Stealth Mode
+                    </a>
+                </div>
             </div>
+        </section>
 
-            <h1 class="text-6xl md:text-8xl font-bold tracking-tight mb-8 animate-in delay-200 leading-[1.1]">
-                The Stealth Copilot for <br>
-                <span class="text-gradient">Interviews & Meetings.</span>
-            </h1>
-
-            <p
-                class="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto animate-in delay-300 leading-relaxed font-light">
-                Ace your next interview or dominate your next meeting. Ghost Writer provides real-time, undetectable,
-                context-aware suggestions directly to your screen.
-            </p>
-
-            <div class="flex flex-col sm:flex-row gap-4 justify-center animate-in delay-400">
-                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
-                    class="group relative px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-                    <i class="fa-brands fa-windows text-xl"></i>
-                    Download for Windows
-                </a>
-                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
-                    class="group relative px-8 py-4 glass-card text-brand-white font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:bg-white/10">
-                    <i class="fa-brands fa-apple text-xl"></i>
-                    Download for macOS
-                </a>
+        <!-- NEW STEALTH MODE SECTION -->
+        <section id="stealth-mode" class="py-24 px-4 relative overflow-hidden">
+            <div class="max-w-5xl mx-auto">
+                <div class="grid md:grid-cols-2 gap-16 items-center">
+                    <div>
+                        <h2 class="text-4xl md:text-6xl font-bold mb-8 tracking-tighter">
+                            Designed for 
+                            <span class="text-brand-blue">Total Stealth.</span>
+                        </h2>
+                        <p class="text-gray-400 text-lg mb-8 leading-relaxed font-light">
+                            Traditional overlays can be detected. Ghost Writer bypasses this by streaming live intelligence to a 
+                            <span class="text-white font-medium">secure mobile viewer</span> on your side-device.
+                        </p>
+                        <ul class="space-y-4 text-sm text-gray-400">
+                            <li class="flex items-center gap-3">
+                                <span class="w-1.5 h-1.5 rounded-full bg-brand-blue"></span>
+                                PIN-Protected authentication handshake
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="w-1.5 h-1.5 rounded-full bg-brand-blue"></span>
+                                Real-time character streaming (No delay)
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="w-1.5 h-1.5 rounded-full bg-brand-blue"></span>
+                                Complete PC overlay minimization while active
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="relative">
+                        <div class="glass-card p-1 aspect-[9/16] max-w-[280px] mx-auto rounded-[2.5rem] border-4 border-white/10 shadow-2xl relative z-10 overflow-hidden">
+                            <div class="w-full h-full bg-black rounded-[2rem] p-6 flex flex-col justify-center text-center">
+                                <div class="w-16 h-16 bg-brand-blue/20 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+                                    <svg class="w-8 h-8 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                </div>
+                                <h4 class="text-white text-xl font-bold mb-2">Locked Session</h4>
+                                <p class="text-gray-500 text-xs">Enter 4-digit PIN to view answers</p>
+                            </div>
+                        </div>
+                        <div class="absolute -top-10 -right-10 w-48 h-48 bg-brand-blue/20 blur-[80px] rounded-full"></div>
+                        <div class="absolute -bottom-10 -left-10 w-48 h-48 bg-brand-purple/20 blur-[80px] rounded-full"></div>
+                    </div>
+                </div>
             </div>
+        </section>
 
-            <!-- One-Liner Installers -->
-            <div class="mt-12 grid md:grid-cols-2 gap-6 max-w-4xl mx-auto animate-in delay-500">
-                <!-- Windows One-Liner -->
-                <div class="glass-card p-4 text-left border-brand-blue/30">
-                    <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80 flex items-center gap-2">
-                        <i class="fa-brands fa-windows"></i> Windows One-Liner
+        <section id="install" class="py-20 px-4 mt-12 border-t border-white/5">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">One-command install</h2>
+                    <p class="text-gray-400 max-w-2xl mx-auto text-lg font-light">
+                        Deploy directly to your local machine. No complex setup, no proxy required.
                     </p>
-                    <div class="bg-black/40 p-2.5 rounded-lg flex items-center justify-between gap-4 border border-white/5">
-                        <code class="text-[9px] font-mono text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap">iwr -useb https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex</code>
-                        <button onclick="copyCmd('win')" id="copyBtnWin" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all">Copy</button>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass-card p-6">
+                        <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80">Windows x64</p>
+                        <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
+                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"</code>
+                            <button onclick="copyCmd('win')" id="copyBtnWin" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-3">Installs per-user, verifies the release checksum, and upgrades in place.</p>
+                    </div>
+
+                    <div class="glass-card p-6">
+                        <p class="text-[10px] text-brand-purple uppercase tracking-[0.3em] mb-3 font-black opacity-80">macOS arm64</p>
+                        <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
+                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash</code>
+                            <button onclick="copyCmd('mac')" id="copyBtnMac" class="shrink-0 bg-brand-purple/10 hover:bg-brand-purple/20 text-brand-purple px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-3">Installs into <code>~/Applications</code>, verifies the release checksum, and upgrades in place.</p>
                     </div>
                 </div>
-                <!-- macOS One-Liner -->
-                <div class="glass-card p-4 text-left border-brand-purple/30">
-                    <p class="text-[10px] text-brand-purple uppercase tracking-[0.3em] mb-3 font-black opacity-80 flex items-center gap-2">
-                        <i class="fa-brands fa-apple"></i> macOS One-Liner
+            </div>
+        </section>
+
+        <section id="platforms" class="py-20 px-4">
+            <div class="max-w-5xl mx-auto">
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-semibold mb-3">Multi-Platform</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            Full support for Windows x64 and macOS arm64, with a browser-based mobile remote display for any smartphone.
+                        </p>
+                    </div>
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-semibold mb-3">Local-first options</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            You can run local models and local speech pipelines where configured, or use cloud providers when you choose to.
+                        </p>
+                    </div>
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-semibold mb-3">Telemetry</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            Telemetry is optional and off by default. You can enable or disable it during onboarding or later in settings.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="faq" class="py-20 px-4 bg-gradient-to-b from-transparent to-[#050505]">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-bold mb-4">What to expect in beta</h2>
+                    <p class="text-gray-400 text-lg font-light">
+                        v1.1.0 is a security-hardened desktop beta with a focus on stealth and undetected operations.
                     </p>
-                    <div class="bg-black/40 p-2.5 rounded-lg flex items-center justify-between gap-4 border border-white/5">
-                        <code class="text-[9px] font-mono text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh)"</code>
-                        <button onclick="copyCmd('mac')" id="copyBtnMac" class="shrink-0 bg-brand-purple/10 hover:bg-brand-purple/20 text-brand-purple px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all">Copy</button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="glass-card p-6">
+                        <h3 class="text-lg font-semibold mb-2">How is data handled?</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            Credentials are stored with OS secure storage when available. Cloud providers only receive requests when you configure and use them.
+                        </p>
                     </div>
+                    <div class="glass-card p-6">
+                        <h3 class="text-lg font-semibold mb-2">What if install warnings appear?</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            v1.0.0 is unsigned. Use the published checksum to verify the download, then follow the troubleshooting guide for platform-specific launch prompts.
+                        </p>
+                    </div>
+                    <div class="glass-card p-6">
+                        <h3 class="text-lg font-semibold mb-2">Where do I get support?</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            Support and issue tracking live in the repository. Use the release page, troubleshooting guide, and GitHub Issues for beta feedback.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-center mt-10">
+                    <a href="https://github.com/chintuai2026/Ghost_Writer/issues" class="text-brand-blue hover:text-white transition-colors">Open GitHub Issues</a>
                 </div>
             </div>
+        </section>
+    </main>
 
-            <div class="mt-8 animate-in delay-500">
-                <a href="onboarding.html"
-                    class="text-sm text-gray-400 hover:text-brand-blue inline-flex items-center gap-2 transition-colors border-b border-gray-800 pb-1">
-                    <i class="fa-regular fa-lightbulb text-yellow-500"></i> New to AI? Read the Simple Setup Guide
-                    &rarr;
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Bento Box Features Grid -->
-    <section id="features" class="py-24 px-4 relative z-10">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-16 animate-in delay-100">
-                <h2 class="text-4xl md:text-5xl font-bold mb-6">Enterprise-Grade Intelligence</h2>
-                <p class="text-gray-400 max-w-2xl mx-auto text-lg font-light">Engineered to be the most responsive,
-                    private, and context-aware meeting assistant available.</p>
-            </div>
-
-            <!-- Bento Grid Structure -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[250px]">
-
-                <!-- Feature 1: Large Span -->
-                <div class="glass-card md:col-span-2 p-8 flex flex-col justify-between animate-in delay-200 group">
-                    <div
-                        class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-brand-blue mb-4 group-hover:bg-white/10 transition-colors">
-                        <i class="fa-solid fa-bolt text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-semibold mb-3">Lightning Fast Answers</h3>
-                        <p class="text-gray-400 leading-relaxed font-light text-sm max-w-md">Our advanced AI listens to
-                            your meetings and interviews in real-time. Before the speaker even finishes asking their
-                            question,
-                            Ghost Writer will instantly display the perfect answer on your screen.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 2: Tall Span -->
-                <div
-                    class="glass-card md:row-span-2 p-8 flex flex-col items-center justify-center text-center animate-in delay-300 group">
-                    <div
-                        class="w-16 h-16 rounded-full bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center text-white mb-8 shadow-[0_0_30px_rgba(139,92,246,0.3)] group-hover:scale-110 transition-transform duration-500">
-                        <i class="fa-solid fa-eye text-2xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-semibold mb-4 text-gradient-accent">It Can See Your Screen</h3>
-                    <p class="text-gray-400 leading-relaxed font-light text-sm">Hit <kbd
-                            class="px-2 py-1 bg-black/50 border border-white/10 rounded-md font-mono text-xs text-white">Ctrl+H</kbd>
-                        to take a silent screenshot. The AI reads code, charts, and presentations instantly.</p>
-                </div>
-
-                <!-- Feature 3: Standard -->
-                <div class="glass-card p-8 flex flex-col justify-between animate-in delay-400 group">
-                    <div class="text-brand-purple mb-4">
-                        <i class="fa-solid fa-shield-halved text-2xl group-hover:-rotate-12 transition-transform"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-2">Bring Your Own Local Model</h3>
-                        <p class="text-gray-400 font-light text-xs leading-relaxed">Run in Full Privacy Mode via Ollama. If
-                            you don't want data leaving your hardware, it simply doesn't.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 4: Standard -->
-                <div class="glass-card p-8 flex flex-col justify-between animate-in delay-500 group">
-                    <div class="text-gray-300 mb-4">
-                        <i class="fa-solid fa-brain text-2xl group-hover:scale-110 transition-transform"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-2">Temporal RAG Memory</h3>
-                        <p class="text-gray-400 font-light text-xs leading-relaxed">Tracks the rolling window of
-                            conversational turns, flawlessly navigating complex follow-up questions.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Terminal Details Section -->
-    <section id="privacy" class="py-24 px-4 relative z-10 bg-gradient-to-b from-transparent to-[#050505]">
-        <div class="max-w-5xl mx-auto">
-            <div class="grid md:grid-cols-2 gap-16 items-center">
-                <div class="animate-in delay-200">
-                    <h2 class="text-4xl font-bold mb-6">Built for Absolute Stealth.</h2>
-                    <p class="text-gray-400 mb-8 leading-relaxed font-light text-lg">Ghost Writer is engineered at the
-                        kernel level to be entirely undetectable. By leveraging local AI inference and advanced audio
-                        hooks, you maintain total deniability.</p>
-                    <ul class="space-y-6">
-                        <li class="flex items-start gap-4">
-                            <div
-                                class="mt-1 w-6 h-6 rounded-full bg-brand-blue/20 flex items-center justify-center text-brand-blue shrink-0">
-                                <i class="fa-solid fa-check text-xs"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white">No Telemetry</h4>
-                                <p class="text-sm text-gray-500 mt-1">Zero analytics or tracking logs generated.</p>
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-4">
-                            <div
-                                class="mt-1 w-6 h-6 rounded-full bg-brand-purple/20 flex items-center justify-center text-brand-purple shrink-0">
-                                <i class="fa-solid fa-check text-xs"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white">Renderer Camouflage</h4>
-                                <p class="text-sm text-gray-500 mt-1">Specialized window flags prevent screen capture
-                                    detection.</p>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="terminal-window animate-in delay-400 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-                    <div class="terminal-header">
-                        <div class="terminal-dot bg-red-500"></div>
-                        <div class="terminal-dot bg-yellow-500"></div>
-                        <div class="terminal-dot bg-green-500"></div>
-                    </div>
-                    <div><span class="text-brand-purple">import</span> CoreIntelligence</div>
-                    <div><span class="text-brand-purple">import</span> StealthLayer</div>
-                    <br>
-                    <div><span class="text-brand-purple">const</span> engine = <span
-                            class="text-brand-blue">initIntelligenceBridge</span>({</div>
-                    <div class="pl-4">llm: [<span class="text-green-400">'deepseek'</span>, <span
-                            class="text-green-400">'ollama'</span>, <span class="text-green-400">'openai'</span>],</div>
-                    <div class="pl-4">audio_in: <span class="text-green-400">'virtual_cable_bridge'</span></div>
-                    <div>});</div>
-                    <br>
-                    <div><span class="text-brand-purple">await</span> StealthLayer.<span
-                            class="text-brand-blue">intercept</span>({</div>
-                    <div class="pl-4">audio: <span class="text-orange-400">true</span>,</div>
-                    <div class="pl-4">screen: <span class="text-orange-400">true</span>,</div>
-                    <div class="pl-4">stealth: <span class="text-orange-400">true</span></div>
-                    <div>});</div>
-                    <br>
-                    <div class="mt-4 text-green-400">> system armed and listening_ <span
-                            class="animate-pulse-fast">█</span></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Final CTA Section -->
-    <section class="py-24 px-4 relative z-10">
-        <div class="max-w-4xl mx-auto text-center animate-in delay-200">
-            <h2 class="text-5xl md:text-6xl font-bold mb-6">Gain the Edge.</h2>
-            <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto font-light">Experience the most technically advanced
-                copilot built for professionals. Ace your next interview or dominate your next meeting.</p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.Setup.exe"
-                    class="px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3">
-                    <i class="fa-brands fa-windows"></i> Windows
-                </a>
-                <a href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/latest/download/Ghost.Writer.arm64.dmg"
-                    class="px-8 py-4 glass-card text-brand-white font-semibold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3">
-                    <i class="fa-brands fa-apple"></i> macOS
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
     <footer class="border-t border-white/5 py-12 text-center text-gray-600 relative z-10 bg-black">
-        <div class="flex justify-center items-center gap-3 mb-6">
-            <i class="fa-solid fa-ghost text-gray-400"></i>
-            <span class="font-bold text-gray-400 tracking-widest uppercase text-sm">Ghost Writer 2026</span>
+        <div class="flex justify-center items-center gap-3 mb-4">
+            <span class="font-bold text-gray-400 tracking-widest uppercase text-sm">Ghost Writer v1.0.0</span>
         </div>
-        <p class="text-xs font-light">Engineered for professionals. Designed for stealth.</p>
+        <p class="text-xs font-light">Desktop beta for Windows x64 and macOS arm64.</p>
     </footer>
 
     <script>
         function copyCmd(os) {
-            const cmd = os === 'win' 
-                ? 'iwr -useb https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex'
-                : '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh)"';
-            
+            const cmd = os === 'win'
+                ? 'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"'
+                : 'curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash';
+
             navigator.clipboard.writeText(cmd);
-            
+
             const btnId = os === 'win' ? 'copyBtnWin' : 'copyBtnMac';
             const btn = document.getElementById(btnId);
             const originalText = btn.innerText;
-            btn.innerText = 'Copied!';
+            btn.innerText = 'Copied';
             btn.classList.add('bg-green-500/20', 'text-green-400');
-            
+
             setTimeout(() => {
                 btn.innerText = originalText;
                 btn.classList.remove('bg-green-500/20', 'text-green-400');
@@ -326,5 +230,4 @@
         }
     </script>
 </body>
-
 </html>

@@ -160,7 +160,7 @@ SQLite database (`ghost-writer.db`) with automatic migrations:
 
 ### 7. Cloud Integration Layer (Supabase + Gumroad)
 
-Ghost Writer uses a hybrid approach for enterprise-grade management:
+Ghost Writer uses a hybrid approach for launch-grade desktop operations:
 
 - **Licensing Engine**: `LicenseManager.ts` coordinates between local state, Supabase `checkout_sessions`, and Gumroad's API.
 - **Pulse Analytics**: A 5-minute heartbeat loop (`AnalyticsManager.ts`) synchronizes usage metrics (active time, launch counts) to Supabase.

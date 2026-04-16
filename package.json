@@ -1,8 +1,8 @@
 {
   "name": "ghost-writer",
   "version": "1.0.0",
-  "main": "./dist-electron/main.js",
-  "description": "High-fidelity meeting and interview assistance",
+  "main": "./dist-electron/electron/main.js",
+  "description": "Desktop beta for high-fidelity meeting and interview assistance",
   "scripts": {
     "clean": "rimraf dist dist-electron",
     "clean:release": "rimraf release artifacts",
@@ -29,6 +29,7 @@
     "test:system-audio": "node tests/test_system_audio.js",
     "test:smoke": "node tests/test_smoke.js",
     "test:meeting-summary-routing": "node tests/meeting_summary_routing.test.js",
+    "test:prompt-settings": "node tests/prompt_settings.test.js",
     "test:meeting-screenshot-persistence": "node tests/meeting_screenshot_persistence.test.js",
     "diag:electron": "node tests/test-electron.js",
     "test:fallback": "node tests/test_audio_fallback.js",
@@ -66,6 +67,13 @@
           "**/*",
           "!whisper-bin/**"
         ]
+      },
+      {
+        "from": "electron/services/mobile_view/",
+        "to": "mobile_view/",
+        "filter": [
+          "index.html"
+        ]
       }
     ],
     "win": {
@@ -85,6 +93,12 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64"
           ]
@@ -108,21 +122,20 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "chintuai2026",
+        "owner": "ghostwriter",
         "repo": "Ghost_Writer",
         "releaseType": "release"
       }
     ]
   },
   "keywords": [],
-  "author": "Chintu AI Team",
+  "author": "Ghost Writer Team",
   "license": "Proprietary",
   "engines": {
     "node": "20 || >=22",
     "npm": ">=10"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.3",
     "@napi-rs/cli": "^3.5.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/color": "^4.2.0",
@@ -144,7 +157,6 @@
     "cross-env": "^7.0.3",
     "electron": "^32.3.3",
     "electron-builder": "^25.1.8",
-    "electron-rebuild": "^3.2.9",
     "node-addon-api": "^8.5.0",
     "postcss": "^8.4.49",
     "rimraf": "^6.0.1",

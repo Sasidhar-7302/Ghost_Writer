@@ -80,6 +80,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
     // Security
     const [airGapMode, setAirGapMode] = useState(false);
+    const [telemetryEnabled, setTelemetryEnabled] = useState(false);
     const [fullPrivacyStatus, setFullPrivacyStatus] = useState<FullPrivacyStatus>(DEFAULT_FULL_PRIVACY_STATUS);
     const [isApplyingFullPrivacy, setIsApplyingFullPrivacy] = useState(false);
 
@@ -185,6 +186,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                 const creds = await window.electronAPI?.getStoredCredentials?.();
                 if (creds && creds.googleServiceAccountPath) {
                     setServiceAccountPath(creds.googleServiceAccountPath);
+                }
+                if (creds && creds.telemetryEnabled !== undefined) {
+                    setTelemetryEnabled(!!creds.telemetryEnabled);
                 }
                 if (creds && creds.airGapMode !== undefined) {
                     setAirGapMode(creds.airGapMode);
@@ -308,6 +312,19 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             setAirGapMode(!newMode);
         } finally {
             setIsApplyingFullPrivacy(false);
+        }
+    };
+
+    const handleTelemetryToggle = async () => {
+        const nextValue = !telemetryEnabled;
+        try {
+            const result = await window.electronAPI.setTelemetryEnabled(nextValue);
+            if (!result.success) {
+                throw new Error(result.error || 'Unable to update telemetry settings.');
+            }
+            setTelemetryEnabled(nextValue);
+        } catch (error) {
+            console.error('Failed to update telemetry settings:', error);
         }
     };
 
@@ -441,6 +458,28 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                     </ul>
                                 </div>
                             )}
+                        </div>
+                    </div>
+
+                    <div className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-xl p-5 border border-border-subtle">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <label className="block text-xs font-bold text-text-primary uppercase tracking-wide">Telemetry</label>
+                                <p className="mt-1 text-[11px] text-text-tertiary">
+                                    Optional usage analytics for app health, install quality, and model latency. Disabled by default for v1.0.0.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleTelemetryToggle}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ease-in-out ${telemetryEnabled ? 'bg-accent-primary' : 'bg-bg-input'} cursor-pointer`}
+                                role="switch"
+                                aria-checked={telemetryEnabled}
+                            >
+                                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${telemetryEnabled ? 'translate-x-2' : '-translate-x-2'}`} />
+                            </button>
+                        </div>
+                        <div className="rounded-lg border border-border-subtle bg-bg-input/60 p-3 text-[11px] text-text-secondary">
+                            When enabled, Ghost Writer records anonymous install activity, heartbeat usage, AI interaction metadata, and checkout events. It does not turn on cloud providers or upload your transcripts by itself.
                         </div>
                     </div>
 

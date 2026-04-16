@@ -1,8 +1,7 @@
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { launchConfig } from '../config/launchConfig';
+import { CredentialsManager } from './CredentialsManager';
 import { LicenseManager } from './LicenseManager';
-
-const SUPABASE_URL = 'https://vgsrnsrgfkdssngtpkfg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnc3Juc3JnZmtkc3NuZ3Rwa2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTMwNzEsImV4cCI6MjA4Nzg4OTA3MX0.IhJV5T2xOYJBET0bV4fAAYMPBGL7l4RSxNjjpqPaj48';
 
 const HEARTBEAT_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes
 
@@ -14,7 +13,10 @@ export class AnalyticsManager {
     private meetingStartTime: number | null = null;
 
     private constructor() {
-        this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        this.supabase = createClient(
+            launchConfig.remoteServices.supabaseUrl,
+            launchConfig.remoteServices.supabaseAnonKey
+        );
     }
 
     public static getInstance(): AnalyticsManager {
@@ -28,6 +30,11 @@ export class AnalyticsManager {
      * Start the analytics tracking (heartbeat)
      */
     public startTracking(): void {
+        if (!this.isTelemetryEnabled()) {
+            this.stopTracking();
+            return;
+        }
+
         if (this.heartbeatInterval) return;
 
         console.log('[AnalyticsManager] Starting usage tracking heartbeat...');
@@ -55,6 +62,7 @@ export class AnalyticsManager {
      * Notify analytics that a meeting has started
      */
     public onMeetingStarted(): void {
+        if (!this.isTelemetryEnabled()) return;
         this.isMeetingInProgress = true;
         this.meetingStartTime = Date.now();
         console.log('[AnalyticsManager] Meeting started tracking...');
@@ -64,6 +72,7 @@ export class AnalyticsManager {
      * Notify analytics that a meeting has ended
      */
     public onMeetingEnded(): void {
+        if (!this.isTelemetryEnabled()) return;
         if (!this.isMeetingInProgress || !this.meetingStartTime) return;
 
         const durationSeconds = (Date.now() - this.meetingStartTime) / 1000;
@@ -94,6 +103,7 @@ export class AnalyticsManager {
         durationMs: number;
         metadata?: any;
     }): Promise<void> {
+        if (!this.isTelemetryEnabled()) return;
         try {
             const license = LicenseManager.getInstance();
             const state = license.getState();
@@ -132,6 +142,7 @@ export class AnalyticsManager {
         summary_status: string;
         metadata?: any;
     }): Promise<void> {
+        if (!this.isTelemetryEnabled()) return;
         try {
             const license = LicenseManager.getInstance();
             const state = license.getState();
@@ -160,6 +171,7 @@ export class AnalyticsManager {
      * Report a business event (e.g., checkout_started, checkout_completed)
      */
     public async reportBusinessEvent(eventType: string, metadata?: any): Promise<void> {
+        if (!this.isTelemetryEnabled()) return;
         try {
             const license = LicenseManager.getInstance();
             const state = license.getState();
@@ -186,6 +198,7 @@ export class AnalyticsManager {
      * Send heartbeat to Supabase RPC
      */
     private async sendHeartbeat(minutes: number): Promise<void> {
+        if (!this.isTelemetryEnabled()) return;
         try {
             const license = LicenseManager.getInstance();
             const state = license.getState();
@@ -207,6 +220,14 @@ export class AnalyticsManager {
             }
         } catch (err: any) {
             console.error('[AnalyticsManager] Heartbeat error:', err?.message);
+        }
+    }
+
+    private isTelemetryEnabled(): boolean {
+        try {
+            return CredentialsManager.getInstance().getTelemetryEnabled();
+        } catch {
+            return launchConfig.telemetryDefaultEnabled;
         }
     }
 }

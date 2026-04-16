@@ -4,7 +4,7 @@ const path = require("path");
 const { app } = require("electron");
 
 const projectRoot = path.resolve(__dirname, "..");
-const distLLMHelperPath = path.join(projectRoot, "dist-electron", "LLMHelper.js");
+const distLLMHelperPath = path.join(projectRoot, "dist-electron", "electron", "LLMHelper.js");
 const imageFixturePath = path.join(projectRoot, "assets", "tests", "code_sample_1.png");
 
 function assert(condition, message) {
@@ -65,7 +65,7 @@ async function main() {
     let server;
 
     try {
-        assert(fs.existsSync(distLLMHelperPath), "dist-electron/LLMHelper.js not found.");
+        assert(fs.existsSync(distLLMHelperPath), "dist-electron/electron/LLMHelper.js not found.");
         assert(fs.existsSync(imageFixturePath), "Smoke image fixture not found.");
 
         server = await createServer();

@@ -2,10 +2,10 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 
-const distLLMHelperPath = path.join(__dirname, "..", "dist-electron", "LLMHelper.js");
+const distLLMHelperPath = path.join(__dirname, "..", "dist-electron", "electron", "LLMHelper.js");
 
 if (!fs.existsSync(distLLMHelperPath)) {
-  throw new Error("dist-electron/LLMHelper.js not found. Compile electron sources before running this test.");
+  throw new Error("dist-electron/electron/LLMHelper.js not found. Compile electron sources before running this test.");
 }
 
 const { LLMHelper } = require(distLLMHelperPath);

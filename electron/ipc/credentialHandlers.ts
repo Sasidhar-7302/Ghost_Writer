@@ -33,7 +33,7 @@ function makeApiKeySetter(
 
       return { success: true };
     } catch (error: any) {
-      console.error(`Error saving API key [${channel}]:`, error);
+      console.error(`Error saving API key [\${channel}]:`, error);
       return { success: false, error: error.message };
     }
   });
@@ -57,7 +57,7 @@ function mapCurrentModelToSelectionId(appState: AppState): string | undefined {
   }
 
   if (llmHelper.isUsingOllama()) {
-    return `ollama-${model}`;
+    return `ollama-\${model}`;
   }
 
   if (provider === 'custom') {
@@ -296,6 +296,7 @@ export function registerCredentialHandlers(appState: AppState): void {
         hasResume: !!creds.resumePath,
         hasJobDescription: !!creds.jobDescriptionText,
         airGapMode: !!creds.airGapMode,
+        telemetryEnabled: creds.telemetryEnabled ?? false,
       };
     } catch (error: any) {
       return { 
@@ -304,7 +305,7 @@ export function registerCredentialHandlers(appState: AppState): void {
         googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', 
         hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, 
         hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', 
-        hasResume: false, hasJobDescription: false, airGapMode: false 
+        hasResume: false, hasJobDescription: false, airGapMode: false, telemetryEnabled: false 
       };
     }
   });
@@ -354,7 +355,7 @@ export function registerCredentialHandlers(appState: AppState): void {
       llmHelper.setModel(modelId, customProviders);
       appState.getIntelligenceManager().initializeLLMs();
       broadcastToWindows('model-selected', { modelId });
-      console.log(`[CredentialHandlers] Active model updated to: ${modelId}`);
+      console.log(`[CredentialHandlers] Active model updated to: \${modelId}`);
       return { success: true };
     } catch (error: any) {
       console.error("Error setting model:", error);
@@ -406,13 +407,44 @@ export function registerCredentialHandlers(appState: AppState): void {
   // Customizable Prompts
   // ==========================================
 
+  ipcMain.handle("get-prompt-settings", async () => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      return CredentialsManager.getInstance().getPromptSettings();
+    } catch (error: any) {
+      console.error("Error getting prompt settings:", error);
+      return {};
+    }
+  });
+
+  ipcMain.handle("update-prompt-settings", async (_, mode: string, patch: any) => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      CredentialsManager.getInstance().updatePromptSetting(mode, patch);
+      return { success: true };
+    } catch (error: any) {
+      console.error(`Error updating prompt settings for \${mode}:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("get-default-prompt-templates", async () => {
+    try {
+      const { getDefaultPromptTemplates } = require('../llm/promptRegistry');
+      return getDefaultPromptTemplates();
+    } catch (error: any) {
+      console.error("Error getting default prompt templates:", error);
+      return {};
+    }
+  });
+
   ipcMain.handle("get-custom-prompts", async () => {
     try {
       const { CredentialsManager } = require('../services/CredentialsManager');
       const cm = CredentialsManager.getInstance();
       return {
-        interviewPrompt: cm.getInterviewPrompt() || null,
-        meetingPrompt: cm.getMeetingPrompt() || null
+        interviewPrompt: cm.getPromptSettings().whatToAnswer.fullOverride || null,
+        meetingPrompt: cm.getPromptSettings().answer.fullOverride || null
       };
     } catch (error: any) {
       console.error("Error getting custom prompts:", error);
@@ -425,30 +457,64 @@ export function registerCredentialHandlers(appState: AppState): void {
       const { CredentialsManager } = require('../services/CredentialsManager');
       const cm = CredentialsManager.getInstance();
       if (type === 'interview') {
-        cm.setInterviewPrompt(prompt);
+        cm.updatePromptSetting('whatToAnswer', { fullOverride: prompt });
       } else {
-        cm.setMeetingPrompt(prompt);
+        cm.updatePromptSetting('answer', { fullOverride: prompt });
       }
       return { success: true };
     } catch (error: any) {
-      console.error(`Error setting custom ${type} prompt:`, error);
+      console.error(`Error setting custom \${type} prompt:`, error);
       return { success: false, error: error.message };
     }
   });
 
   ipcMain.handle("get-default-prompts", async () => {
     try {
-      const {
-        UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
-        UNIVERSAL_MEETING_ANSWER_PROMPT
-      } = require('../llm/prompts');
+      const { getDefaultPromptTemplates } = require('../llm/promptRegistry');
+      const templates = getDefaultPromptTemplates();
       return {
-        interviewPrompt: UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
-        meetingPrompt: UNIVERSAL_MEETING_ANSWER_PROMPT
+        interviewPrompt: templates.whatToAnswer.prompt,
+        meetingPrompt: templates.answer.prompt
       };
     } catch (error: any) {
       console.error("Error getting default prompts:", error);
       return { interviewPrompt: "", meetingPrompt: "" };
+    }
+  });
+
+  // ==========================================
+  // Telemetry
+  // ==========================================
+
+  ipcMain.handle("get-telemetry-settings", async () => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      const enabled = CredentialsManager.getInstance().getTelemetryEnabled();
+      return { enabled };
+    } catch (error: any) {
+      console.error("Error getting telemetry settings:", error);
+      return { enabled: false };
+    }
+  });
+
+  ipcMain.handle("set-telemetry-enabled", async (_, enabled: boolean) => {
+    try {
+      const { CredentialsManager } = require('../services/CredentialsManager');
+      const { AnalyticsManager } = require('../services/AnalyticsManager');
+
+      CredentialsManager.getInstance().setTelemetryEnabled(enabled);
+      const analyticsManager = AnalyticsManager.getInstance();
+      if (enabled) {
+        analyticsManager.startTracking();
+      } else {
+        analyticsManager.stopTracking();
+      }
+
+      broadcastToWindows('telemetry-settings-changed', { enabled });
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting telemetry:", error);
+      return { success: false, error: error.message };
     }
   });
 
@@ -474,7 +540,7 @@ export function registerCredentialHandlers(appState: AppState): void {
   });
 
   // ==========================================
-  // Security
+  // Security & Stealth
   // ==========================================
 
   ipcMain.handle("get-air-gap-mode", async () => {
@@ -537,7 +603,7 @@ export function registerCredentialHandlers(appState: AppState): void {
         const currentOllamaModel = llmHelper.getCurrentModel();
         if (currentOllamaModel) {
           creds.setOllamaModel(currentOllamaModel);
-          const modelId = `ollama-${currentOllamaModel}`;
+          const modelId = `ollama-\${currentOllamaModel}`;
           creds.setModelPreference(modelId);
           broadcastToWindows('model-selected', { modelId });
         }
@@ -570,5 +636,25 @@ export function registerCredentialHandlers(appState: AppState): void {
       return { success: false, error: error.message };
     }
   });
-}
 
+  ipcMain.handle("get-remote-display-pin", async () => {
+    try {
+      const { CredentialsManager } = require("../services/CredentialsManager");
+      return CredentialsManager.getInstance().getRemoteDisplayPin();
+    } catch (error: any) {
+      console.error("Error getting remote display pin:", error);
+      return "0000";
+    }
+  });
+
+  ipcMain.handle("set-remote-display-pin", async (_, pin: string) => {
+    try {
+      const { CredentialsManager } = require("../services/CredentialsManager");
+      CredentialsManager.getInstance().setRemoteDisplayPin(pin);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting remote display pin:", error);
+      return { success: false, error: error.message };
+    }
+  });
+}

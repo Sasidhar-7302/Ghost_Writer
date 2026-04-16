@@ -5,9 +5,10 @@ const projectRoot = path.resolve(__dirname, "..");
 const electronBinary = require("electron");
 const env = { ...process.env, NODE_ENV: "development" };
 const distElectronDir = path.join(projectRoot, "dist-electron");
+const compiledElectronDir = path.join(distElectronDir, "electron");
 const requiredBuildFiles = [
-  path.join(distElectronDir, "main.js"),
-  path.join(distElectronDir, "shortcuts.js"),
+  path.join(compiledElectronDir, "main.js"),
+  path.join(compiledElectronDir, "shortcuts.js"),
 ];
 
 delete env.ELECTRON_RUN_AS_NODE;
@@ -84,7 +85,7 @@ cleanupInstalledGhostWriter();
     return;
   }
 
-  const child = spawn(electronBinary, [path.join(distElectronDir, "main.js")], {
+  const child = spawn(electronBinary, [path.join(compiledElectronDir, "main.js")], {
     cwd: projectRoot,
     stdio: "inherit",
     env,

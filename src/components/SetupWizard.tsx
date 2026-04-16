@@ -25,8 +25,28 @@ interface SetupStep {
     required: boolean;
 }
 
+interface UserProfileFormState {
+    fullName: string;
+    preferredName: string;
+    email: string;
+    currentRole: string;
+    company: string;
+    targetRole: string;
+}
+
 const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     const [currentStep, setCurrentStep] = useState(0);
+    const [telemetryEnabled, setTelemetryEnabled] = useState(false);
+    const [profile, setProfile] = useState<UserProfileFormState>({
+        fullName: '',
+        preferredName: '',
+        email: '',
+        currentRole: '',
+        company: '',
+        targetRole: ''
+    });
+    const [profileError, setProfileError] = useState('');
+    const [savingProfile, setSavingProfile] = useState(false);
     const [systemInfo, setSystemInfo] = useState<SetupWizardSystemInfo>({
         gpu: null,
         ollama: null,
@@ -39,6 +59,13 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             id: 'welcome',
             title: 'Welcome',
             description: 'Your discrete AI companion for meetings and interviews.',
+            icon: <Sparkles className="w-6 h-6" />,
+            required: true
+        },
+        {
+            id: 'profile',
+            title: 'Profile',
+            description: 'Save your name and a few reusable details for future personalization.',
             icon: <Sparkles className="w-6 h-6" />,
             required: true
         },
@@ -135,9 +162,30 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     };
 
     useEffect(() => {
+        Promise.all([
+            window.electronAPI.getTelemetrySettings(),
+            window.electronAPI.getUserProfile()
+        ])
+            .then(([settings, savedProfile]) => {
+                setTelemetryEnabled(!!settings.enabled);
+                if (savedProfile) {
+                    setProfile({
+                        fullName: savedProfile.fullName || '',
+                        preferredName: savedProfile.preferredName || '',
+                        email: savedProfile.email || '',
+                        currentRole: savedProfile.currentRole || '',
+                        company: savedProfile.company || '',
+                        targetRole: savedProfile.targetRole || ''
+                    });
+                }
+            })
+            .catch((error) => console.error('Failed to load onboarding settings:', error));
+    }, []);
+
+    useEffect(() => {
         let pollInterval: NodeJS.Timeout;
 
-        if (currentStep === 1) {
+        if (currentStep === 2) {
             performDiagnosis().then(() => {
                 // Keep diagnosis current while the user is on this step.
                 pollInterval = setInterval(async () => {
@@ -158,7 +206,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         if (canProceedFromDiagnosis(nextState)) {
                             clearInterval(pollInterval);
                             setTimeout(() => {
-                                setCurrentStep(2);
+                                setCurrentStep(3);
                             }, 1500);
                         }
 
@@ -174,6 +222,38 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     }, [currentStep]);
 
     const handleNext = async () => {
+        if (currentStep === 1) {
+            const fullName = profile.fullName.trim();
+            if (!fullName) {
+                setProfileError('Full name is required.');
+                return;
+            }
+
+            try {
+                setSavingProfile(true);
+                setProfileError('');
+                const result = await window.electronAPI.saveUserProfile({
+                    fullName,
+                    preferredName: profile.preferredName.trim(),
+                    email: profile.email.trim(),
+                    currentRole: profile.currentRole.trim(),
+                    company: profile.company.trim(),
+                    targetRole: profile.targetRole.trim()
+                });
+
+                if (!result.success) {
+                    setProfileError(result.error || 'Failed to save your profile.');
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to save onboarding profile:', error);
+                setProfileError('Failed to save your profile.');
+                return;
+            } finally {
+                setSavingProfile(false);
+            }
+        }
+
         if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
         } else {
@@ -188,11 +268,35 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         }
     };
 
+    const handleTelemetryToggle = async () => {
+        const nextValue = !telemetryEnabled;
+        try {
+            const result = await window.electronAPI.setTelemetryEnabled(nextValue);
+            if (result.success) {
+                setTelemetryEnabled(nextValue);
+            }
+        } catch (error) {
+            console.error('Failed to update telemetry settings from onboarding:', error);
+        }
+    };
+
     const canProceed = () => {
         switch (currentStep) {
             case 1:
+                return profile.fullName.trim().length > 0;
+            case 2:
                 return canProceedFromDiagnosis(systemInfo);
             default: return true;
+        }
+    };
+
+    const updateProfileField = (field: keyof UserProfileFormState, value: string) => {
+        setProfile((prev) => ({
+            ...prev,
+            [field]: value
+        }));
+        if (profileError) {
+            setProfileError('');
         }
     };
 
@@ -255,10 +359,114 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                                 <span className="block text-xs font-medium uppercase tracking-wider text-white/40">Context Aware</span>
                             </div>
                         </div>
+                        <div className="mx-auto mt-10 max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-sm text-white/70">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <div className="font-semibold text-white">Optional telemetry</div>
+                                    <p className="mt-1 text-xs text-white/50">
+                                        Anonymous usage metadata helps measure install health and model latency. Disabled by default.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleTelemetryToggle}
+                                    className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${telemetryEnabled ? 'bg-[var(--accent-primary)]' : 'bg-white/15'}`}
+                                    role="switch"
+                                    aria-checked={telemetryEnabled}
+                                >
+                                    <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 ${telemetryEnabled ? 'translate-x-2' : '-translate-x-2'}`} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 );
 
             case 1:
+                return (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="text-center space-y-3">
+                            <h2 className="text-3xl font-light tracking-tight text-white">Set up your profile</h2>
+                            <p className="text-sm text-white/60 max-w-md mx-auto leading-relaxed">
+                                Your name is required. The other fields are optional and stay local in the Ghost Writer database for future personalization.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label className="space-y-2 md:col-span-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Full name</span>
+                                <input
+                                    type="text"
+                                    value={profile.fullName}
+                                    onChange={(e) => updateProfileField('fullName', e.target.value)}
+                                    placeholder="Your Full Name"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Preferred name</span>
+                                <input
+                                    type="text"
+                                    value={profile.preferredName}
+                                    onChange={(e) => updateProfileField('preferredName', e.target.value)}
+                                    placeholder="Your Nickname"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Email</span>
+                                <input
+                                    type="email"
+                                    value={profile.email}
+                                    onChange={(e) => updateProfileField('email', e.target.value)}
+                                    placeholder="you@example.com"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Current role</span>
+                                <input
+                                    type="text"
+                                    value={profile.currentRole}
+                                    onChange={(e) => updateProfileField('currentRole', e.target.value)}
+                                    placeholder="Senior ML Engineer"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Company</span>
+                                <input
+                                    type="text"
+                                    value={profile.company}
+                                    onChange={(e) => updateProfileField('company', e.target.value)}
+                                    placeholder="Example AI"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2 md:col-span-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Target role</span>
+                                <input
+                                    type="text"
+                                    value={profile.targetRole}
+                                    onChange={(e) => updateProfileField('targetRole', e.target.value)}
+                                    placeholder="Staff Engineer / Founding Engineer"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+                        </div>
+
+                        {profileError && (
+                            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                                {profileError}
+                            </div>
+                        )}
+                    </div>
+                );
+
+            case 2:
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto pt-4">
@@ -311,7 +519,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     </div>
                 );
 
-            case 2:
+            case 3:
                 return (
                     <div className="text-center space-y-12 py-10">
                         <div className="relative w-24 h-24 mx-auto">
@@ -398,10 +606,10 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
                     <button
                         onClick={handleNext}
-                        disabled={!canProceed()}
+                        disabled={!canProceed() || savingProfile}
                         className="flex h-14 min-w-[180px] items-center justify-center gap-3 rounded-2xl bg-[var(--accent-primary)] text-black shadow-[0_16px_40px_-18px_rgba(56,189,248,0.85)] transition-all text-sm font-bold uppercase tracking-[0.2em] hover:brightness-110 disabled:bg-bg-input disabled:text-white/40 disabled:shadow-none"
                     >
-                        {currentStep === steps.length - 1 ? 'Activate' : currentStep === 1 && !systemInfo.fullPrivacy?.enabled ? 'Continue' : 'Next'}
+                        {savingProfile ? 'Saving' : currentStep === steps.length - 1 ? 'Activate' : currentStep === 2 && !systemInfo.fullPrivacy?.enabled ? 'Continue' : 'Next'}
                         {currentStep < steps.length - 1 && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
                     </button>
                 </div>

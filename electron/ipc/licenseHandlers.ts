@@ -33,8 +33,12 @@ export function registerLicenseHandlers(): void {
 
     // Initiate Gumroad checkout flow
     safeHandle('initiate-checkout', async () => {
-        const sessionId = await license.initiateCheckout();
-        return { sessionId };
+        try {
+            const sessionId = await license.initiateCheckout();
+            return { success: true, sessionId };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
     });
 
     // Subscribe to checkout completion (called from React after initiateCheckout)
@@ -49,7 +53,7 @@ export function registerLicenseHandlers(): void {
     // Manually activate a license key (if user pastes one)
     safeHandle('activate-license', async (_event, licenseKey: string) => {
         const success = await license.activateLicense(licenseKey);
-        return { success };
+        return { success, error: success ? undefined : 'License activation failed or is disabled for this launch mode.' };
     });
 
     // Force refresh license status

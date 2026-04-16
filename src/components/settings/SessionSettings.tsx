@@ -1,22 +1,101 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Upload, FileText, Trash2, Check, AlertCircle, Save,
-    RotateCcw, Info, Terminal, Briefcase, FileJson,
-    MessageSquare, ClipboardList, Target
+    RotateCcw, Terminal, Briefcase, FileJson,
+    ClipboardList, Target
 } from 'lucide-react';
 
 interface SessionSettingsProps {
     mode: 'interview' | 'meeting';
 }
 
-export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
-    // Prompt state
-    const [prompt, setPrompt] = useState('');
-    const [defaultPrompt, setDefaultPrompt] = useState('');
+type PromptMode =
+    | 'assist'
+    | 'answer'
+    | 'whatToAnswer'
+    | 'followUpRefinement'
+    | 'followUpQuestions'
+    | 'recap'
+    | 'ragMeeting'
+    | 'ragGlobal'
+    | 'imageAnalysis';
 
-    // Context state
-    const [contextFile1, setContextFile1] = useState(''); // Resume or Project Docs
-    const [contextFile2, setContextFile2] = useState(''); // JD or Agenda
+interface PromptSettings {
+    defaultPromptId: string;
+    extraInstructions?: string;
+    fullOverride?: string;
+    enabled: boolean;
+    validation?: {
+        isValid: boolean;
+        error?: string;
+    };
+}
+
+interface PromptTemplateDefinition {
+    id: string;
+    title: string;
+    description: string;
+    sessionMode: 'interview' | 'meeting' | 'global';
+    prompt: string;
+}
+
+function getPromptDisplayMeta(
+    sessionMode: 'interview' | 'meeting',
+    promptMode: PromptMode,
+    template?: PromptTemplateDefinition
+): { title: string; description: string } {
+    if (promptMode === 'recap') {
+        return sessionMode === 'meeting'
+            ? {
+                title: 'Meeting Summary',
+                description: 'Post-meeting summary, decisions, blockers, and action-item extraction.'
+            }
+            : {
+                title: 'Interview Debrief',
+                description: 'Post-interview summary, takeaways, and follow-up capture.'
+            };
+    }
+
+    return {
+        title: template?.title || promptMode,
+        description: template?.description || 'Customize the runtime prompt.'
+    };
+}
+
+const EDITABLE_SESSION_PROMPT_MODES: Record<'interview' | 'meeting', PromptMode[]> = {
+    interview: ['whatToAnswer', 'answer', 'recap'],
+    meeting: ['answer', 'assist', 'recap']
+};
+
+function getEditorValueForMode(
+    promptMode: PromptMode,
+    settings: Record<string, PromptSettings>,
+    templates: Record<string, PromptTemplateDefinition>
+): string {
+    const selectedSettings = settings[promptMode];
+    const bundledPrompt = templates[promptMode]?.prompt || '';
+
+    if (selectedSettings?.fullOverride?.trim()) {
+        return selectedSettings.fullOverride;
+    }
+
+    if (selectedSettings?.extraInstructions?.trim()) {
+        return `${bundledPrompt}\n\n<user_extra_instructions>\n${selectedSettings.extraInstructions.trim()}\n</user_extra_instructions>`;
+    }
+
+    return bundledPrompt;
+}
+
+export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
+    const editablePromptModes = EDITABLE_SESSION_PROMPT_MODES[mode];
+
+    const [promptSettings, setPromptSettings] = useState<Record<string, PromptSettings>>({});
+    const [promptTemplates, setPromptTemplates] = useState<Record<string, PromptTemplateDefinition>>({});
+    const [promptDrafts, setPromptDrafts] = useState<Record<string, string>>({});
+    const [selectedPromptMode, setSelectedPromptMode] = useState<PromptMode>(editablePromptModes[0]);
+
+    const [contextFile1, setContextFile1] = useState('');
+    const [contextFile2, setContextFile2] = useState('');
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -31,24 +110,35 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
         loadData();
     }, [mode]);
 
+    useEffect(() => {
+        setSelectedPromptMode(editablePromptModes[0]);
+    }, [mode]);
+
+    useEffect(() => {
+        if (!editablePromptModes.every((promptMode) => !!promptTemplates[promptMode])) {
+            return;
+        }
+
+        const nextDrafts: Record<string, string> = {};
+        for (const promptMode of editablePromptModes) {
+            nextDrafts[promptMode] = getEditorValueForMode(promptMode, promptSettings, promptTemplates);
+        }
+        setPromptDrafts(nextDrafts);
+    }, [mode, promptSettings, promptTemplates]);
+
     const loadData = async () => {
         try {
             setLoading(true);
 
-            // Load prompts
-            const customPrompts = await window.electronAPI.getCustomPrompts();
-            const defaultPrompts = await window.electronAPI.getDefaultPrompts();
+            const [storedPromptSettings, templates, docs] = await Promise.all([
+                window.electronAPI.getPromptSettings(),
+                window.electronAPI.getDefaultPromptTemplates(),
+                window.electronAPI.getContextDocuments()
+            ]);
 
-            if (isInterview) {
-                setPrompt(customPrompts.interviewPrompt || defaultPrompts.interviewPrompt);
-                setDefaultPrompt(defaultPrompts.interviewPrompt);
-            } else {
-                setPrompt(customPrompts.meetingPrompt || defaultPrompts.meetingPrompt);
-                setDefaultPrompt(defaultPrompts.meetingPrompt);
-            }
+            setPromptSettings(storedPromptSettings);
+            setPromptTemplates(templates);
 
-            // Load context documents
-            const docs = await window.electronAPI.getContextDocuments();
             if (isInterview) {
                 setContextFile1(docs.resumeText || '');
                 setContextFile2(docs.jdText || '');
@@ -56,7 +146,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                 setContextFile1(docs.projectText || '');
                 setContextFile2(docs.agendaText || '');
             }
-
         } catch (error) {
             console.error('Failed to load session data:', error);
             showStatus('error', 'Failed to load settings.');
@@ -65,42 +154,112 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
         }
     };
 
-    const handleSavePrompt = async () => {
+    const handlePromptDraftChange = (promptMode: PromptMode, value: string) => {
+        setPromptDrafts((prev) => ({
+            ...prev,
+            [promptMode]: value
+        }));
+    };
+
+    const handleSavePrompts = async () => {
         try {
             setSaving(true);
-            const result = await window.electronAPI.setCustomPrompt(mode, prompt);
 
-            if (result.success) {
-                showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} prompt saved!`);
-            } else {
-                showStatus('error', `Failed to save prompt: ${result.error}`);
+            const results = await Promise.all(
+                editablePromptModes.map(async (promptMode) => {
+                    const bundledPrompt = promptTemplates[promptMode]?.prompt || '';
+                    const draft = promptDrafts[promptMode] ?? bundledPrompt;
+                    const normalizedDraft = draft.trim();
+                    const normalizedBundledPrompt = bundledPrompt.trim();
+
+                    const result = await window.electronAPI.updatePromptSettings(promptMode, {
+                        extraInstructions: '',
+                        fullOverride: normalizedDraft === normalizedBundledPrompt ? '' : draft
+                    });
+
+                    return {
+                        promptMode,
+                        result,
+                        nextSettings: {
+                            ...(promptSettings[promptMode] || { enabled: true, defaultPromptId: promptTemplates[promptMode]?.id || '' }),
+                            defaultPromptId: promptTemplates[promptMode]?.id || '',
+                            extraInstructions: '',
+                            fullOverride: normalizedDraft === normalizedBundledPrompt ? '' : draft,
+                            enabled: true
+                        }
+                    };
+                })
+            );
+
+            const failed = results.find(({ result }) => !result.success);
+            if (failed) {
+                showStatus('error', `Failed to save ${promptTemplates[failed.promptMode]?.title || failed.promptMode}: ${failed.result.error}`);
+                return;
             }
+
+            setPromptSettings((prev) => {
+                const next = { ...prev };
+                for (const { promptMode, nextSettings } of results) {
+                    next[promptMode] = nextSettings;
+                }
+                return next;
+            });
+
+            showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} prompts saved.`);
         } catch (error) {
-            showStatus('error', `Error saving prompt: ${error}`);
+            showStatus('error', `Error saving prompts: ${error}`);
         } finally {
             setSaving(false);
         }
     };
 
-    const handleResetPrompt = () => {
-        if (confirm(`Reset ${mode} prompt to default? This will overwrite your current text.`)) {
-            setPrompt(defaultPrompt);
+    const handleResetPrompts = () => {
+        const nextDrafts: Record<string, string> = {};
+        for (const promptMode of editablePromptModes) {
+            nextDrafts[promptMode] = getEditorValueForMode(promptMode, promptSettings, promptTemplates);
         }
+        setPromptDrafts(nextDrafts);
     };
 
-    const handleUseBundledPrompt = async () => {
+    const handleUseBundledPrompts = async () => {
         try {
             setSaving(true);
-            setPrompt(defaultPrompt);
-            const result = await window.electronAPI.setCustomPrompt(mode, defaultPrompt);
 
-            if (result.success) {
-                showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} default prompt restored.`);
-            } else {
-                showStatus('error', `Failed to restore default prompt: ${result.error}`);
+            const results = await Promise.all(
+                editablePromptModes.map((promptMode) =>
+                    window.electronAPI.updatePromptSettings(promptMode, {
+                        extraInstructions: '',
+                        fullOverride: ''
+                    })
+                )
+            );
+
+            const failedIndex = results.findIndex((result) => !result.success);
+            if (failedIndex !== -1) {
+                const failedMode = editablePromptModes[failedIndex];
+                showStatus('error', `Failed to restore default prompt: ${results[failedIndex].error || failedMode}`);
+                return;
             }
+
+            const nextPromptSettings = { ...promptSettings };
+            const nextDrafts: Record<string, string> = { ...promptDrafts };
+
+            for (const promptMode of editablePromptModes) {
+                nextPromptSettings[promptMode] = {
+                    ...(promptSettings[promptMode] || { enabled: true, defaultPromptId: promptTemplates[promptMode]?.id || '' }),
+                    defaultPromptId: promptTemplates[promptMode]?.id || '',
+                    extraInstructions: '',
+                    fullOverride: '',
+                    enabled: true
+                };
+                nextDrafts[promptMode] = promptTemplates[promptMode]?.prompt || '';
+            }
+
+            setPromptSettings(nextPromptSettings);
+            setPromptDrafts(nextDrafts);
+            showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} prompts restored to defaults.`);
         } catch (error) {
-            showStatus('error', `Error restoring default prompt: ${error}`);
+            showStatus('error', `Error restoring default prompts: ${error}`);
         } finally {
             setSaving(false);
         }
@@ -205,7 +364,14 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
         setTimeout(() => setStatus({ type: null, message: '' }), 3000);
     };
 
-    if (loading && !prompt) {
+    const hasLoadedPromptTemplates = editablePromptModes.every((promptMode) => !!promptTemplates[promptMode]);
+    const hasUnsavedPromptChanges = editablePromptModes.some(
+        (promptMode) => (promptDrafts[promptMode] ?? '') !== getEditorValueForMode(promptMode, promptSettings, promptTemplates)
+    );
+    const selectedPromptTemplate = promptTemplates[selectedPromptMode];
+    const selectedPromptMeta = getPromptDisplayMeta(mode, selectedPromptMode, selectedPromptTemplate);
+
+    if (loading && !hasLoadedPromptTemplates) {
         return (
             <div className="flex items-center justify-center h-64 text-text-tertiary">
                 <div className="flex flex-col items-center gap-3">
@@ -218,7 +384,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
 
     return (
         <div className="space-y-10 text-text-primary animated fadeIn scrollbar-hide">
-            {/* Header */}
             <div className="relative">
                 <div className="absolute -left-4 top-0 w-1 h-12 bg-accent-primary rounded-full blur-sm opacity-50" />
                 <h2 className="text-3xl font-black text-text-primary mb-2 flex items-center gap-4 tracking-tight">
@@ -227,8 +392,8 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                 </h2>
                 <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
                     {isInterview
-                        ? 'Master your interviews with AI-powered grounding and real-time guidance.'
-                        : 'Optimize your meeting productivity with session-specific context and behavior.'}
+                        ? 'Edit the three core interview prompts together and save them in one pass.'
+                        : 'Edit the three core meeting prompts together and save them in one pass.'}
                 </p>
             </div>
 
@@ -239,36 +404,35 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                 </div>
             )}
 
-            {/* System Prompt Section */}
-            <section className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-3xl p-8 border border-white/5 shadow-2xl group hover:border-accent-primary/20 transition-all duration-500">
-                <div className="flex items-center justify-between mb-8">
+            <section className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-3xl p-6 border border-white/5 shadow-2xl group hover:border-accent-primary/20 transition-all duration-500">
+                <div className="flex items-start justify-between gap-4 mb-6">
                     <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl bg-accent-primary/10 text-accent-primary flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.1)]`}>
+                        <div className="w-12 h-12 rounded-2xl bg-accent-primary/10 text-accent-primary flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.1)]">
                             <Terminal size={24} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-text-primary tracking-tight">System Prompt</h3>
-                            <p className="text-xs text-text-tertiary mt-0.5">Define core AI behaviors and constraints</p>
+                            <h3 className="text-lg font-bold text-text-primary tracking-tight">System Prompts</h3>
+                            <p className="text-xs text-text-tertiary mt-0.5">Choose a runtime mode, edit its prompt, then save the full page.</p>
                         </div>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 shrink-0">
                         <button
-                            onClick={handleResetPrompt}
+                            onClick={handleResetPrompts}
                             className="px-4 py-2 bg-bg-item-surface hover:bg-bg-item-active text-text-secondary hover:text-text-primary rounded-xl text-xs font-bold transition-all border border-border-subtle flex items-center gap-2"
                         >
                             <RotateCcw size={14} /> Reset
                         </button>
                         <button
-                            onClick={handleUseBundledPrompt}
+                            onClick={handleUseBundledPrompts}
                             disabled={saving}
                             className="px-4 py-2 bg-accent-primary/10 hover:bg-accent-primary/15 text-accent-primary rounded-xl text-xs font-bold transition-all border border-accent-primary/20 flex items-center gap-2 disabled:opacity-50"
-                            title={`Restore the bundled ${mode} default prompt`}
+                            title={`Restore the bundled ${mode} prompts`}
                         >
-                            <MessageSquare size={14} /> Use Default
+                            Use Default
                         </button>
                         <button
-                            onClick={handleSavePrompt}
-                            disabled={saving}
+                            onClick={handleSavePrompts}
+                            disabled={saving || !hasUnsavedPromptChanges}
                             className="px-6 py-2 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded-xl text-xs font-black transition-all shadow-[0_4px_20px_rgba(0,242,255,0.3)] flex items-center gap-2 disabled:opacity-50"
                         >
                             {saving ? <RotateCcw size={14} className="animate-spin" /> : <Save size={14} />}
@@ -277,30 +441,55 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                     </div>
                 </div>
 
-                <div className="relative group">
-                    <textarea
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        placeholder={`Enter custom ${mode} system prompt...`}
-                        className="w-full h-64 bg-bg-input border border-border-subtle rounded-2xl p-6 text-xs font-mono text-text-primary focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary/50 outline-none resize-none transition-all scrollbar-thin placeholder:opacity-30"
-                    />
+                <div className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-bg-input/40 px-4 py-4">
+                    <div className="min-w-0 flex-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.24em] text-text-tertiary mb-2">
+                            Runtime Mode
+                        </label>
+                        <select
+                            value={selectedPromptMode}
+                            onChange={(e) => setSelectedPromptMode(e.target.value as PromptMode)}
+                            className="w-full rounded-2xl border border-border-subtle bg-bg-input px-4 py-3 text-sm font-semibold text-text-primary outline-none transition-all focus:border-accent-primary/40 focus:ring-2 focus:ring-accent-primary/20"
+                        >
+                            {editablePromptModes.map((promptMode) => (
+                                <option key={promptMode} value={promptMode}>
+                                    {getPromptDisplayMeta(mode, promptMode, promptTemplates[promptMode]).title}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="hidden min-w-0 max-w-sm lg:block">
+                        <div className="text-sm font-semibold text-text-primary">
+                            {selectedPromptMeta.title}
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                            {selectedPromptMeta.description}
+                        </p>
+                    </div>
                 </div>
 
-                <div className={`mt-6 p-4 rounded-2xl border bg-accent-primary/5 border-accent-primary/10 text-accent-primary/80 flex items-start gap-4`}>
-                    <Info size={18} className="shrink-0 mt-0.5 opacity-70" />
-                    <p className="text-[11px] leading-relaxed font-medium">
-                        <strong className="text-text-primary">Injection points:</strong> Embed {isInterview ? (
-                            <><code>{"{RESUME_CONTEXT}"}</code> and <code>{"{JD_CONTEXT}"}</code></>
-                        ) : (
-                            <><code>{"{PROJECT_KNOWLEDGE}"}</code> and <code>{"{AGENDA_CONTEXT}"}</code></>
-                        )} to dynamically populate your session data during reference.
+                <div className="rounded-3xl border border-border-subtle bg-bg-input/40 p-5">
+                    <div className="mb-3 lg:hidden">
+                        <div className="text-sm font-semibold text-text-primary">
+                            {selectedPromptMeta.title}
+                        </div>
+                        <p className="mt-1 text-xs text-text-secondary">
+                            {selectedPromptMeta.description}
+                        </p>
+                    </div>
+                    <textarea
+                        value={promptDrafts[selectedPromptMode] ?? ''}
+                        onChange={(e) => handlePromptDraftChange(selectedPromptMode, e.target.value)}
+                        placeholder={`Edit the ${selectedPromptMeta.title.toLowerCase()} prompt...`}
+                        className="w-full h-[30rem] bg-bg-input border border-border-subtle rounded-2xl p-6 text-xs font-mono text-text-primary focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary/50 outline-none resize-none transition-all scrollbar-thin placeholder:opacity-30"
+                    />
+                    <p className="mt-3 text-[11px] leading-relaxed text-text-tertiary">
+                        Reset restores the last saved page state. Use Default restores the bundled prompts for all three modes on this page. Save Changes writes all three prompts together.
                     </p>
                 </div>
             </section>
 
-            {/* Context Documents Section */}
             <div className="flex flex-col gap-10">
-                {/* File 1: Resume or Project Docs */}
                 <section className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-3xl p-8 border border-white/5 shadow-2xl group hover:border-accent-primary/20 transition-all duration-500">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
@@ -341,7 +530,7 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                         <textarea
                             value={contextFile1}
                             onChange={(e) => setContextFile1(e.target.value)}
-                            placeholder={isInterview ? "Paste resume text here..." : "Paste project documentation here..."}
+                            placeholder={isInterview ? 'Paste resume text here...' : 'Paste project documentation here...'}
                             className="w-full h-56 bg-bg-input border border-border-subtle rounded-2xl p-6 text-xs font-mono text-text-primary focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary/50 outline-none resize-none transition-all scrollbar-thin"
                         />
                         <button
@@ -354,7 +543,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                     </div>
                 </section>
 
-                {/* File 2: JD or Agenda */}
                 <section className="bg-[var(--bg-card-alpha)] backdrop-blur-xl rounded-3xl p-8 border border-white/5 shadow-2xl group hover:border-accent-primary/20 transition-all duration-500">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
@@ -395,7 +583,7 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                         <textarea
                             value={contextFile2}
                             onChange={(e) => setContextFile2(e.target.value)}
-                            placeholder={isInterview ? "Paste job description here..." : "Paste agenda here..."}
+                            placeholder={isInterview ? 'Paste job description here...' : 'Paste agenda here...'}
                             className="w-full h-56 bg-bg-input border border-border-subtle rounded-2xl p-6 text-xs font-mono text-text-primary focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary/50 outline-none resize-none transition-all scrollbar-thin"
                         />
                         <button

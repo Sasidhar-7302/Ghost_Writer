@@ -6,6 +6,9 @@
 import { app, safeStorage } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import { launchConfig } from '../config/launchConfig';
+import { normalizePromptSettings } from '../llm/promptRegistry';
+import type { LicenseVerificationRecord, PromptMode, PromptSettings, PromptSettingsMap } from '../llm/promptTypes';
 import { logger } from '../utils/logger';
 
 const log = logger.createChild('CredentialsManager');
@@ -46,7 +49,9 @@ export interface StoredCredentials {
     // Customizable Prompts
     interviewPrompt?: string;
     meetingPrompt?: string;
+    promptSettings?: Partial<PromptSettingsMap>;
     isMeetingMode?: boolean;
+    telemetryEnabled?: boolean;
     // Local Whisper Manual Paths
     localWhisperBinaryPath?: string;
     localWhisperModelPath?: string;
@@ -62,8 +67,10 @@ export interface StoredCredentials {
     machineId?: string;
     licenseStatus?: 'beta' | 'trial' | 'paid' | 'expired';
     betaRegisteredAt?: string;
+    licenseVerificationRecord?: LicenseVerificationRecord;
     modelPreference?: string;
     openrouterApiKey?: string;
+    remoteDisplayPin?: string;
 }
 
 export class CredentialsManager {
@@ -132,6 +139,10 @@ export class CredentialsManager {
         return this.credentials.openrouterApiKey;
     }
 
+    public getRemoteDisplayPin(): string {
+        return this.credentials.remoteDisplayPin || '0000';
+    }
+
     public getResumePath(): string | undefined {
         return this.credentials.resumePath;
     }
@@ -141,11 +152,11 @@ export class CredentialsManager {
     }
 
     public getInterviewPrompt(): string | undefined {
-        return this.credentials.interviewPrompt;
+        return this.getPromptSettings().whatToAnswer.fullOverride || this.credentials.interviewPrompt;
     }
 
     public getMeetingPrompt(): string | undefined {
-        return this.credentials.meetingPrompt;
+        return this.getPromptSettings().answer.fullOverride || this.credentials.meetingPrompt;
     }
 
     public getGoogleServiceAccountPath(): string | undefined {
@@ -224,6 +235,14 @@ export class CredentialsManager {
         return { ...this.credentials };
     }
 
+    public getPromptSettings(): PromptSettingsMap {
+        return normalizePromptSettings(this.credentials.promptSettings);
+    }
+
+    public getTelemetryEnabled(): boolean {
+        return this.credentials.telemetryEnabled ?? launchConfig.telemetryDefaultEnabled;
+    }
+
     // License getters
     public getLicenseKey(): string | undefined {
         return this.credentials.gumroadLicenseKey;
@@ -234,11 +253,15 @@ export class CredentialsManager {
     }
 
     public getLicenseStatus(): 'beta' | 'trial' | 'paid' | 'expired' {
-        return this.credentials.licenseStatus || 'trial';
+        return this.credentials.licenseStatus || (launchConfig.monetizationEnabled ? 'trial' : 'beta');
     }
 
     public getBetaRegisteredAt(): string | undefined {
         return this.credentials.betaRegisteredAt;
+    }
+
+    public getLicenseVerificationRecord(): LicenseVerificationRecord | undefined {
+        return this.credentials.licenseVerificationRecord;
     }
 
     // =========================================================================
@@ -284,19 +307,25 @@ export class CredentialsManager {
     public setOllamaModel(model: string): void {
         this.credentials.ollamaModel = model;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Ollama model set to: ${model}`);
+        console.log(`[CredentialsManager] Ollama model set to: \${model}`);
     }
 
     public setModelPreference(modelId: string): void {
         this.credentials.modelPreference = modelId;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Model preference set to: ${modelId}`);
+        console.log(`[CredentialsManager] Model preference set to: \${modelId}`);
     }
 
     public setOpenrouterApiKey(key: string): void {
         this.credentials.openrouterApiKey = key;
         this.saveCredentials();
         console.log('[CredentialsManager] OpenRouter API Key updated');
+    }
+
+    public setRemoteDisplayPin(pin: string): void {
+        this.credentials.remoteDisplayPin = pin;
+        this.saveCredentials();
+        console.log('[CredentialsManager] Remote Display PIN updated');
     }
 
     public setResumePath(filePath: string): void {
@@ -312,21 +341,25 @@ export class CredentialsManager {
     }
 
     public setInterviewPrompt(prompt: string): void {
-        this.credentials.interviewPrompt = prompt;
-        this.saveCredentials();
+        this.updatePromptSetting('whatToAnswer', { fullOverride: prompt.trim() });
         console.log('[CredentialsManager] Interview Prompt updated');
     }
 
     public setMeetingPrompt(prompt: string): void {
-        this.credentials.meetingPrompt = prompt;
-        this.saveCredentials();
+        this.updatePromptSetting('answer', { fullOverride: prompt.trim() });
         console.log('[CredentialsManager] Meeting Prompt updated');
     }
 
     public setIsMeetingMode(isMeeting: boolean): void {
         this.credentials.isMeetingMode = isMeeting;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Meeting Mode set to: ${isMeeting}`);
+        console.log(`[CredentialsManager] Meeting Mode set to: \${isMeeting}`);
+    }
+
+    public setTelemetryEnabled(enabled: boolean): void {
+        this.credentials.telemetryEnabled = enabled;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Telemetry enabled set to: \${enabled}`);
     }
 
     public clearResume(): void {
@@ -350,7 +383,7 @@ export class CredentialsManager {
     public setSttProvider(provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper'): void {
         this.credentials.sttProvider = provider;
         this.saveCredentials();
-        console.log(`[CredentialsManager] STT Provider set to: ${provider}`);
+        console.log(`[CredentialsManager] STT Provider set to: \${provider}`);
     }
 
     public setDeepgramApiKey(key: string): void {
@@ -374,7 +407,7 @@ export class CredentialsManager {
     public setGroqSttModel(model: string): void {
         this.credentials.groqSttModel = model;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Groq STT Model set to: ${model}`);
+        console.log(`[CredentialsManager] Groq STT Model set to: \${model}`);
     }
 
     public setElevenLabsApiKey(key: string): void {
@@ -392,7 +425,7 @@ export class CredentialsManager {
     public setAzureRegion(region: string): void {
         this.credentials.azureRegion = region;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Azure Region set to: ${region}`);
+        console.log(`[CredentialsManager] Azure Region set to: \${region}`);
     }
 
     public setIbmWatsonApiKey(key: string): void {
@@ -404,19 +437,19 @@ export class CredentialsManager {
     public setIbmWatsonRegion(region: string): void {
         this.credentials.ibmWatsonRegion = region;
         this.saveCredentials();
-        console.log(`[CredentialsManager] IBM Watson Region set to: ${region}`);
+        console.log(`[CredentialsManager] IBM Watson Region set to: \${region}`);
     }
 
     public setLocalWhisperBinaryPath(path: string): void {
         this.credentials.localWhisperBinaryPath = path;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Local Whisper Binary Path set to: ${path}`);
+        console.log(`[CredentialsManager] Local Whisper Binary Path set to: \${path}`);
     }
 
     public setLocalWhisperModelPath(path: string): void {
         this.credentials.localWhisperModelPath = path;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Local Whisper Model Path set to: ${path}`);
+        console.log(`[CredentialsManager] Local Whisper Model Path set to: \${path}`);
     }
 
     public getLocalWhisperModel(): string {
@@ -429,13 +462,13 @@ export class CredentialsManager {
         }
         this.credentials.localWhisperModel = model;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Local Whisper Model set to: ${model}`);
+        console.log(`[CredentialsManager] Local Whisper Model set to: \${model}`);
     }
 
     public setAirGapMode(enabled: boolean): void {
         this.credentials.airGapMode = enabled;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Full Privacy Mode set to: ${enabled} (STT: ${this.credentials.sttProvider})`);
+        console.log(`[CredentialsManager] Full Privacy Mode set to: \${enabled} (STT: \${this.credentials.sttProvider})`);
 
         const { BrowserWindow } = require('electron');
         BrowserWindow.getAllWindows().forEach((win: any) => {
@@ -474,11 +507,31 @@ export class CredentialsManager {
     public setLicenseStatus(status: 'beta' | 'trial' | 'paid' | 'expired'): void {
         this.credentials.licenseStatus = status;
         this.saveCredentials();
-        console.log(`[CredentialsManager] License status set to: ${status}`);
+        console.log(`[CredentialsManager] License status set to: \${status}`);
     }
 
     public setBetaRegisteredAt(date: string): void {
         this.credentials.betaRegisteredAt = date;
+        this.saveCredentials();
+    }
+
+    public setLicenseVerificationRecord(record: LicenseVerificationRecord): void {
+        this.credentials.licenseVerificationRecord = record;
+        this.saveCredentials();
+    }
+
+    public setPromptSettings(promptSettings: Partial<PromptSettingsMap>): void {
+        this.credentials.promptSettings = normalizePromptSettings(promptSettings);
+        this.saveCredentials();
+    }
+
+    public updatePromptSetting(mode: PromptMode, patch: Partial<PromptSettings>): void {
+        const currentSettings = this.getPromptSettings();
+        currentSettings[mode] = {
+            ...currentSettings[mode],
+            ...patch,
+        };
+        this.credentials.promptSettings = normalizePromptSettings(currentSettings);
         this.saveCredentials();
     }
 
@@ -494,14 +547,14 @@ export class CredentialsManager {
             this.credentials.customProviders.push(provider);
         }
         this.saveCredentials();
-        console.log(`[CredentialsManager] Custom Provider '${provider.name}' saved`);
+        console.log(`[CredentialsManager] Custom Provider '\${provider.name}' saved`);
     }
 
     public deleteCustomProvider(id: string): void {
         if (!this.credentials.customProviders) return;
         this.credentials.customProviders = this.credentials.customProviders.filter(p => p.id !== id);
         this.saveCredentials();
-        console.log(`[CredentialsManager] Custom Provider '${id}' deleted`);
+        console.log(`[CredentialsManager] Custom Provider '\${id}' deleted`);
     }
 
     public clearAll(): void {
@@ -510,24 +563,26 @@ export class CredentialsManager {
         if (fs.existsSync(credentialsPath)) {
             fs.unlinkSync(credentialsPath);
         }
+        if (fs.existsSync(credentialsPath + '.json')) {
+            fs.unlinkSync(credentialsPath + '.json');
+        }
         console.log('[CredentialsManager] All credentials cleared');
     }
 
     private saveCredentials(): void {
-        try {
-            const credentialsPath = getCredentialsPath();
-            if (!safeStorage.isEncryptionAvailable()) {
-                log.warn('Encryption not available, falling back to plaintext');
-                // Fallback: save as plaintext (less secure, but functional)
-                fs.writeFileSync(credentialsPath + '.json', JSON.stringify(this.credentials));
-                return;
-            }
+        const credentialsPath = getCredentialsPath();
+        if (!safeStorage.isEncryptionAvailable()) {
+            throw new Error('Secure credential storage is unavailable on this machine.');
+        }
 
-            const data = JSON.stringify(this.credentials);
-            const encrypted = safeStorage.encryptString(data);
-            fs.writeFileSync(credentialsPath, encrypted);
-        } catch (error) {
-            log.error('Failed to save credentials', error);
+        const data = JSON.stringify(this.credentials);
+        const encrypted = safeStorage.encryptString(data);
+        fs.mkdirSync(path.dirname(credentialsPath), { recursive: true });
+        fs.writeFileSync(credentialsPath, encrypted);
+
+        const legacyPlaintextPath = credentialsPath + '.json';
+        if (fs.existsSync(legacyPlaintextPath)) {
+            fs.rmSync(legacyPlaintextPath, { force: true });
         }
     }
 
@@ -544,8 +599,9 @@ export class CredentialsManager {
                 const encrypted = fs.readFileSync(credentialsPath);
                 const decrypted = safeStorage.decryptString(encrypted);
                 this.credentials = JSON.parse(decrypted);
-                console.log(`[CredentialsManager] Model preference loaded: ${this.credentials.modelPreference || 'none'}`);
-                console.log(`[CredentialsManager] Ollama model loaded: ${this.credentials.ollamaModel || 'none'}`);
+                this.migrateCredentials();
+                console.log(`[CredentialsManager] Model preference loaded: \${this.credentials.modelPreference || 'none'}`);
+                console.log(`[CredentialsManager] Ollama model loaded: \${this.credentials.ollamaModel || 'none'}`);
                 log.info('Loaded encrypted credentials');
                 return;
             }
@@ -553,16 +609,47 @@ export class CredentialsManager {
             // Fallback: try plaintext file
             const plaintextPath = credentialsPath + '.json';
             if (fs.existsSync(plaintextPath)) {
+                if (!safeStorage.isEncryptionAvailable()) {
+                    log.warn('Legacy plaintext credentials detected, but secure storage is unavailable. Ignoring insecure credential file.');
+                    this.credentials = {};
+                    return;
+                }
+
                 const data = fs.readFileSync(plaintextPath, 'utf-8');
                 this.credentials = JSON.parse(data);
-                log.info('Loaded plaintext credentials');
+                this.migrateCredentials();
+                this.saveCredentials();
+                fs.rmSync(plaintextPath, { force: true });
+                log.info('Migrated plaintext credentials into encrypted storage');
                 return;
             }
 
+            this.migrateCredentials();
             log.info('No stored credentials found');
         } catch (error) {
             log.error('Failed to load credentials', error);
             this.credentials = {};
         }
+    }
+
+    private migrateCredentials(): void {
+        const promptSettings = normalizePromptSettings(this.credentials.promptSettings);
+        const legacyInterviewPrompt = this.credentials.interviewPrompt?.trim();
+        const legacyMeetingPrompt = this.credentials.meetingPrompt?.trim();
+
+        if (legacyInterviewPrompt && !promptSettings.whatToAnswer.fullOverride) {
+            promptSettings.whatToAnswer.fullOverride = legacyInterviewPrompt;
+        }
+
+        if (legacyMeetingPrompt && !promptSettings.answer.fullOverride) {
+            promptSettings.answer.fullOverride = legacyMeetingPrompt;
+        }
+
+        this.credentials.promptSettings = promptSettings;
+        this.credentials.telemetryEnabled = this.credentials.telemetryEnabled ?? launchConfig.telemetryDefaultEnabled;
+        this.credentials.licenseStatus = this.credentials.licenseStatus || (launchConfig.monetizationEnabled ? 'trial' : 'beta');
+
+        delete this.credentials.interviewPrompt;
+        delete this.credentials.meetingPrompt;
     }
 }

@@ -1,5 +1,5 @@
 import { LLMHelper } from "../LLMHelper";
-import { UNIVERSAL_FOLLOWUP_PROMPT, injectUserContext } from "./prompts";
+import { buildPromptForMode } from "./promptRegistry";
 import { ContextDocumentManager } from "../services/ContextDocumentManager";
 import { CredentialsManager } from "../services/CredentialsManager";
 
@@ -54,14 +54,15 @@ export class FollowUpLLM {
         const creds = CredentialsManager.getInstance();
         const isMeeting = creds.getIsMeetingMode();
 
-        return injectUserContext(
-            UNIVERSAL_FOLLOWUP_PROMPT,
+        return buildPromptForMode({
+            mode: 'followUpRefinement',
+            settings: creds.getPromptSettings(),
             resumeText,
             jdText,
             projectKnowledge,
             agendaText,
-            isMeeting ? 'meeting' : 'interview'
-        );
+            sessionMode: isMeeting ? 'meeting' : 'interview'
+        });
     }
 
     private buildVisualContext(context?: string, imagePath?: string): string | undefined {

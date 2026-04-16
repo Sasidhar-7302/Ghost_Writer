@@ -1,5 +1,5 @@
 import { LLMHelper } from "../LLMHelper";
-import { UNIVERSAL_RECAP_PROMPT, injectUserContext } from "./prompts";
+import { buildPromptForMode } from "./promptRegistry";
 import { ContextDocumentManager } from "../services/ContextDocumentManager";
 import { CredentialsManager } from "../services/CredentialsManager";
 
@@ -57,14 +57,15 @@ export class RecapLLM {
         const creds = CredentialsManager.getInstance();
         const isMeeting = creds.getIsMeetingMode();
 
-        return injectUserContext(
-            UNIVERSAL_RECAP_PROMPT,
+        return buildPromptForMode({
+            mode: 'recap',
+            settings: creds.getPromptSettings(),
             resumeText,
             jdText,
             projectKnowledge,
             agendaText,
-            isMeeting ? 'meeting' : 'interview'
-        );
+            sessionMode: isMeeting ? 'meeting' : 'interview'
+        });
     }
 
     private clampRecapResponse(text: string): string {

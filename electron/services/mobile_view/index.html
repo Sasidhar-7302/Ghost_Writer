@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ghost Writer Mobile</title>
+    <style>
+        :root {
+            --bg-dark: #07070a;
+            --bg-card: #12121a;
+            --bg-input: #1a1a24;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #818cf8;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-tertiary: #475569;
+            --success: #4ade80;
+            --error: #fb7185;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Lock Screen */
+        #lock-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: radial-gradient(circle at top right, #1e1e2d, #07070a);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #lock-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.1);
+        }
+
+        .lock-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .lock-logo {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .lock-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .pin-display {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .pin-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--text-tertiary);
+            transition: all 0.2s ease;
+        }
+
+        .pin-dot.filled {
+            background-color: var(--accent-primary);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px var(--accent-primary);
+            transform: scale(1.2);
+        }
+
+        .numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .num-btn {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .num-btn:active {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(0.92);
+        }
+
+        .num-btn.action {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--text-secondary);
+            border: none;
+            background: transparent;
+        }
+
+        /* Main Content */
+        .container {
+            flex: 1;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        body.unlocked .container {
+            opacity: 1;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-tertiary);
+        }
+
+        .status-badge.connected {
+            color: var(--success);
+            background: rgba(74, 222, 128, 0.05);
+            border-color: rgba(74, 222, 128, 0.2);
+        }
+
+        #answer-card {
+            background: linear-gradient(180deg, var(--bg-card), #0d0d14);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 32px;
+            padding: 32px;
+            flex: 1;
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--error);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--error);
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; scale: 1.1; }
+            100% { opacity: 0.4; }
+        }
+
+        #answer-content {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            flex: 1;
+        }
+
+        .placeholder {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 16px;
+            color: var(--text-tertiary);
+        }
+
+        .placeholder-icon {
+            font-size: 2rem;
+            opacity: 0.3;
+        }
+
+        footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+
+        /* Shake animation for wrong PIN */
+        .shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="lock-screen">
+        <div class="lock-header">
+            <div class="lock-logo">GHOST WRITER</div>
+            <div class="lock-subtitle">Secure Remote Display</div>
+        </div>
+
+        <div class="pin-display" id="pin-display">
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+            <div class="pin-dot"></div>
+        </div>
+
+        <div class="numpad">
+            <div class="num-btn" onclick="addDigit('1')">1</div>
+            <div class="num-btn" onclick="addDigit('2')">2</div>
+            <div class="num-btn" onclick="addDigit('3')">3</div>
+            <div class="num-btn" onclick="addDigit('4')">4</div>
+            <div class="num-btn" onclick="addDigit('5')">5</div>
+            <div class="num-btn" onclick="addDigit('6')">6</div>
+            <div class="num-btn" onclick="addDigit('7')">7</div>
+            <div class="num-btn" onclick="addDigit('8')">8</div>
+            <div class="num-btn" onclick="addDigit('9')">9</div>
+            <div class="num-btn action" onclick="clearPin()">CLEAR</div>
+            <div class="num-btn" onclick="addDigit('0')">0</div>
+            <div class="num-btn action" onclick="backspace()">DELETE</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">GHOST WRITER</div>
+            <div id="status" class="status-badge">Disconnected</div>
+        </header>
+
+        <div id="answer-card">
+            <div class="card-header">
+                <div class="live-indicator"></div>
+                LIVE SUGGESTION
+            </div>
+            <div id="answer-content">
+                <div class="placeholder">
+                    <div class="placeholder-icon">⚡</div>
+                    <div>Waiting for suggesstions from your PC...</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            Local Stealth Sync Active
+        </footer>
+    </div>
+
+    <script>
+        let currentPin = '';
+        let ws = null;
+        let isAuth = false;
+
+        const pinDisplay = document.getElementById('pin-display');
+        const lockScreen = document.getElementById('lock-screen');
+        const statusBadge = document.getElementById('status');
+        const contentDiv = document.getElementById('answer-content');
+
+        function updatePinDisplay() {
+            const dots = pinDisplay.querySelectorAll('.pin-dot');
+            dots.forEach((dot, index) => {
+                if (index < currentPin.length) {
+                    dot.classList.add('filled');
+                } else {
+                    dot.classList.remove('filled');
+                }
+            });
+        }
+
+        function addDigit(digit) {
+            if (currentPin.length < 4) {
+                currentPin += digit;
+                updatePinDisplay();
+                if (currentPin.length === 4) {
+                    attemptAuth();
+                }
+            }
+        }
+
+        function backspace() {
+            currentPin = currentPin.slice(0, -1);
+            updatePinDisplay();
+        }
+
+        function clearPin() {
+            currentPin = '';
+            updatePinDisplay();
+        }
+
+        function attemptAuth() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'auth', pin: currentPin }));
+            } else {
+                alert('Connection to PC lost. Please refresh.');
+                clearPin();
+            }
+        }
+
+        function handleAuthSuccess() {
+            isAuth = true;
+            document.body.classList.add('unlocked');
+            lockScreen.classList.add('hidden');
+        }
+
+        function handleAuthFailure() {
+            pinDisplay.classList.add('shake');
+            setTimeout(() => {
+                pinDisplay.classList.remove('shake');
+                clearPin();
+            }, 500);
+        }
+
+        let activeIntent = '';
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusBadge.textContent = 'Awaiting Auth';
+                statusBadge.classList.remove('connected');
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'auth_success') {
+                    handleAuthSuccess();
+                    statusBadge.textContent = 'Connected';
+                    statusBadge.classList.add('connected');
+                } else if (message.type === 'auth_failure') {
+                    handleAuthFailure();
+                } else if (isAuth) {
+                    if (message.type === 'token') {
+                        // Reset content if intent changed (new generation)
+                        if (activeIntent !== message.data.intent) {
+                            contentDiv.innerHTML = '';
+                            activeIntent = message.data.intent;
+                        }
+                        
+                        // Filter out thought tags if they leak through
+                        let token = message.data.token;
+                        if (token.includes('__THOUGHT__')) return;
+
+                        const span = document.createElement('span');
+                        span.textContent = token;
+                        span.style.opacity = '0';
+                        span.style.transition = 'opacity 0.2s ease';
+                        contentDiv.appendChild(span);
+                        
+                        // Trigger reflow for animation
+                        requestAnimationFrame(() => {
+                            span.style.opacity = '1';
+                        });
+
+                        // Auto-scroll to bottom of card
+                        const card = document.getElementById('answer-card');
+                        card.scrollTop = card.scrollHeight;
+                        
+                    } else if (message.type === 'answer') {
+                        contentDiv.innerHTML = message.data.answer;
+                        activeIntent = ''; // Reset for next stream
+                        if ('vibrate' in navigator) navigator.vibrate(100);
+
+                        // Scroll to bottom
+                        const card = document.getElementById('answer-card');
+                        card.scrollTop = card.scrollHeight;
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                isAuth = false;
+                statusBadge.textContent = 'Disconnected';
+                statusBadge.classList.remove('connected');
+                lockScreen.classList.remove('hidden');
+                document.body.classList.remove('unlocked');
+                clearPin();
+                setTimeout(connect, 3000);
+            };
+        }
+
+        connect();
+
+        // Prevent sleep
+        if ('wakeLock' in navigator) {
+            let wakeLock = null;
+            const requestWakeLock = async () => {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (err) {}
+            };
+            requestWakeLock();
+        }
+    </script>
+</body>
+</html>

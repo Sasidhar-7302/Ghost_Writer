@@ -36,8 +36,20 @@ jobs:
     - name: Run linting
       run: npm run lint
 
-    - name: Build application (Dry Run)
+    - name: Build renderer
       run: npm run build
+
+    - name: Build desktop application
+      run: npm run build:desktop
+
+    - name: Run prompt settings regression
+      run: npm run test:prompt-settings
+
+    - name: Run meeting summary routing regression
+      run: npm run test:meeting-summary-routing
+
+    - name: Run desktop smoke test
+      run: npm run test:smoke
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
