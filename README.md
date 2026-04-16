@@ -57,13 +57,13 @@ Ghost_Writer/
 Windows PowerShell:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/installers/install.ps1 | iex"
 ```
 
 macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/installers/install.sh | bash
 ```
 
 The scripts download the latest release manifest, verify checksums, and install Ghost Writer into a user-local location. Re-running the same command upgrades an existing install in place.

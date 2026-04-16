@@ -122,7 +122,7 @@
                     <div class="glass-card p-6">
                         <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80">Windows x64</p>
                         <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
-                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"</code>
+                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/installers/install.ps1 | iex"</code>
                             <button onclick="copyCmd('win')" id="copyBtnWin" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
                         </div>
                         <p class="text-xs text-gray-500 mt-3">Installs per-user, verifies the release checksum, and upgrades in place.</p>
@@ -131,7 +131,7 @@
                     <div class="glass-card p-6">
                         <p class="text-[10px] text-brand-purple uppercase tracking-[0.3em] mb-3 font-black opacity-80">macOS arm64</p>
                         <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
-                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash</code>
+                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/installers/install.sh | bash</code>
                             <button onclick="copyCmd('mac')" id="copyBtnMac" class="shrink-0 bg-brand-purple/10 hover:bg-brand-purple/20 text-brand-purple px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
                         </div>
                         <p class="text-xs text-gray-500 mt-3">Installs into <code>~/Applications</code>, verifies the release checksum, and upgrades in place.</p>
@@ -212,8 +212,8 @@
     <script>
         function copyCmd(os) {
             const cmd = os === 'win'
-                ? 'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"'
-                : 'curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash';
+                ? 'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/installers/install.ps1 | iex"'
+                : 'curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/installers/install.sh | bash';
 
             navigator.clipboard.writeText(cmd);
 
