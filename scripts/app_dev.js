@@ -4,7 +4,7 @@ const net = require("net");
 const path = require("path");
 const fs = require("fs");
 
-const projectRoot = path.resolve(__dirname, "..", "..");
+const projectRoot = path.resolve(__dirname, "..");
 const sessionFile = path.join(projectRoot, ".tmp", "app-dev-session.json");
 const preferredPort = Number(process.env.GHOST_WRITER_DEV_PORT || 5180);
 

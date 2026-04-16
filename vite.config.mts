@@ -17,9 +17,6 @@ export default defineConfig({
   server: {
     port: 5180,
   },
-  css: {
-    postcss: './config',
-  },
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {

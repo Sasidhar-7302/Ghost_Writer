@@ -188,15 +188,11 @@ diff.utf8.txt
 renderer/
 worker-script/
 
-# Development & AI Artifacts
-.tmp/
-artifacts/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
+# Testing artifacts
+transcript_data.json
+transcript_utf8.json
+*.traineddata
+test_*.js
 !tests/test_audio_echo_suppression.js
 test_*.wav
 audit_report.md

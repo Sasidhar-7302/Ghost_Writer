@@ -30,11 +30,11 @@ export class RemoteServer {
                 // Try multiple possible locations for index.html
                 const possiblePaths = [
                     // Standard relative path (works in production or if copied to dist)
-                    path.join(__dirname, 'remote-display', 'index.html'),
+                    path.join(__dirname, 'mobile_view', 'index.html'),
                     // Fallback for development (relative to source electron/services)
-                    path.join(process.cwd(), 'electron', 'services', 'remote-display', 'index.html'),
+                    path.join(process.cwd(), 'electron', 'services', 'mobile_view', 'index.html'),
                     // Fallback for production extraResources
-                    path.join(process.cwd(), 'resources', 'remote-display', 'index.html')
+                    path.join(process.cwd(), 'resources', 'mobile_view', 'index.html')
                 ];
 
                 let filePath = '';

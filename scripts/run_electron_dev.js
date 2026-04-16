@@ -1,7 +1,7 @@
 const { spawn, execFileSync } = require("child_process");
 const path = require("path");
 
-const projectRoot = path.resolve(__dirname, "..", "..");
+const projectRoot = path.resolve(__dirname, "..");
 const electronBinary = require("electron");
 const env = { ...process.env, NODE_ENV: "development" };
 const distElectronDir = path.join(projectRoot, "dist-electron");

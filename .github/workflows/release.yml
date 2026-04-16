@@ -29,6 +29,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          
           cache: 'npm'
 
       - name: Install Rust Toolchain (Windows)
@@ -41,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Build Native Audio Module (Windows)
-        working-directory: electron/native
+        working-directory: native-module
         run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
 
       - name: Build Windows Installer
@@ -90,15 +91,19 @@ jobs:
         run: npm ci
 
       - name: Build Native Audio Module (macOS)
-        working-directory: electron/native
+        working-directory: native-module
         run: npx @napi-rs/cli build --platform --release --target aarch64-apple-darwin
 
       - name: Download pre-compiled Whisper Binaries (macOS)
         run: |
           mkdir -p assets/whisper-bin
           echo "Downloading pre-compiled whisper.cpp binaries..."
-          curl -L "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.2/whisper-blas-bin-arm64.zip" -o whisper.zip --fail --silent || \
-          curl -L "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-blas-bin-arm64.zip" -o whisper.zip --silent || echo "Pre-built binary not found, skipping."
+
+          # Try downloading pre-built ARM64 binary release
+          curl -L "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.2/whisper-blas-bin-arm64.zip" \
+            -o whisper.zip --fail --silent || \
+          curl -L "https://github.com/ggerganov/whisper.cpp/releases/latest/download/whisper-blas-bin-arm64.zip" \
+            -o whisper.zip --silent || echo "Pre-built binary not found, skipping."
 
           if [ -f "whisper.zip" ]; then
             unzip -j whisper.zip "*/main" "*/server" -d assets/whisper-bin/ 2>/dev/null || true
@@ -107,7 +112,10 @@ jobs:
           # Rename binaries to match expected names
           [ -f "assets/whisper-bin/main" ] && mv assets/whisper-bin/main assets/whisper-bin/whisper-cli || true
           [ -f "assets/whisper-bin/server" ] && mv assets/whisper-bin/server assets/whisper-bin/whisper-server || true
+
+          # Make executable regardless
           chmod +x assets/whisper-bin/* 2>/dev/null || true
+          echo "Whisper binary setup complete."
 
       - name: Install Native App Dependencies (macOS ARM64)
         run: npx electron-builder install-app-deps --platform darwin --arch arm64
@@ -120,8 +128,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          # Create release if it doesn't exist
           gh release view "v${{ github.event.inputs.version }}" || gh release create "v${{ github.event.inputs.version }}" --title "Ghost Writer v${{ github.event.inputs.version }}" --generate-notes
+          
+          # Upload the macOS installers
           gh release upload "v${{ github.event.inputs.version }}" artifacts/*.dmg artifacts/*.zip --clobber
+          
+          # Upload auto-updater files if they were generated
           if ls release/*.blockmap 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/*.blockmap --clobber; fi
           if ls release/latest-mac.yml 1> /dev/null 2>&1; then gh release upload "v${{ github.event.inputs.version }}" release/latest-mac.yml --clobber; fi
 
@@ -153,7 +166,7 @@ jobs:
           gh release download "v${{ github.event.inputs.version }}" --dir release-assets
 
       - name: Generate release manifest and checksums
-        run: node platform/automation/collect_release_artifacts.js
+        run: node scripts/collect_release_artifacts.js
         env:
           RELEASE_INPUT_DIR: release-assets
 
