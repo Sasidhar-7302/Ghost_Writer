@@ -1,7 +1,7 @@
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const projectRoot = path.resolve(__dirname, "..");
+const projectRoot = path.resolve(__dirname, "..", "..");
 const electronBuilderBinary = path.join(
     projectRoot,
     "node_modules",

@@ -2,10 +2,10 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-const launchConfig = require("../config/launch-config.json");
-const packageJson = require("../package.json");
+const launchConfig = require("../../config/launch-config.json");
+const packageJson = require("../../package.json");
 
-const projectRoot = path.resolve(__dirname, "..");
+const projectRoot = path.resolve(__dirname, "..", "..");
 const releaseDir = path.resolve(projectRoot, process.env.RELEASE_INPUT_DIR || "release");
 const artifactsDir = path.join(projectRoot, "artifacts");
 
