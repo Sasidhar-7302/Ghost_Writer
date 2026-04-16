@@ -20,12 +20,29 @@
 
 ## What It Does
 
-- Real-time interview and meeting assistance with overlay and launcher modes
-- **Stealth Remote Display**: View AI answers on your mobile device to bypass overlay detection
-- Local Whisper and Ollama support for privacy-sensitive workflows
-- Screenshot-aware answers and meeting recap generation
-- Retrieval over stored meeting history and context documents
-- Configurable cloud providers including Gemini, OpenAI-compatible, Claude, Groq, and custom endpoints
+- **Real-time Assistance**: Get instant answers during meetings via high-fidelity overlays.
+- **Stealth Remote Sync**: Stream character-by-character intelligence to any mobile device on your Wi-Fi, allowing you to hide all overlays on your primary PC.
+- **Privacy First**: Local Whisper and Ollama support for zero-cloud workflows.
+- **Screenshot Intelligent**: AI that reads your screen to provide context-aware answers.
+- **Semantic Memory**: RAG-powered retrieval over your entire meeting history and documents.
+
+## Project Structure
+
+Ghost Writer is organized to separate the desktop application, the product landing page, and the secure remote viewer:
+
+```text
+Ghost_Writer/
+├── docs/                 # Product Website & Technical Docs
+│   ├── index.html        # Landing Page (sasidhar-7302.github.io)
+│   └── ARCHITECTURE.md   # System Design & Data Flow
+├── electron/             # Main Process (Source)
+│   ├── services/
+│   │   └── remote-display # Mobile Viewer Logic & Server
+│   └── main.ts           # App Entry Point
+├── src/                  # Desktop UI (React Frontend)
+├── scripts/              # Internal & Developer Scripts
+└── index.html            # Desktop App Entry (Vite)
+```
 
 ## Supported Platforms
 

@@ -14,9 +14,16 @@ Ghost Writer v1.0.0 ships as a desktop beta with local-first behavior and option
 
 - Prompts and transcript context sent to a cloud LLM provider that you explicitly configure
 - Cloud STT traffic if you choose a cloud transcription provider instead of Local Whisper
-- Optional telemetry metadata if you enable telemetry in Settings or onboarding
+- Optional telemetry- License data is hardware-hashed and stored on Supabase to prevent unauthorized redistribution.
 
-## Telemetry
+## Local Network & Remote Sync
+
+The **Stealth Remote Display** feature operates as a local-only WebSocket server:
+- **Scope**: The server is only accessible to devices on your local Wi-Fi network.
+- **Security**: Access is strictly controlled via a 4-digit PIN. No data is transmitted to devices that have not successfully completed the PIN handshake.
+- **Data Persistence**: No meeting data or transcripts are stored on the mobile side-device after the session ends.
+
+## Telemetry & Usage
 
 Telemetry is disabled by default for v1.0.0.
 

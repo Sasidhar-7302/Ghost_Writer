@@ -69,8 +69,8 @@
         ]
       },
       {
-        "from": "electron/services/mobile_view/",
-        "to": "mobile_view/",
+        "from": "electron/services/remote-display/",
+        "to": "remote-display/",
         "filter": [
           "index.html"
         ]

@@ -112,6 +112,120 @@ Transcript → Intent Classifier → Prompt Builder → LLM Call → Post-Proces
 - **Prompt System** — Dynamic prompts with persona, resume context, and conversation history
 - **PostProcessor** — Strips AI artifacts, meta-commentary, and formats responses
 - **TranscriptCleaner** — Normalizes raw whisper output
+# Architecture
+
+> Technical deep-dive into Ghost Writer's system design and component interactions.
+
+---
+
+## System Overview
+
+Ghost Writer is an Electron desktop application with a multi-layered architecture that separates concerns between audio capture, speech-to-text, AI processing, and UI rendering.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        React Frontend                           │
+│  ┌────────────┐  ┌──────────────┐  ┌─────────────────────────┐  │
+│  │ Overlay UI │  │ Settings     │  │ Setup Wizard            │  │
+│  │ (5 modes)  │  │ Panels       │  │ (First-run onboarding)  │  │
+│  └────────────┘  └──────────────┘  └─────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│                   Electron IPC Bridge                           │
+│              (Context-Isolated, Preload Script)                 │
+├─────────────────────────────────────────────────────────────────┤
+│                    Electron Main Process                        │
+│  ┌──────────────┐  ┌──────────┐  ┌────────────────────────────┐│
+│  │ LLM Pipeline │  │ RAG      │  │ Whisper STT               ││
+│  │ (6 providers)│  │ Engine   │  │ (Server + CLI fallback)   ││
+│  └──────────────┘  └──────────┘  └────────────────────────────┘│
+│  ┌──────────────┐  ┌──────────┐  ┌────────────────────────────┐│
+│  │ Audio Manager│  │ Database │  │ Services                  ││
+│  │ (Rust NAPI)  │  │ (SQLite) │  │ (Licensing, Analytics, etc)││
+│  └──────────────┘  └──────────┘  └────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│                   Cloud Infrastructure                          │
+│  ┌──────────────┐  ┌──────────┐  ┌────────────────────────────┐│
+│  │ Supabase DB  │  │ Edge     │  │ Gumroad                   ││
+│  │ (Global State)│  │ Functions│  │ (Monetization Engine)      ││
+│  └──────────────┘  └──────────┘  └────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│               Native Audio Module (Rust)                        │
+│  ┌────────────────────┐  ┌────────────────────────────────────┐ │
+│  │ Microphone Capture │  │ System Audio Loopback              │ │
+│  │ (WASAPI/CoreAudio) │  │ (WASAPI/ScreenCaptureKit)          │ │
+│  └────────────────────┘  └────────────────────────────────────┘ │
+│  ┌────────────────────┐  ┌────────────────────────────────────┐ │
+│  │ Streaming Resampler│  │ Silence Suppressor                │ │
+│  │ (48kHz → 16kHz)    │  │ (Threshold + Hangover)            │ │
+│  └────────────────────┘  └────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Core Components
+
+### 1. Audio Pipeline
+
+The audio pipeline captures both microphone and system audio using a Rust native module compiled via N-API.
+
+**Key files:**
+- `native-module/src/microphone.rs` — Microphone capture (WASAPI/CoreAudio)
+- `native-module/src/speaker/windows.rs` — Windows loopback capture (WASAPI)
+- `native-module/src/speaker/macos.rs` — macOS loopback capture (ScreenCaptureKit)
+- `electron/audio/MicrophoneCapture.ts` — TypeScript wrapper for mic
+- `electron/audio/SystemAudioCapture.ts` — TypeScript wrapper for loopback
+
+**DSP Pipeline (Rust):**
+1. **Capture** — Platform-native capture at native sample rate (typically 48kHz)
+2. **Resample** — Linear interpolation from 48kHz → 16kHz (Whisper's expected input)
+3. **Silence Suppression** — RMS threshold with hangover period to avoid cutting off speech
+4. **Emit** — Sends 16kHz PCM chunks to JavaScript via N-API callbacks
+5. **Fallback Flow** — If N-API fails to initialize (e.g., missing dependencies, WASAPI access denied), `AppState` triggers the Web Audio Fallback system.
+
+### 2. Audio Fallback Management (`WebAudioFallback.ts`)
+
+When native capture is unavailable, the system switches to a renderer-side fallback:
+- **System Audio**: Utilizes `navigator.mediaDevices.getDisplayMedia` with `systemAudio: 'include'`.
+- **Microphone**: Utilizes `navigator.mediaDevices.getUserMedia(audio: true)`.
+- **Processing**: PCM data is captured at 16kHz, converted from Float32 to Int16 in the renderer, and streamed to the main process via the `raw-audio-stream` IPC channel.
+- **Integration**: The main process receives these buffers and writes them directly to the active STT engine, bypassing the native Rust loop.
+
+### 3. Whisper STT (`LocalWhisperSTT.ts`)
+
+The speech-to-text engine uses `whisper.cpp` for GPU-accelerated transcription.
+
+**Two modes of operation:**
+
+| Mode | How it works | Latency | When used |
+|------|-------------|---------|-----------|
+| **Server Mode** | Persistent `whisper-server` HTTP process | ~1-2s | Default (when server starts OK) |
+| **CLI Fallback** | Spawns `whisper-cli` per chunk | ~15s | If server fails to start |
+
+**Server lifecycle:**
+1. `start()` → Spawns `whisper-server` with model path
+2. Polls `http://127.0.0.1:8178/health` until the server responds (model loaded in VRAM)
+3. `transcribeViaServer()` → HTTP POST multipart WAV to `/inference`
+4. `stop()` → Kills server process, releases GPU/NPU VRAM
+
+**Shared server:** Multiple `LocalWhisperSTT` instances (mic + system audio) share one server via reference counting.
+
+### 3. LLM Pipeline
+
+The LLM pipeline processes transcription text through multiple stages:
+
+```
+Transcript → Intent Classifier → Prompt Builder → LLM Call → Post-Processor → UI
+```
+
+**Components:**
+- **LLMOrchestrator** — The central router and fallback manager processing all AI requests
+- **Providers (`GroqProvider`, `OpenAIProvider`, `OllamaProvider`, etc.)** — Isolated API integrations handling specific network/inference protocols
+- **IntentClassifier** — Categorizes questions (technical, behavioral, situational, leadership)
+- **TemporalContextBuilder** — Prevents answer repetition by tracking recent responses
+- **Prompt System** — Dynamic prompts with persona, resume context, and conversation history
+- **PostProcessor** — Strips AI artifacts, meta-commentary, and formats responses
+- **TranscriptCleaner** — Normalizes raw whisper output
 
 ### 4. RAG Engine
 
@@ -128,7 +242,26 @@ The RAG (Retrieval-Augmented Generation) engine provides semantic search over co
 - `electron/rag/VectorStore.ts` — SQLite vector storage
 - `electron/rag/LocalEmbeddingManager.ts` — Transformer pipeline wrapper
 
-- `electron/rag/LocalEmbeddingManager.ts` — Transformer pipeline wrapper
+### 8. Stealth Remote Sync
+
+Ghost Writer provides a secure, low-latency remote display capability designed to bypass desktop overlay detection by streaming intelligence to an external side-device.
+
+### Server Implementation (`RemoteServer.ts`)
+The system initializes a local HTTP and WebSocket server on **Port 4004**.
+- **Handshake Protocol**: Clients must send an `auth` message with the correct 4-digit PIN before any data is broadcast.
+- **Broadcast Mechanism**: The server manages a set of `authenticatedClients`. Intelligence events (tokens and full answers) are forwarded from the main process events to all authenticated clients in real-time.
+
+### Mobile Viewer Architecture
+The mobile viewer is a zero-dependency HTML/JS standalone file served via the internal server.
+- **Lock Screen**: A built-in numeric keypad enforces the PIN entry.
+- **Character Streaming**: Uses a `requestAnimationFrame` animation loop to render AI tokens as they arrive, providing a smooth "typing" feel without network lag spikes.
+- **Haptic Engine**: Triggers device vibrations on successful completion of a response.
+
+### Network Security
+1. **Local-Only**: The server binds to `0.0.0.0` but does not perform UPnP or NAT hole-punching. It is restricted to the local Wi-Fi network.
+2. **Encrypted Handshake**: The user setting `remoteDisplayPin` is stored via Electron `safeStorage`.
+
+---
 
 ### 6. Hardware-Aware Status & Optimization
 
@@ -161,15 +294,6 @@ SQLite database (`ghost-writer.db`) with automatic migrations:
 ### 7. Cloud Integration Layer (Supabase + Gumroad)
 
 Ghost Writer uses a hybrid approach for launch-grade desktop operations:
-
-- **Licensing Engine**: `LicenseManager.ts` coordinates between local state, Supabase `checkout_sessions`, and Gumroad's API.
-- **Pulse Analytics**: A 5-minute heartbeat loop (`AnalyticsManager.ts`) synchronizes usage metrics (active time, launch counts) to Supabase.
-- **Edge Orchestration**: The `gumroad-webhook` Edge Function handles server-to-server notifications from Gumroad to instantly unlock clients via Supabase Realtime.
-
----
-
-## Data Flow
-
 ### Meeting Recording Flow
 
 ```
