@@ -12,7 +12,10 @@ export class RemoteServer {
     private authenticatedClients: Set<WebSocket> = new Set();
     private port: number = 4004;
 
-    private constructor() {}
+    private constructor() {
+        const { CredentialsManager } = require('./CredentialsManager');
+        this.port = CredentialsManager.getInstance().getRemoteDisplayPort();
+    }
 
     public static getInstance(): RemoteServer {
         if (!RemoteServer.instance) {
@@ -144,6 +147,8 @@ export class RemoteServer {
     }
 
     public getConnectionUrl(): string {
-        return `http://${this.getLocalIP()}:${this.port}`;
+        const { CredentialsManager } = require('./CredentialsManager');
+        const currentPort = CredentialsManager.getInstance().getRemoteDisplayPort();
+        return `http://${this.getLocalIP()}:${currentPort}`;
     }
 }

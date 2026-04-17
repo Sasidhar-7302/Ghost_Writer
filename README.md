@@ -6,14 +6,14 @@
   <br>
 
   [![License](https://img.shields.io/badge/license-PROPRIETARY-red?style=for-the-badge)](LICENSE)
-  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
-  [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
-  [![Launch Mode](https://img.shields.io/badge/launch-desktop%20beta-10b981?style=for-the-badge)](https://github.com/chintuai2026/Ghost_Writer/releases)
+  [![Release](https://img.shields.io/badge/release-v1.1.0-0ea5e9?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+  [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+  [![Launch Mode](https://img.shields.io/badge/launch-desktop%20beta-10b981?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
 
   Ghost Writer is a desktop beta for high-fidelity meeting and interview assistance.
   It combines live transcription, screenshot-aware answering, local privacy options, and multi-provider LLM routing in a direct-download Electron app.
 
-  [Releases](https://github.com/chintuai2026/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+  [Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 </div>
 
 ---
@@ -40,20 +40,20 @@
 Windows PowerShell:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex"
 ```
 
 macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/chintuai2026/Ghost_Writer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh | bash
 ```
 
 The scripts download the latest release manifest, verify checksums, and install Ghost Writer into a user-local location. Re-running the same command upgrades an existing install in place.
 
 ### Manual install
 
-1. Download the latest installer from [GitHub Releases](https://github.com/chintuai2026/Ghost_Writer/releases).
+1. Download the latest installer from [GitHub Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases).
 2. Verify the published SHA256 checksum from `checksums.txt`.
 3. Run the installer.
 4. Complete the onboarding flow on first launch.
@@ -61,7 +61,7 @@ The scripts download the latest release manifest, verify checksums, and install 
 ## Data And Privacy
 
 - API keys and license data are stored with Electron `safeStorage` when available.
-- Telemetry is optional and disabled by default for v1.0.0.
+- Telemetry is optional and disabled by default for v1.1.0.
 - Full Privacy Mode blocks cloud STT and cloud LLM routing until local dependencies are ready.
 - Local transcripts, meeting history, and context files stay on-device unless you explicitly use a cloud provider.
 
@@ -69,9 +69,9 @@ More detail: [Privacy](docs/PRIVACY.md)
 
 ## Current Launch Posture
 
-- Version: `1.0.0`
+- Version: `1.1.0`
 - Distribution: unsigned direct-download desktop beta
-- Monetization: disabled for the v1.0.0 beta launch
+- Monetization: disabled for the v1.1.0 beta launch
 - Primary install path: terminal one-liners plus manual downloads as fallback
 
 ## Known Limitations
@@ -117,7 +117,7 @@ node tests/prompt_settings.test.js
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/chintuai2026/Ghost_Writer/issues)
+- Issues: [GitHub Issues](https://github.com/Sasidhar-7302/Ghost_Writer/issues)
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - Privacy notes: [docs/PRIVACY.md](docs/PRIVACY.md)
 

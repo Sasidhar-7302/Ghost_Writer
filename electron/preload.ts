@@ -57,7 +57,28 @@ interface ElectronAPI {
   setClaudeApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setNvidiaApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepseekApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
-  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean }>
+  getStoredCredentials: () => Promise<{
+    hasGeminiKey: boolean;
+    hasGroqKey: boolean;
+    hasOpenaiKey: boolean;
+    hasClaudeKey: boolean;
+    hasNvidiaKey: boolean;
+    hasDeepseekKey: boolean;
+    googleServiceAccountPath: string | null;
+    sttProvider: string;
+    hasSttGroqKey: boolean;
+    hasSttOpenaiKey: boolean;
+    hasDeepgramKey: boolean;
+    hasElevenLabsKey: boolean;
+    hasAzureKey: boolean;
+    azureRegion: string;
+    hasIbmWatsonKey: boolean;
+    ibmWatsonRegion: string;
+    hasResume: boolean;
+    hasJobDescription: boolean;
+    airGapMode: boolean;
+    telemetryEnabled: boolean;
+  }>
 
   // Security
   setAirGapMode: (enabled: boolean) => Promise<{ success: boolean; error?: string; status?: { enabled: boolean; localWhisperReady: boolean; localWhisperModelReady: boolean; ollamaReachable: boolean; localTextModelReady: boolean; localVisionModelReady: boolean; activeOllamaModel: string; errors: string[] } }>
@@ -205,6 +226,15 @@ interface ElectronAPI {
   // Remote Display
   getRemoteDisplayUrl: () => Promise<{ url: string; port: number; isActive: boolean }>
   restartRemoteServer: () => Promise<{ success: boolean; url: string }>
+  getRemoteDisplayPin: () => Promise<string>
+  setRemoteDisplayPin: (pin: string) => Promise<{ success: boolean; error?: string }>
+  getRemoteDisplayPort: () => Promise<number>
+  setRemoteDisplayPort: (port: number) => Promise<{ success: boolean; error?: string }>
+
+  // Telemetry
+  getTelemetrySettings: () => Promise<{ enabled: boolean }>
+  setTelemetrySettings: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+  onTelemetrySettingsChanged: (callback: (settings: { enabled: boolean }) => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -287,12 +317,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   onDebugSuccess: (callback: (data: any) => void) => {
-    ipcRenderer.on("debug-success", (_event, data) => callback(data))
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('debug-success', handler);
     return () => {
-      ipcRenderer.removeListener("debug-success", (_event, data) =>
-        callback(data)
-      )
-    }
+      ipcRenderer.removeListener('debug-success', handler);
+    };
   },
   onDebugError: (callback: (error: string) => void) => {
     const subscription = (_: any, error: string) => callback(error)
@@ -354,10 +383,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   analyzeImageFile: (path: string) => ipcRenderer.invoke("analyze-image-file", path),
   quitApp: () => ipcRenderer.invoke("quit-app"),
   toggleWindow: () => ipcRenderer.invoke("toggle-window"),
-  showWindow: () => ipcRenderer.invoke("show-window"),
-  hideWindow: () => ipcRenderer.invoke("hide-window"),
-  minimizeCurrentWindow: () => ipcRenderer.invoke("minimize-current-window"),
-  toggleAdvancedSettings: () => ipcRenderer.invoke("toggle-advanced-settings"),
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
   setUndetectable: (state: boolean) => ipcRenderer.invoke("set-undetectable", state),
   getUndetectable: () => ipcRenderer.invoke("get-undetectable"),
@@ -380,22 +405,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
 
-  onToggleExpand: (callback: () => void) => {
-    const subscription = () => callback()
-    ipcRenderer.on("toggle-expand", subscription)
-    return () => {
-      ipcRenderer.removeListener("toggle-expand", subscription)
-    }
-  },
-
-  onQuickAnswer: (callback: () => void) => {
-    const subscription = () => callback()
-    ipcRenderer.on("quick-answer", subscription)
-    return () => {
-      ipcRenderer.removeListener("quick-answer", subscription)
-    }
-  },
-
   // LLM Model Management
   getCurrentLlmConfig: () => ipcRenderer.invoke("get-current-llm-config"),
   getAvailableOllamaModels: () => ipcRenderer.invoke("get-available-ollama-models"),
@@ -412,6 +421,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setOpenaiApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-api-key", apiKey),
   setClaudeApiKey: (apiKey: string) => ipcRenderer.invoke("set-claude-api-key", apiKey),
   setNvidiaApiKey: (apiKey: string) => ipcRenderer.invoke("set-nvidia-api-key", apiKey),
+  setDeepseekApiKey: (apiKey: string) => ipcRenderer.invoke("set-deepseek-api-key", apiKey),
+  getStoredCredentials: () => ipcRenderer.invoke("get-stored-credentials"),
+
   // Context Management
   saveResumeText: (text: string) => ipcRenderer.invoke('save-resume-text', text),
   saveJDText: (text: string) => ipcRenderer.invoke('save-jd-text', text),
@@ -420,12 +432,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getContextDocuments: () => ipcRenderer.invoke('get-context-documents'),
   clearResume: () => ipcRenderer.invoke('clear-resume'),
   clearJD: () => ipcRenderer.invoke('clear-jd'),
-
-  // DeepSeek / NVIDIA
-  saveDeepseekKey: (key: string) => ipcRenderer.invoke('save-deepseek-key', key),
-  getDeepseekKey: () => ipcRenderer.invoke('get-deepseek-key'),
-  setDeepseekApiKey: (apiKey: string) => ipcRenderer.invoke("set-deepseek-api-key", apiKey),
-  getStoredCredentials: () => ipcRenderer.invoke("get-stored-credentials"),
 
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => ipcRenderer.invoke("set-stt-provider", provider),
@@ -440,14 +446,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getWhisperStatus: () => ipcRenderer.invoke("get-whisper-status"),
   setupWhisper: (model?: string) => ipcRenderer.invoke("setup-whisper", model),
   setLocalWhisperModel: (model: string) => ipcRenderer.invoke("set-local-whisper-model", model),
-  downloadWhisperModel: (model: string) => ipcRenderer.invoke("download-whisper-model", model),
-  onWhisperDownloadProgress: (callback: (data: { model: string; progress: number }) => void) => {
-    const handler = (_event: any, data: { model: string; progress: number }) => callback(data);
-    ipcRenderer.on('whisper-download-progress', handler);
-    return () => { ipcRenderer.removeListener('whisper-download-progress', handler); };
-  },
   setLocalWhisperPaths: (binaryPath?: string, modelPath?: string) => ipcRenderer.invoke("set-local-whisper-paths", binaryPath, modelPath),
   selectLocalFile: (prompt: string, filters: any[]) => ipcRenderer.invoke("select-local-file", prompt, filters),
+  setGroqSttApiKey: (apiKey: string) => ipcRenderer.invoke("set-groq-stt-api-key", apiKey),
 
   // Customizable Prompts
   getCustomPrompts: () => ipcRenderer.invoke("get-custom-prompts"),
@@ -463,7 +464,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearProject: () => ipcRenderer.invoke('clear-project'),
   clearAgenda: () => ipcRenderer.invoke('clear-agenda'),
 
-  setGroqSttApiKey: (apiKey: string) => ipcRenderer.invoke("set-groq-stt-api-key", apiKey),
   setOpenAiSttApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-stt-api-key", apiKey),
   setDeepgramApiKey: (apiKey: string) => ipcRenderer.invoke("set-deepgram-api-key", apiKey),
   setElevenLabsApiKey: (apiKey: string) => ipcRenderer.invoke("set-elevenlabs-api-key", apiKey),
@@ -526,7 +526,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   generateSuggestion: (context: string, lastQuestion: string) =>
     ipcRenderer.invoke("generate-suggestion", context, lastQuestion),
 
-  getNativeAudioStatus: () => ipcRenderer.invoke("native-audio-status"),
   getInputDevices: () => ipcRenderer.invoke("get-input-devices"),
   getOutputDevices: () => ipcRenderer.invoke("get-output-devices"),
   startAudioTest: (deviceId?: string) => ipcRenderer.invoke("start-audio-test", deviceId),
@@ -556,9 +555,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   regenerateMeetingSummary: (id: string) => ipcRenderer.invoke("regenerate-meeting-summary", id),
   updateMeetingTitle: (id: string, title: string) => ipcRenderer.invoke("update-meeting-title", { id, title }),
   updateMeetingSummary: (id: string, updates: any) => ipcRenderer.invoke("update-meeting-summary", { id, updates }),
-  deleteMeeting: (id: string) => ipcRenderer.invoke("delete-meeting", id),
-  getGlobalStats: () => ipcRenderer.invoke("get-global-stats"),
-
   onMeetingsUpdated: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("meetings-updated", subscription)
@@ -566,9 +562,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("meetings-updated", subscription)
     }
   },
-
-  // Window Mode
-  setWindowMode: (mode: 'launcher' | 'overlay') => ipcRenderer.invoke("set-window-mode", mode),
+  getGlobalStats: () => ipcRenderer.invoke("get-global-stats"),
 
   // Intelligence Mode Events
   onIntelligenceAssistUpdate: (callback: (data: { insight: string }) => void) => {
@@ -578,25 +572,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("intelligence-assist-update", subscription)
     }
   },
-  onIntelligenceSuggestedAnswerToken: (callback: (data: { token: string; question: string; confidence: number }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on("intelligence-suggested-answer-token", subscription)
-    return () => {
-      ipcRenderer.removeListener("intelligence-suggested-answer-token", subscription)
-    }
-  },
   onIntelligenceSuggestedAnswer: (callback: (data: { answer: string; question: string; confidence: number }) => void) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on("intelligence-suggested-answer", subscription)
     return () => {
       ipcRenderer.removeListener("intelligence-suggested-answer", subscription)
-    }
-  },
-  onIntelligenceRefinedAnswerToken: (callback: (data: { token: string; intent: string }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on("intelligence-refined-answer-token", subscription)
-    return () => {
-      ipcRenderer.removeListener("intelligence-refined-answer-token", subscription)
     }
   },
   onIntelligenceRefinedAnswer: (callback: (data: { answer: string; intent: string }) => void) => {
@@ -606,32 +586,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("intelligence-refined-answer", subscription)
     }
   },
-  onIntelligenceRecapToken: (callback: (data: { token: string }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on("intelligence-recap-token", subscription)
-    return () => {
-      ipcRenderer.removeListener("intelligence-recap-token", subscription)
-    }
-  },
   onIntelligenceRecap: (callback: (data: { summary: string }) => void) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on("intelligence-recap", subscription)
     return () => {
       ipcRenderer.removeListener("intelligence-recap", subscription)
-    }
-  },
-  onIntelligenceFollowUpQuestionsToken: (callback: (data: { token: string }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on("intelligence-follow-up-questions-token", subscription)
-    return () => {
-      ipcRenderer.removeListener("intelligence-follow-up-questions-token", subscription)
-    }
-  },
-  onIntelligenceFollowUpQuestionsUpdate: (callback: (data: { questions: string }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on("intelligence-follow-up-questions-update", subscription)
-    return () => {
-      ipcRenderer.removeListener("intelligence-follow-up-questions-update", subscription)
     }
   },
   onIntelligenceManualStarted: (callback: () => void) => {
@@ -669,26 +628,29 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("license-status-updated", subscription)
     }
   },
-  onSessionReset: (callback: () => void) => {
+
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
+  showWindow: () => ipcRenderer.invoke("show-window"),
+  hideWindow: () => ipcRenderer.invoke("hide-window"),
+  minimizeCurrentWindow: () => ipcRenderer.invoke("minimize-current-window"),
+  onToggleExpand: (callback: () => void) => {
     const subscription = () => callback()
-    ipcRenderer.on("session-reset", subscription)
+    ipcRenderer.on("toggle-expand", subscription)
     return () => {
-      ipcRenderer.removeListener("session-reset", subscription)
+      ipcRenderer.removeListener("toggle-expand", subscription)
     }
   },
-  onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => {
-    const subscription = (_: any, data: any) => callback(data)
-    ipcRenderer.on("audio-capture-fallback", subscription)
+  onQuickAnswer: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("quick-answer", subscription)
     return () => {
-      ipcRenderer.removeListener("audio-capture-fallback", subscription)
+      ipcRenderer.removeListener("quick-answer", subscription)
     }
   },
-  sendRawAudio: (data: Buffer) => ipcRenderer.send("raw-audio-stream", data),
+  toggleAdvancedSettings: () => ipcRenderer.invoke("toggle-advanced-settings"),
 
-
-  // Streaming Chat
+  // Streaming listeners
   streamGeminiChat: (message: string, imagePath?: string, context?: string, options?: { skipSystemPrompt?: boolean }) => ipcRenderer.invoke("gemini-chat-stream", message, imagePath, context, options),
-
   onGeminiStreamToken: (callback: (token: string) => void) => {
     const subscription = (_: any, token: string) => callback(token)
     ipcRenderer.on("gemini-stream-token", subscription)
@@ -696,7 +658,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("gemini-stream-token", subscription)
     }
   },
-
   onGeminiStreamDone: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("gemini-stream-done", subscription)
@@ -704,7 +665,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("gemini-stream-done", subscription)
     }
   },
-
   onGeminiStreamError: (callback: (error: string) => void) => {
     const subscription = (_: any, error: string) => callback(error)
     ipcRenderer.on("gemini-stream-error", subscription)
@@ -712,9 +672,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("gemini-stream-error", subscription)
     }
   },
-
-  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
-
   on: (channel: string, callback: (...args: any[]) => void) => {
     const subscription = (_: any, ...args: any[]) => callback(...args)
     ipcRenderer.on(channel, subscription)
@@ -749,7 +706,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
 
-  // Calendar API
+  // Calendar
   calendarConnect: () => ipcRenderer.invoke('calendar-connect'),
   calendarDisconnect: () => ipcRenderer.invoke('calendar-disconnect'),
   getCalendarStatus: () => ipcRenderer.invoke('get-calendar-status'),
@@ -810,7 +767,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ragIsMeetingProcessed: (meetingId: string) => ipcRenderer.invoke('rag:is-meeting-processed', meetingId),
   ragGetQueueStatus: () => ipcRenderer.invoke('rag:get-queue-status'),
   ragRetryEmbeddings: () => ipcRenderer.invoke('rag:retry-embeddings'),
-
   onRAGStreamChunk: (callback: (data: { meetingId?: string; global?: boolean; chunk: string }) => void) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('rag:stream-chunk', subscription)
@@ -836,4 +792,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Remote Display
   getRemoteDisplayUrl: () => ipcRenderer.invoke("get-remote-display-url"),
   restartRemoteServer: () => ipcRenderer.invoke("restart-remote-server"),
+  getRemoteDisplayPin: () => ipcRenderer.invoke("get-remote-display-pin"),
+  setRemoteDisplayPin: (pin: string) => ipcRenderer.invoke("set-remote-display-pin", pin),
+  getRemoteDisplayPort: () => ipcRenderer.invoke("get-remote-display-port"),
+  setRemoteDisplayPort: (port: number) => ipcRenderer.invoke("set-remote-display-port", port),
+
+  // Telemetry
+  getTelemetrySettings: () => ipcRenderer.invoke("get-telemetry-settings"),
+  setTelemetrySettings: (enabled: boolean) => ipcRenderer.invoke("set-telemetry-settings", enabled),
+  onTelemetrySettingsChanged: (callback: (settings: { enabled: boolean }) => void) => {
+    const subscription = (_: any, settings: { enabled: boolean }) => callback(settings)
+    ipcRenderer.on("telemetry-settings-changed", subscription)
+    return () => {
+      ipcRenderer.removeListener("telemetry-settings-changed", subscription)
+    }
+  },
 })

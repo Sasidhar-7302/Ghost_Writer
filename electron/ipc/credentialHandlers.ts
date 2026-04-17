@@ -657,4 +657,25 @@ export function registerCredentialHandlers(appState: AppState): void {
       return { success: false, error: error.message };
     }
   });
+
+  ipcMain.handle("get-remote-display-port", async () => {
+    try {
+      const { CredentialsManager } = require("../services/CredentialsManager");
+      return CredentialsManager.getInstance().getRemoteDisplayPort();
+    } catch (error: any) {
+      console.error("Error getting remote display port:", error);
+      return 4004;
+    }
+  });
+
+  ipcMain.handle("set-remote-display-port", async (_, port: number) => {
+    try {
+      const { CredentialsManager } = require("../services/CredentialsManager");
+      CredentialsManager.getInstance().setRemoteDisplayPort(port);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting remote display port:", error);
+      return { success: false, error: error.message };
+    }
+  });
 }

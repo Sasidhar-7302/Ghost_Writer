@@ -71,6 +71,7 @@ export interface StoredCredentials {
     modelPreference?: string;
     openrouterApiKey?: string;
     remoteDisplayPin?: string;
+    remoteDisplayPort?: number;
 }
 
 export class CredentialsManager {
@@ -141,6 +142,10 @@ export class CredentialsManager {
 
     public getRemoteDisplayPin(): string {
         return this.credentials.remoteDisplayPin || '0000';
+    }
+
+    public getRemoteDisplayPort(): number {
+        return this.credentials.remoteDisplayPort || 4004;
     }
 
     public getResumePath(): string | undefined {
@@ -307,13 +312,13 @@ export class CredentialsManager {
     public setOllamaModel(model: string): void {
         this.credentials.ollamaModel = model;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Ollama model set to: \${model}`);
+        console.log(`[CredentialsManager] Ollama model set to: ${model}`);
     }
 
     public setModelPreference(modelId: string): void {
         this.credentials.modelPreference = modelId;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Model preference set to: \${modelId}`);
+        console.log(`[CredentialsManager] Model preference set to: ${modelId}`);
     }
 
     public setOpenrouterApiKey(key: string): void {
@@ -326,6 +331,12 @@ export class CredentialsManager {
         this.credentials.remoteDisplayPin = pin;
         this.saveCredentials();
         console.log('[CredentialsManager] Remote Display PIN updated');
+    }
+
+    public setRemoteDisplayPort(port: number): void {
+        this.credentials.remoteDisplayPort = port;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Remote Display Port updated to: ${port}`);
     }
 
     public setResumePath(filePath: string): void {
@@ -353,13 +364,13 @@ export class CredentialsManager {
     public setIsMeetingMode(isMeeting: boolean): void {
         this.credentials.isMeetingMode = isMeeting;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Meeting Mode set to: \${isMeeting}`);
+        console.log(`[CredentialsManager] Meeting Mode set to: ${isMeeting}`);
     }
 
     public setTelemetryEnabled(enabled: boolean): void {
         this.credentials.telemetryEnabled = enabled;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Telemetry enabled set to: \${enabled}`);
+        console.log(`[CredentialsManager] Telemetry enabled set to: ${enabled}`);
     }
 
     public clearResume(): void {
@@ -383,7 +394,7 @@ export class CredentialsManager {
     public setSttProvider(provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper'): void {
         this.credentials.sttProvider = provider;
         this.saveCredentials();
-        console.log(`[CredentialsManager] STT Provider set to: \${provider}`);
+        console.log(`[CredentialsManager] STT Provider set to: ${provider}`);
     }
 
     public setDeepgramApiKey(key: string): void {
@@ -407,7 +418,7 @@ export class CredentialsManager {
     public setGroqSttModel(model: string): void {
         this.credentials.groqSttModel = model;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Groq STT Model set to: \${model}`);
+        console.log(`[CredentialsManager] Groq STT Model set to: ${model}`);
     }
 
     public setElevenLabsApiKey(key: string): void {
@@ -425,7 +436,7 @@ export class CredentialsManager {
     public setAzureRegion(region: string): void {
         this.credentials.azureRegion = region;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Azure Region set to: \${region}`);
+        console.log(`[CredentialsManager] Azure Region set to: ${region}`);
     }
 
     public setIbmWatsonApiKey(key: string): void {
@@ -437,19 +448,19 @@ export class CredentialsManager {
     public setIbmWatsonRegion(region: string): void {
         this.credentials.ibmWatsonRegion = region;
         this.saveCredentials();
-        console.log(`[CredentialsManager] IBM Watson Region set to: \${region}`);
+        console.log(`[CredentialsManager] IBM Watson Region set to: ${region}`);
     }
 
     public setLocalWhisperBinaryPath(path: string): void {
         this.credentials.localWhisperBinaryPath = path;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Local Whisper Binary Path set to: \${path}`);
+        console.log(`[CredentialsManager] Local Whisper Binary Path set to: ${path}`);
     }
 
     public setLocalWhisperModelPath(path: string): void {
         this.credentials.localWhisperModelPath = path;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Local Whisper Model Path set to: \${path}`);
+        console.log(`[CredentialsManager] Local Whisper Model Path set to: ${path}`);
     }
 
     public getLocalWhisperModel(): string {
@@ -462,13 +473,13 @@ export class CredentialsManager {
         }
         this.credentials.localWhisperModel = model;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Local Whisper Model set to: \${model}`);
+        console.log(`[CredentialsManager] Local Whisper Model set to: ${model}`);
     }
 
     public setAirGapMode(enabled: boolean): void {
         this.credentials.airGapMode = enabled;
         this.saveCredentials();
-        console.log(`[CredentialsManager] Full Privacy Mode set to: \${enabled} (STT: \${this.credentials.sttProvider})`);
+        console.log(`[CredentialsManager] Full Privacy Mode set to: ${enabled} (STT: ${this.credentials.sttProvider})`);
 
         const { BrowserWindow } = require('electron');
         BrowserWindow.getAllWindows().forEach((win: any) => {
@@ -507,7 +518,7 @@ export class CredentialsManager {
     public setLicenseStatus(status: 'beta' | 'trial' | 'paid' | 'expired'): void {
         this.credentials.licenseStatus = status;
         this.saveCredentials();
-        console.log(`[CredentialsManager] License status set to: \${status}`);
+        console.log(`[CredentialsManager] License status set to: ${status}`);
     }
 
     public setBetaRegisteredAt(date: string): void {
@@ -547,14 +558,14 @@ export class CredentialsManager {
             this.credentials.customProviders.push(provider);
         }
         this.saveCredentials();
-        console.log(`[CredentialsManager] Custom Provider '\${provider.name}' saved`);
+        console.log(`[CredentialsManager] Custom Provider '${provider.name}' saved`);
     }
 
     public deleteCustomProvider(id: string): void {
         if (!this.credentials.customProviders) return;
         this.credentials.customProviders = this.credentials.customProviders.filter(p => p.id !== id);
         this.saveCredentials();
-        console.log(`[CredentialsManager] Custom Provider '\${id}' deleted`);
+        console.log(`[CredentialsManager] Custom Provider '${id}' deleted`);
     }
 
     public clearAll(): void {
@@ -600,8 +611,8 @@ export class CredentialsManager {
                 const decrypted = safeStorage.decryptString(encrypted);
                 this.credentials = JSON.parse(decrypted);
                 this.migrateCredentials();
-                console.log(`[CredentialsManager] Model preference loaded: \${this.credentials.modelPreference || 'none'}`);
-                console.log(`[CredentialsManager] Ollama model loaded: \${this.credentials.ollamaModel || 'none'}`);
+                console.log(`[CredentialsManager] Model preference loaded: ${this.credentials.modelPreference || 'none'}`);
+                console.log(`[CredentialsManager] Ollama model loaded: ${this.credentials.ollamaModel || 'none'}`);
                 log.info('Loaded encrypted credentials');
                 return;
             }

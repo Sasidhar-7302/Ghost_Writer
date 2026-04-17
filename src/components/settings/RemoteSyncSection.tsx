@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 export const RemoteSyncSection: React.FC = () => {
     const [url, setUrl] = useState<string>('');
     const [pin, setPin] = useState<string>('0000');
+    const [port, setPort] = useState<number>(4004);
     const [isLoading, setIsLoading] = useState(true);
     const [isRestarting, setIsRestarting] = useState(false);
     const [copied, setCopied] = useState(false);
     const [isSavingPin, setIsSavingPin] = useState(false);
+    const [isSavingPort, setIsSavingPort] = useState(false);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -20,6 +22,10 @@ export const RemoteSyncSection: React.FC = () => {
             if (window.electronAPI?.getRemoteDisplayPin) {
                 const savedPin = await window.electronAPI.getRemoteDisplayPin();
                 setPin(savedPin);
+            }
+            if (window.electronAPI?.getRemoteDisplayPort) {
+                const savedPort = await window.electronAPI.getRemoteDisplayPort();
+                setPort(savedPort);
             }
         } catch (error) {
             console.error('Failed to load remote display data:', error);
@@ -58,6 +64,25 @@ export const RemoteSyncSection: React.FC = () => {
                 console.error('Failed to save PIN:', error);
             } finally {
                 setTimeout(() => setIsSavingPin(false), 500);
+            }
+        }
+    };
+
+    const handleSavePort = async (newPort: string) => {
+        const portNum = parseInt(newPort);
+        if (isNaN(portNum)) return;
+        setPort(portNum);
+        
+        if (portNum >= 1024 && portNum <= 65535) {
+            setIsSavingPort(true);
+            try {
+                if (window.electronAPI?.setRemoteDisplayPort) {
+                    await window.electronAPI.setRemoteDisplayPort(portNum);
+                }
+            } catch (error) {
+                console.error('Failed to save Port:', error);
+            } finally {
+                setTimeout(() => setIsSavingPort(false), 500);
             }
         }
     };
@@ -127,26 +152,42 @@ export const RemoteSyncSection: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest flex items-center gap-2">
-                                Remote Access PIN
-                                {isSavingPin && <Smartphone size={10} className="animate-pulse text-accent-primary" />}
-                            </label>
-                            <div className="relative group/pin">
-                                <input
-                                    type="text"
-                                    maxLength={4}
-                                    value={pin}
-                                    onChange={(e) => handleSavePin(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full bg-bg-input border border-border-subtle rounded-xl px-4 py-3 text-sm font-mono tracking-[0.5em] text-accent-primary focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none transition-all"
-                                    placeholder="0000"
-                                />
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-text-tertiary group-focus-within/pin:text-accent-primary transition-colors">
-                                    4 DIGITS
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest flex items-center gap-2">
+                                    Access PIN
+                                    {isSavingPin && <Smartphone size={10} className="animate-pulse text-accent-primary" />}
+                                </label>
+                                <div className="relative group/pin">
+                                    <input
+                                        type="text"
+                                        maxLength={4}
+                                        value={pin}
+                                        onChange={(e) => handleSavePin(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full bg-bg-input border border-border-subtle rounded-xl px-4 py-3 text-sm font-mono tracking-[0.2em] text-accent-primary focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none transition-all"
+                                        placeholder="0000"
+                                    />
                                 </div>
                             </div>
-                            <p className="text-[9px] text-text-tertiary italic">Mandatory code to unlock the mobile viewer session.</p>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest flex items-center gap-2">
+                                    Server Port
+                                    {isSavingPort && <RefreshCw size={10} className="animate-spin text-accent-primary" />}
+                                </label>
+                                <div className="relative group/port">
+                                    <input
+                                        type="text"
+                                        maxLength={5}
+                                        value={port.toString()}
+                                        onChange={(e) => handleSavePort(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full bg-bg-input border border-border-subtle rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none transition-all"
+                                        placeholder="4004"
+                                    />
+                                </div>
+                            </div>
                         </div>
+                        <p className="text-[9px] text-text-tertiary italic">Custom PIN and Port for secure mobile display synchronization.</p>
 
                         <div className="flex flex-col gap-3">
                             <button
