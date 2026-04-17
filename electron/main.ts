@@ -1393,29 +1393,29 @@ export class AppState {
     const defaultIconPath = process.platform === 'win32'
       ? (app.isPackaged
         ? path.join(process.resourcesPath, "assets/icons/win/icon.ico")
-        : path.resolve(__dirname, "../assets/icons/win/icon.ico"))
+        : path.resolve(__dirname, "../../assets/icons/win/icon.ico"))
       : (app.isPackaged
         ? path.join(process.resourcesPath, "assets/icons/mac/icon.png")
-        : path.resolve(__dirname, "../assets/icons/mac/icon.png"));
+        : path.resolve(__dirname, "../../assets/icons/mac/icon.png"));
 
     switch (mode) {
       case 'terminal':
         appName = "Terminal ";
         iconPath = app.isPackaged
           ? path.join(process.resourcesPath, "assets/fakeicon/terminal.png")
-          : path.resolve(__dirname, "../assets/fakeicon/terminal.png");
+          : path.resolve(__dirname, "../../assets/fakeicon/terminal.png");
         break;
       case 'settings':
         appName = "System Settings ";
         iconPath = app.isPackaged
           ? path.join(process.resourcesPath, "assets/fakeicon/settings.png")
-          : path.resolve(__dirname, "../assets/fakeicon/settings.png");
+          : path.resolve(__dirname, "../../assets/fakeicon/settings.png");
         break;
       case 'activity':
         appName = "Activity Monitor ";
         iconPath = app.isPackaged
           ? path.join(process.resourcesPath, "assets/fakeicon/activity.png")
-          : path.resolve(__dirname, "../assets/fakeicon/activity.png");
+          : path.resolve(__dirname, "../../assets/fakeicon/activity.png");
         break;
       case 'none':
         appName = "Ghost Writer";

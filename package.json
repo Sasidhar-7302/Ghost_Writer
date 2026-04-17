@@ -1,6 +1,6 @@
 {
   "name": "ghost-writer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "./dist-electron/electron/main.js",
   "description": "Desktop beta for high-fidelity meeting and interview assistance",
   "scripts": {
@@ -122,7 +122,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "ghostwriter",
+        "owner": "Sasidhar-7302",
         "repo": "Ghost_Writer",
         "releaseType": "release"
       }

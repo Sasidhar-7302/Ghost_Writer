@@ -138,8 +138,8 @@ export class WindowHelper {
       movable: true,
       center: true,
       icon: isMac
-        ? (!isDev ? path.join(process.resourcesPath, "assets/icons/mac/icon.icns") : path.resolve(__dirname, "../assets/icons/mac/icon.icns"))
-        : (!isDev ? path.join(process.resourcesPath, "assets/icons/win/icon.ico") : path.resolve(__dirname, "../assets/icons/win/icon.ico"))
+        ? (!isDev ? path.join(process.resourcesPath, "assets/icons/mac/icon.icns") : path.resolve(__dirname, "../../assets/icons/mac/icon.icns"))
+        : (!isDev ? path.join(process.resourcesPath, "assets/icons/win/icon.ico") : path.resolve(__dirname, "../../assets/icons/win/icon.ico"))
     }
 
     try {

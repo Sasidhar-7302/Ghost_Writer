@@ -42,4 +42,4 @@ Telemetry is intended for launch-quality monitoring and does not, by itself, ena
 
 ## Support
 
-Questions and issues: [GitHub Issues](https://github.com/chintuai2026/Ghost_Writer/issues)
+Questions and issues: [GitHub Issues](https://github.com/Sasidhar-7302/Ghost_Writer/issues)

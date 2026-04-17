@@ -66,4 +66,4 @@ Full Privacy Mode requires:
 ## Logs and support
 
 - Use the app’s support and troubleshooting surfaces first.
-- File issues at [GitHub Issues](https://github.com/chintuai2026/Ghost_Writer/issues).
+- File issues at [GitHub Issues](https://github.com/Sasidhar-7302/Ghost_Writer/issues).
