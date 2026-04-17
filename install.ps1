@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$RepoOwner = "chintuai2026"
+$RepoOwner = "Sasidhar-7302"
 $RepoName = "Ghost_Writer"
 $ManifestUrl = "https://github.com/$RepoOwner/$RepoName/releases/latest/download/release-manifest.json"
 $ExpectedExeName = "Ghost.Writer.Setup.exe"

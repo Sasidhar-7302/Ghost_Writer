@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ArrowRight, ArrowLeft, Mic, Brain, Sparkles, Monitor, Activity, ShieldCheck, Loader2, Globe, Command, Cpu, Terminal, Zap } from 'lucide-react';
+import { Check, ArrowRight, ArrowLeft, Mic, Brain, Sparkles, Monitor, Activity, ShieldCheck, Loader2, Globe, Command } from 'lucide-react';
 import {
     SetupWizardFullPrivacyStatus,
     SetupWizardGpuStatus,
@@ -58,28 +58,28 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         {
             id: 'welcome',
             title: 'Welcome',
-            description: 'Initiating your AI companion.',
+            description: 'Your discrete AI companion for meetings and interviews.',
             icon: <Sparkles className="w-6 h-6" />,
             required: true
         },
         {
             id: 'profile',
-            title: 'Identity',
-            description: 'Define your professional presence.',
-            icon: <Globe className="w-6 h-6" />,
+            title: 'Profile',
+            description: 'Save your name and a few reusable details for future personalization.',
+            icon: <Sparkles className="w-6 h-6" />,
             required: true
         },
         {
             id: 'diagnosis',
-            title: 'System Analysis',
-            description: 'Scanning hardware for peak performance.',
+            title: 'Diagnosis & Setup',
+            description: 'Optimizing and downloading models for your hardware.',
             icon: <Monitor className="w-6 h-6" />,
             required: true
         },
         {
             id: 'ready',
-            title: 'Deployment',
-            description: 'Ghost Writer is standing by.',
+            title: 'Ready',
+            description: 'Everything is set. Ghost Writer is now active.',
             icon: <Check className="w-6 h-6" />,
             required: true
         }
@@ -129,6 +129,19 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         let whisper = whisperResult.status === 'fulfilled' ? whisperResult.value : fallbackWhisperStatus;
         const fullPrivacy = fullPrivacyResult.status === 'fulfilled' ? fullPrivacyResult.value : fallbackFullPrivacyStatus;
 
+        if (gpuResult.status === 'rejected') {
+            console.error('GPU diagnosis failed:', gpuResult.reason);
+        }
+        if (ollamaResult.status === 'rejected') {
+            console.error('Ollama diagnosis failed:', ollamaResult.reason);
+        }
+        if (whisperResult.status === 'rejected') {
+            console.error('Whisper diagnosis failed:', whisperResult.reason);
+        }
+        if (fullPrivacyResult.status === 'rejected') {
+            console.error('Full Privacy diagnosis failed:', fullPrivacyResult.reason);
+        }
+
         const recommended = getRecommendedWhisperModel(gpu?.info?.vramGB, whisper.selectedModel);
         if (recommended !== whisper.selectedModel) {
             try {
@@ -173,11 +186,8 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         let pollInterval: NodeJS.Timeout;
 
         if (currentStep === 2) {
-            const runScan = async () => {
-                await performDiagnosis();
-                // Minimal delay to show the diagnostic terminal loading
-                await new Promise(r => setTimeout(r, 1000));
-
+            performDiagnosis().then(() => {
+                // Keep diagnosis current while the user is on this step.
                 pollInterval = setInterval(async () => {
                     const [ollamaResult, whisperResult, fullPrivacyResult] = await Promise.allSettled([
                         window.electronAPI.checkOllamaStatus(),
@@ -197,14 +207,13 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                             clearInterval(pollInterval);
                             setTimeout(() => {
                                 setCurrentStep(3);
-                            }, 1200);
+                            }, 1500);
                         }
 
                         return nextState;
                     });
                 }, 2000);
-            };
-            runScan();
+            });
         }
 
         return () => {
@@ -216,7 +225,7 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         if (currentStep === 1) {
             const fullName = profile.fullName.trim();
             if (!fullName) {
-                setProfileError('Identification required.');
+                setProfileError('Full name is required.');
                 return;
             }
 
@@ -233,12 +242,12 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                 });
 
                 if (!result.success) {
-                    setProfileError(result.error || 'Identity uplink failed.');
+                    setProfileError(result.error || 'Failed to save your profile.');
                     return;
                 }
             } catch (error) {
                 console.error('Failed to save onboarding profile:', error);
-                setProfileError('System error during profile sync.');
+                setProfileError('Failed to save your profile.');
                 return;
             } finally {
                 setSavingProfile(false);
@@ -291,97 +300,82 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
         }
     };
 
-    const DiagnosticTerminal = () => {
-        const lines = [
-            { id: 'gpu', label: 'HARDWARE ACCEL', value: systemInfo.gpu?.success ? (systemInfo.gpu.info?.name || 'GENERIC GPU') : 'SOFTWARE MODE', status: systemInfo.gpu ? (systemInfo.gpu.success ? 'success' : 'error') : 'loading' },
-            { id: 'vram', label: 'MEMORY UPLINK', value: systemInfo.gpu?.success && typeof systemInfo.gpu.info?.vramGB === 'number' ? `${systemInfo.gpu.info.vramGB}GB VRAM` : 'SYNCING...', status: systemInfo.gpu ? (systemInfo.gpu.success ? 'success' : 'warning') : 'loading' },
-            { id: 'ollama', label: 'LOCAL KNOWLEDGE', value: systemInfo.ollama?.running ? 'OLLAMA ACTIVE' : 'ENGINE COLD', status: systemInfo.ollama ? (systemInfo.ollama.running ? 'success' : 'warning') : 'loading' },
-            { id: 'whisper', label: 'STT PIPELINE', value: systemInfo.whisper?.hasOperationalServer ? 'SERVER READY' : (systemInfo.whisper?.hasBinary ? 'BINARY DETECTED' : 'INITIALIZING...'), status: systemInfo.whisper ? (systemInfo.whisper.hasOperationalServer ? 'success' : 'warning') : 'loading' },
-        ];
+    const renderDiagnosisCard = (title: string, icon: React.ReactNode, status: 'loading' | 'success' | 'warning' | 'error', details: string, sub?: string) => {
+        const statusColors = {
+            loading: 'text-white/70',
+            success: 'text-white',
+            warning: 'text-orange-400',
+            error: 'text-red-400'
+        };
 
         return (
-            <div className="w-full max-w-sm mx-auto space-y-4 font-mono text-xs">
-                <div className="flex items-center gap-2 mb-6 text-white/30 px-2 uppercase tracking-[0.3em]">
-                    <Terminal className="w-3 h-3" />
-                    <span>System Diagnostic</span>
-                </div>
-                
-                <div className="space-y-3 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-md relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                        <Zap className="w-12 h-12" />
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-white/20 hover:bg-white/10">
+                <div className="flex items-start gap-4">
+                <div className="mt-1 text-[var(--accent-primary)]">{icon}</div>
+                <div className="flex-1 min-w-0 text-left text-sm">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-white/40 uppercase tracking-widest text-xs">{title}</span>
+                        {status === 'loading' && <Loader2 className="w-4 h-4 animate-spin text-white/40" />}
+                        {status === 'success' && <ShieldCheck className="w-4 h-4 text-[var(--accent-primary)]" />}
                     </div>
-                    
-                    {lines.map((line, i) => (
-                        <div key={line.id} className="flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                                <span className="text-white/40">{line.label}</span>
-                                {line.status === 'loading' && <Loader2 className="w-3 h-3 animate-spin text-white/30" />}
-                                {line.status === 'success' && <ShieldCheck className="w-3 h-3 text-[var(--accent-primary)] shadow-[0_0_8px_var(--accent-primary)]" />}
-                                {line.status === 'warning' && <Activity className="w-3 h-3 text-orange-400" />}
-                                {line.status === 'error' && <Zap className="w-3 h-3 text-red-500" />}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <motion.div 
-                                    className={`h-1 rounded-full ${line.status === 'success' ? 'bg-[var(--accent-primary)]' : line.status === 'loading' ? 'bg-white/10' : 'bg-orange-500/50'}`} 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: line.status === 'success' ? '100%' : '30%' }}
-                                    transition={{ duration: 0.8, delay: i * 0.1 }}
-                                />
-                            </div>
-                            <span className={`text-[10px] ${line.status === 'success' ? 'text-white' : 'text-white/30'}`}>{line.value}</span>
-                        </div>
-                    ))}
-
-                    <div className="mt-6 pt-4 border-t border-white/5 space-y-1">
-                        <div className="flex gap-2 text-white/20">
-                            <span>></span>
-                            <span className="animate-pulse">_</span>
-                        </div>
-                    </div>
+                    <p className={`font-medium ${statusColors[status]}`}>{details}</p>
+                    {sub && <p className="text-white/40 mt-0.5">{sub}</p>}
                 </div>
-
-                <div className="px-2 text-[10px] text-white/30 leading-relaxed text-center italic">
-                    Ghost Writer is optimizing your local experience based on detected hardware tiers.
                 </div>
             </div>
         );
     };
 
     const renderStepContent = () => {
+        const diagnosisComplete = hasCompletedDiagnosis(systemInfo);
+        const fullPrivacyBlocking = isBlockedByFullPrivacy(systemInfo);
+        const whisperReady = !!(systemInfo.whisper && (systemInfo.whisper.hasOperationalServer ?? systemInfo.whisper.hasBinary));
+        const gpuName = systemInfo.gpu?.info?.name || 'Analyzing hardware...';
+        const gpuVram = systemInfo.gpu?.info?.vramGB;
+
         switch (currentStep) {
             case 0:
                 return (
-                    <div className="text-center py-4 relative">
-                        <div className="relative mx-auto mb-10 h-24 w-24">
-                            <motion.div 
-                                animate={{ rotate: 360 }}
-                                transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-                                className="absolute inset-[-12px] border-t-2 border-r-2 border-white/5 rounded-full"
-                            />
-                            <motion.div 
-                                animate={{ rotate: -360 }}
-                                transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
-                                className="absolute inset-[-6px] border-b-2 border-l-2 border-[var(--accent-primary)]/10 rounded-full"
-                            />
-                            <div className="relative flex h-full w-full items-center justify-center rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.15),rgba(18,18,26,0.95))] shadow-[0_32px_80px_-20px_rgba(56,189,248,0.4)]">
-                                <Sparkles className="w-10 h-10 text-[var(--accent-primary)]" />
+                    <div className="text-center py-4">
+                        <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.22),rgba(18,18,26,0.92))] shadow-[0_24px_60px_-24px_rgba(56,189,248,0.55)]">
+                            <Sparkles className="w-10 h-10 text-[var(--accent-primary)]" />
+                        </div>
+                        <h2 className="mb-4 text-4xl font-light tracking-tight text-white italic">Ghost Writer</h2>
+                        <p className="text-base text-white/70 max-w-sm mx-auto leading-relaxed mb-12">
+                            High-fidelity meeting and interview assistance with the same visual system as the core app.
+                            Private by default, fast in live conversations, and tuned for screenshot-aware answers.
+                        </p>
+                        <div className="mx-auto grid max-w-lg grid-cols-3 gap-6 border-t border-white/10 pt-10 opacity-90">
+                            <div className="space-y-3">
+                                <Activity className="mx-auto h-6 w-6 text-[var(--accent-primary)]" />
+                                <span className="block text-xs font-medium uppercase tracking-wider text-white/40">Live Detection</span>
+                            </div>
+                            <div className="space-y-3">
+                                <ShieldCheck className="mx-auto h-6 w-6 text-[var(--accent-primary)]" />
+                                <span className="block text-xs font-medium uppercase tracking-wider text-white/40">Zero-Cloud Option</span>
+                            </div>
+                            <div className="space-y-3">
+                                <Globe className="mx-auto h-6 w-6 text-[var(--accent-primary)]" />
+                                <span className="block text-xs font-medium uppercase tracking-wider text-white/40">Context Aware</span>
                             </div>
                         </div>
-                        
-                        <h2 className="mb-2 text-4xl font-light tracking-[-0.05em] text-white">Ghost Writer</h2>
-                        <div className="inline-block px-3 py-1 mb-8 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-[0.4em] font-bold text-white/50">
-                            Initiate Sequence
-                        </div>
-                        
-                        <p className="text-base text-white/70 max-w-sm mx-auto leading-relaxed mb-12 font-light">
-                            High-fidelity meeting and interview assistance. 
-                            Discrete by design. Powered by your local hardware.
-                        </p>
-
-                        <div className="flex items-center justify-center gap-12 opacity-40">
-                            <ShieldCheck className="w-5 h-5" />
-                            <Cpu className="w-5 h-5" />
-                            <Brain className="w-5 h-5" />
+                        <div className="mx-auto mt-10 max-w-md rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-sm text-white/70">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <div className="font-semibold text-white">Optional telemetry</div>
+                                    <p className="mt-1 text-xs text-white/50">
+                                        Anonymous usage metadata helps measure install health and model latency. Disabled by default.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleTelemetryToggle}
+                                    className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${telemetryEnabled ? 'bg-[var(--accent-primary)]' : 'bg-white/15'}`}
+                                    role="switch"
+                                    aria-checked={telemetryEnabled}
+                                >
+                                    <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 ${telemetryEnabled ? 'translate-x-2' : '-translate-x-2'}`} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 );
@@ -389,63 +383,83 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             case 1:
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <div className="text-center space-y-2">
-                            <h2 className="text-2xl font-light text-white tracking-tight">Identity Uplink</h2>
-                            <p className="text-xs text-white/40 uppercase tracking-[0.2em] font-bold">Local Encryption Active</p>
+                        <div className="text-center space-y-3">
+                            <h2 className="text-3xl font-light tracking-tight text-white">Set up your profile</h2>
+                            <p className="text-sm text-white/60 max-w-md mx-auto leading-relaxed">
+                                Your name is required. The other fields are optional and stay local in the Ghost Writer database for future personalization.
+                            </p>
                         </div>
 
-                        <div className="space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <label className="space-y-1.5 md:col-span-2 group">
-                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 group-focus-within:text-[var(--accent-primary)] transition-colors">Full name</span>
-                                    <input
-                                        type="text"
-                                        value={profile.fullName}
-                                        onChange={(e) => updateProfileField('fullName', e.target.value)}
-                                        placeholder="James Howlett"
-                                        className="w-full rounded-2xl border border-white/5 bg-white/2 px-5 py-3.5 text-sm text-white placeholder:text-white/10 outline-none transition-all focus:border-[var(--accent-primary)]/50 focus:bg-white/5"
-                                    />
-                                </label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label className="space-y-2 md:col-span-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Full name</span>
+                                <input
+                                    type="text"
+                                    value={profile.fullName}
+                                    onChange={(e) => updateProfileField('fullName', e.target.value)}
+                                    placeholder="Your Full Name"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
 
-                                <label className="space-y-1.5">
-                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 group-focus-within:text-[var(--accent-primary)] transition-colors">Preferred name</span>
-                                    <input
-                                        type="text"
-                                        value={profile.preferredName}
-                                        onChange={(e) => updateProfileField('preferredName', e.target.value)}
-                                        placeholder="Logan"
-                                        className="w-full rounded-2xl border border-white/5 bg-white/2 px-5 py-3.5 text-sm text-white placeholder:text-white/10 outline-none transition-all focus:border-[var(--accent-primary)]/50 focus:bg-white/5"
-                                    />
-                                </label>
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Preferred name</span>
+                                <input
+                                    type="text"
+                                    value={profile.preferredName}
+                                    onChange={(e) => updateProfileField('preferredName', e.target.value)}
+                                    placeholder="Your Nickname"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
 
-                                <label className="space-y-1.5">
-                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 group-focus-within:text-[var(--accent-primary)] transition-colors">Target role</span>
-                                    <input
-                                        type="text"
-                                        value={profile.targetRole}
-                                        onChange={(e) => updateProfileField('targetRole', e.target.value)}
-                                        placeholder="Staff Architect"
-                                        className="w-full rounded-2xl border border-white/5 bg-white/2 px-5 py-3.5 text-sm text-white placeholder:text-white/10 outline-none transition-all focus:border-[var(--accent-primary)]/50 focus:bg-white/5"
-                                    />
-                                </label>
-                            </div>
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Email</span>
+                                <input
+                                    type="email"
+                                    value={profile.email}
+                                    onChange={(e) => updateProfileField('email', e.target.value)}
+                                    placeholder="you@example.com"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
 
-                            <div className="rounded-2xl border border-white/5 bg-white/2 p-4 flex items-center justify-between group transition-colors hover:bg-white/5">
-                                <div className="space-y-0.5">
-                                    <div className="text-xs font-bold text-white/70 group-hover:text-white transition-colors">TELEMETRY UPLINK</div>
-                                    <p className="text-[10px] text-white/30 italic">Anonymous usage diagnostics (Opt-in)</p>
-                                </div>
-                                <button
-                                    onClick={handleTelemetryToggle}
-                                    className={`relative inline-flex h-5 w-10 shrink-0 items-center rounded-full transition-all duration-300 ${telemetryEnabled ? 'bg-[var(--accent-primary)] shadow-[0_0_12px_var(--accent-primary)]' : 'bg-white/10'}`}
-                                >
-                                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-all duration-300 transform ${telemetryEnabled ? 'translate-x-5.5' : 'translate-x-1'}`} />
-                                </button>
-                            </div>
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Current role</span>
+                                <input
+                                    type="text"
+                                    value={profile.currentRole}
+                                    onChange={(e) => updateProfileField('currentRole', e.target.value)}
+                                    placeholder="Senior ML Engineer"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Company</span>
+                                <input
+                                    type="text"
+                                    value={profile.company}
+                                    onChange={(e) => updateProfileField('company', e.target.value)}
+                                    placeholder="Example AI"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
+
+                            <label className="space-y-2 md:col-span-2">
+                                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Target role</span>
+                                <input
+                                    type="text"
+                                    value={profile.targetRole}
+                                    onChange={(e) => updateProfileField('targetRole', e.target.value)}
+                                    placeholder="Staff Engineer / Founding Engineer"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors focus:border-[var(--accent-primary)]"
+                                />
+                            </label>
                         </div>
 
                         {profileError && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-[10px] text-red-300 uppercase tracking-widest text-center font-bold">
+                            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                                 {profileError}
                             </div>
                         )}
@@ -455,39 +469,84 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             case 2:
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <DiagnosticTerminal />
+                        <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto pt-4">
+                            {renderDiagnosisCard(
+                                'GPU Bridge',
+                                <Monitor className="w-4 h-4" />,
+                                systemInfo.gpu ? (systemInfo.gpu.success ? 'success' : 'error') : 'loading',
+                                systemInfo.gpu?.success ? gpuName : (systemInfo.gpu?.error || 'Analyzing hardware...'),
+                                systemInfo.gpu?.success && typeof gpuVram === 'number' ? `${gpuVram}GB VRAM available` : undefined
+                            )}
+                            {renderDiagnosisCard(
+                                'Local LLM',
+                                <Brain className="w-4 h-4" />,
+                                systemInfo.ollama ? (systemInfo.ollama.running ? 'success' : 'warning') : 'loading',
+                                systemInfo.ollama?.running ? 'Ollama Engine active' : 'Ollama not detected',
+                                systemInfo.fullPrivacy?.enabled
+                                    ? (systemInfo.ollama?.running ? `${systemInfo.ollama.models?.length || 0} models found` : 'Required for Full Privacy Mode')
+                                    : (systemInfo.ollama?.running ? `${systemInfo.ollama.models?.length || 0} models found` : 'Optional unless you want a local-only LLM')
+                            )}
+                            {renderDiagnosisCard(
+                                'Transcription',
+                                <Mic className="w-4 h-4" />,
+                                systemInfo.whisper ? (whisperReady && systemInfo.whisper.hasModel ? 'success' : 'warning') : 'loading',
+                                systemInfo.whisper ? (whisperReady ? `Whisper ${systemInfo.whisper.selectedModel} ready` : 'Local Whisper not installed') : 'Initializing STT core...',
+                                systemInfo.fullPrivacy?.enabled
+                                    ? (systemInfo.whisper?.hasModel ? 'Required for offline transcription' : 'Download the local model to stay fully offline')
+                                    : (systemInfo.whisper?.hasModel ? 'Local transcription available' : 'Optional: configure local or cloud STT later')
+                            )}
+                        </div>
+                        <div className={`mx-auto max-w-sm rounded-2xl border px-4 py-3 text-left text-sm ${systemInfo.fullPrivacy?.enabled
+                            ? (fullPrivacyBlocking
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+                                : 'border-teal-500/20 bg-teal-500/10 text-teal-100')
+                            : 'border-white/10 bg-white/5 text-white/70'
+                            }`}>
+                            {!diagnosisComplete ? (
+                                <p>Checking your local runtime options and fallback paths.</p>
+                            ) : systemInfo.fullPrivacy?.enabled ? (
+                                <p>
+                                    {fullPrivacyBlocking
+                                        ? 'Full Privacy Mode is enabled, so Local Whisper and Ollama must be ready before you continue.'
+                                        : 'Full Privacy Mode prerequisites look good. You can continue with a fully local setup.'}
+                                </p>
+                            ) : (
+                                <p>
+                                    Local Whisper, Ollama, and GPU acceleration are optional. You can continue now and configure cloud STT or cloud LLM providers later in Settings.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 );
 
             case 3:
                 return (
-                    <div className="text-center space-y-12 py-6">
-                        <div className="relative w-28 h-28 mx-auto">
+                    <div className="text-center space-y-12 py-10">
+                        <div className="relative w-24 h-24 mx-auto">
                             <motion.div
-                                animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.05, 0.2] }}
-                                transition={{ repeat: Infinity, duration: 4 }}
-                                className="absolute inset-[-20px] rounded-full blur-3xl bg-[var(--accent-primary)]"
+                                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }}
+                                transition={{ repeat: Infinity, duration: 3 }}
+                                className="absolute inset-0 rounded-full blur-2xl"
+                                style={{ backgroundColor: 'rgba(56, 189, 248, 0.2)' }}
                             />
-                            <div className="relative flex h-full w-full items-center justify-center rounded-[2.5rem] border border-white/10 bg-[#0a0a0f] shadow-[0_40px_100px_-30px_rgba(56,189,248,0.6)]">
-                                <Check className="h-12 w-12 text-[var(--accent-primary)]" />
+                            <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-\[#12121a\] shadow-[0_32px_90px_-40px_rgba(56,189,248,0.8)]">
+                                <Check className="h-10 w-10 text-[var(--accent-primary)]" />
                             </div>
                         </div>
-                        
-                        <div className="space-y-3">
-                            <h2 className="text-4xl font-light tracking-tight text-white">System Activated</h2>
-                            <p className="text-sm text-white/50 max-w-sm mx-auto leading-relaxed italic">
-                                Ghost Writer has successfully synchronized with your hardware architecture.
+                        <div className="space-y-4">
+                            <h2 className="text-4xl font-light tracking-tight text-white">Deployment Ready</h2>
+                            <p className="text-base text-white/70 max-w-sm mx-auto leading-relaxed">
+                                Ghost Writer is ready to launch. You can keep using local runtimes or switch to cloud STT and cloud LLM providers later in Settings.
                             </p>
                         </div>
-
-                        <div className="flex justify-center gap-10 font-mono text-[9px] uppercase tracking-[0.3em] text-white/25">
+                        <div className="flex justify-center gap-8 font-mono text-xs uppercase tracking-widest text-white/40 opacity-50">
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                <span>Stealth Ready</span>
+                                <Command className="w-4 h-4" />
+                                <span>Shift + H Toggle</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                <span>Local LLM Ready</span>
+                                <Command className="w-4 h-4" />
+                                <span>Ctrl + B Recap</span>
                             </div>
                         </div>
                     </div>
@@ -499,62 +558,59 @@ const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-2xl flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[200] bg-[var(--overlay-bg)] backdrop-blur-xl flex items-center justify-center p-6">
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 40 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                className={`relative flex w-full max-w-lg flex-col overflow-hidden rounded-[3rem] border border-white/5 bg-[linear-gradient(180deg,rgba(10,10,15,0.98),rgba(2,2,4,0.98))] shadow-[0_40px_160px_-20px_rgba(0,0,0,0.95)] ${navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'pt-8' : ''}`}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`relative flex w-full max-w-xl flex-col overflow-hidden rounded-[2.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,18,26,0.98),rgba(5,5,8,0.98))] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.85)] ${navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'pt-8' : ''}`}
             >
-                {/* Spectral Glow Effect */}
-                <div className="pointer-events-none absolute top-[-50px] left-1/2 -translate-x-1/2 w-full h-[150px] bg-[radial-gradient(ellipse_at_top,rgba(56,189,248,0.1),transparent_70%)] opacity-50" />
+                {/* Subtle Glass Highlight */}
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_45%)]" />
 
-                {/* Vertical Progress Chain */}
-                <div className="absolute right-8 top-12 bottom-12 w-px bg-white/5 flex flex-col justify-between items-center py-2">
-                    {steps.map((_, index) => (
-                        <div 
-                            key={index} 
-                            className={`w-1 h-1 rounded-full transition-all duration-500 ${index <= currentStep ? 'bg-[var(--accent-primary)] shadow-[0_0_8px_var(--accent-primary)]' : 'bg-white/10'}`} 
-                        />
+                {/* Progress Indicators */}
+                <div className="px-10 pt-10 pb-4 flex items-center justify-between gap-2">
+                    {steps.map((step, index) => (
+                        <div key={step.id} className="flex-1 flex flex-col gap-2">
+                            <div className={`h-[2px] rounded-full transition-all duration-700 ${index <= currentStep ? 'h-[3px] bg-[var(--accent-primary)]' : 'bg-border-subtle'}`} />
+                            <span className={`text-xs uppercase tracking-widest font-bold transition-opacity duration-500 ${index === currentStep ? 'opacity-100 text-white' : 'opacity-0'
+                                }`}>{step.title}</span>
+                        </div>
                     ))}
                 </div>
 
                 {/* Main Content Area */}
-                <div className="px-12 py-12 min-h-[480px] flex flex-col justify-center relative">
+                <div className="px-12 py-10 min-h-[440px] flex flex-col justify-center relative">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentStep}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 1.02, y: -10 }}
+                            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                         >
                             {renderStepContent()}
                         </motion.div>
                     </AnimatePresence>
                 </div>
 
-                {/* Professional Footer Controls */}
-                <div className="px-12 pb-12 flex items-center justify-between">
+                {/* Action Footer */}
+                <div className="px-12 pb-12 flex items-center justify-between mt-auto">
                     <button
                         onClick={handleBack}
                         disabled={currentStep === 0}
-                        className="group h-10 px-4 flex items-center gap-2 text-white/20 hover:text-white disabled:opacity-0 transition-all text-[10px] font-bold uppercase tracking-[0.2em]"
+                        className="h-12 px-6 flex items-center gap-2 text-white/40 hover:text-white disabled:opacity-0 transition-all text-sm font-bold uppercase tracking-widest"
                     >
-                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        <ArrowLeft className="w-4 h-4" />
                         Back
                     </button>
 
                     <button
                         onClick={handleNext}
                         disabled={!canProceed() || savingProfile}
-                        className="relative group h-14 min-w-[160px] overflow-hidden rounded-[1.25rem] bg-white text-black transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-20 disabled:scale-100"
+                        className="flex h-14 min-w-[180px] items-center justify-center gap-3 rounded-2xl bg-[var(--accent-primary)] text-black shadow-[0_16px_40px_-18px_rgba(56,189,248,0.85)] transition-all text-sm font-bold uppercase tracking-[0.2em] hover:brightness-110 disabled:bg-bg-input disabled:text-white/40 disabled:shadow-none"
                     >
-                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent,rgba(255,255,255,0.4),transparent)] -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                        <div className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em]">
-                            {savingProfile ? 'Syncing...' : currentStep === steps.length - 1 ? 'Go Active' : 'Proceed'}
-                            {currentStep < steps.length - 1 && <ArrowRight className="w-3.5 h-3.5" />}
-                        </div>
+                        {savingProfile ? 'Saving' : currentStep === steps.length - 1 ? 'Activate' : currentStep === 2 && !systemInfo.fullPrivacy?.enabled ? 'Continue' : 'Next'}
+                        {currentStep < steps.length - 1 && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
                     </button>
                 </div>
             </motion.div>

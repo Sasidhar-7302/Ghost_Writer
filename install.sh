@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_OWNER="chintuai2026"
+REPO_OWNER="Sasidhar-7302"
 REPO_NAME="Ghost_Writer"
 MANIFEST_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download/release-manifest.json"
 APP_NAME="Ghost Writer.app"

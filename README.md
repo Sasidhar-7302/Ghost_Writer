@@ -33,41 +33,24 @@
 - macOS arm64
 - **Mobile Viewer**: Any smartphone on the same Wi-Fi network (via browser)
 
-## Install
+## 🚀 Quick Install (One-Command Setup)
 
-### One-command install
+For the easiest and cleanest setup, run the following command in your terminal. This will automatically download and install the latest stable version of Ghost Writer.
 
-Windows PowerShell:
+> [!TIP]
+> This method is recommended for most users as it handles prerequisite checks and installs the app to a clean, user-local location.
 
+### 🪟 Windows (PowerShell)
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex"
 ```
 
-macOS:
-
+### 🍎 macOS (Terminal)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh | bash
 ```
 
-The scripts download the latest release manifest, verify checksums, and install Ghost Writer into a user-local location. Re-running the same command upgrades an existing install in place.
-
-### 🚀 Quick Start (1-Click Setup)
-
-Run the command below in your terminal to clone, install, and launch Ghost Writer in one go:
-
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/Sasidhar-7302/Ghost_Writer.git; cd Ghost_Writer; npm install; npm start
-```
-
-**macOS / Linux:**
-```bash
-git clone https://github.com/Sasidhar-7302/Ghost_Writer.git && cd Ghost_Writer && npm install && npm start
-```
-
----
-
-### 🛠️ Manual Installation
+### Manual install
 
 1. Download the latest installer from [GitHub Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases).
 2. Verify the published SHA256 checksum from `checksums.txt`.
