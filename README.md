@@ -51,7 +51,23 @@ curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/ins
 
 The scripts download the latest release manifest, verify checksums, and install Ghost Writer into a user-local location. Re-running the same command upgrades an existing install in place.
 
-### Manual install
+### 🚀 Quick Start (1-Click Setup)
+
+Run the command below in your terminal to clone, install, and launch Ghost Writer in one go:
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/Sasidhar-7302/Ghost_Writer.git; cd Ghost_Writer; npm install; npm start
+```
+
+**macOS / Linux:**
+```bash
+git clone https://github.com/Sasidhar-7302/Ghost_Writer.git && cd Ghost_Writer && npm install && npm start
+```
+
+---
+
+### 🛠️ Manual Installation
 
 1. Download the latest installer from [GitHub Releases](https://github.com/Sasidhar-7302/Ghost_Writer/releases).
 2. Verify the published SHA256 checksum from `checksums.txt`.
