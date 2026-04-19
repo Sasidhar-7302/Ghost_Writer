@@ -333,7 +333,15 @@ export function initializeIpcHandlers(appState: AppState): void {
   });
 
   safeIpcHandle("save-user-profile", async (event, profile: any) => {
-    return DatabaseManager.getInstance().saveUserProfile(profile);
+    const result = await DatabaseManager.getInstance().saveUserProfile(profile);
+    
+    // Trigger background sync with cloud now that profile is updated
+    const { LicenseManager } = require('./services/LicenseManager');
+    LicenseManager.getInstance().checkLicense().catch(err => {
+      console.warn('[IPC] Failed to background sync profile to cloud:', err.message);
+    });
+
+    return result;
   });
 
 

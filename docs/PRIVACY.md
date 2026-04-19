@@ -17,17 +17,16 @@ Ghost Writer v1.0.0 ships as a desktop beta with local-first behavior and option
 - Optional telemetry metadata if you enable telemetry in Settings or onboarding
 
 ## Telemetry
-
-Telemetry is disabled by default for v1.0.0.
-
-If enabled, Ghost Writer can send:
-
-- anonymous install activity
-- app heartbeat metadata
-- AI interaction metadata such as provider, model, token counts, and duration
-- business events such as checkout flow attempts
-
-Telemetry is intended for launch-quality monitoring and does not, by itself, enable cloud providers.
+ 
+Telemetry is intended for launch-quality monitoring and enterprise usage metrics. It is disabled by default for v1.0.0, but users may opt-in during onboarding or through Settings.
+ 
+If enabled, Ghost Writer sends:
+ 
+- **Identity Metadata**: Your provided Name and Email are synchronized with the cloud backend to enable personalized support and enterprise license management.
+- **Granular Usage Tracking**: Heartbeats that record the duration of meetings and interviews separately.
+- **AI Analytics**: Interaction metadata such as provider, model, token counts, and processing duration.
+- **Business Events**: Checkout flow attempts and license activation status.
+- **App Health**: Anonymous install activity and application crash reports.
 
 ## Secrets and credentials
 

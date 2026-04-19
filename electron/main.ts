@@ -771,7 +771,8 @@ export class AppState {
     }
 
     // Track meeting start
-    this.analyticsManager.onMeetingStarted();
+    const mode = this.credentialsManager.getIsMeetingMode() ? 'meeting' : 'interview';
+    this.analyticsManager.onMeetingStarted(mode);
 
     // Emit session reset to clear UI state
     this.getWindowHelper().getOverlayWindow()?.webContents.send('session-reset');

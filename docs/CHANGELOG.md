@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
-## [1.0.0] - 2026-03-09
+## [1.0.0] - 2026-04-18
 
 ### First Official Release
 
@@ -16,8 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Guided onboarding, demo meeting seeding, and persistent meeting history
 - Packaged Windows installer and Apple Silicon macOS `.dmg` release flow
 
-#### Hardened
-- Packaged app data now uses the correct `Ghost Writer` user-data directory with legacy migration support
-- Release builds now produce a clean `artifacts/` folder for final installer outputs
-- Demo meeting seeding and onboarding recovery actions were aligned for packaged builds
-- Versioning and release download paths were normalized for the first official `1.0.0` release
+#### Hardened (Enterprise Ready)
+- **Granular Usage Tracking**: Implemented mode-aware heartbeats to track "Meeting Minutes" vs. "Interview Minutes" separately in the cloud analytics dashboard.
+- **User Identity Synchronization**: Integrated Name/Email profile syncing to Supabase for improved enterprise metrics and user support.
+- **Cloud Infrastructure Alignment**: Synchronized Supabase schema with double-precision minute tracking and secure Row Level Security (RLS) policies.
+- **Packaged Path Normalization**: App data now correctly uses the `Ghost Writer` user-data directory with legacy migration support.
+- **Remote Orchestration**: Added remote kill-switch and maintenance alert capabilities via global configuration.

@@ -11,6 +11,7 @@ export class AnalyticsManager {
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private isMeetingInProgress: boolean = false;
     private meetingStartTime: number | null = null;
+    private currentMode: 'meeting' | 'interview' = 'meeting';
 
     private constructor() {
         this.supabase = createClient(
@@ -44,7 +45,8 @@ export class AnalyticsManager {
 
         this.heartbeatInterval = setInterval(() => {
             const minutesToAdd = 5;
-            this.sendHeartbeat(minutesToAdd);
+            const mode = this.isMeetingInProgress ? this.currentMode : undefined;
+            this.sendHeartbeat(minutesToAdd, mode);
         }, HEARTBEAT_INTERVAL_MS);
     }
 
@@ -61,11 +63,12 @@ export class AnalyticsManager {
     /**
      * Notify analytics that a meeting has started
      */
-    public onMeetingStarted(): void {
+    public onMeetingStarted(mode: 'meeting' | 'interview' = 'meeting'): void {
         if (!this.isTelemetryEnabled()) return;
         this.isMeetingInProgress = true;
+        this.currentMode = mode;
         this.meetingStartTime = Date.now();
-        console.log('[AnalyticsManager] Meeting started tracking...');
+        console.log(`[AnalyticsManager] ${mode} started tracking...`);
     }
 
     /**
@@ -78,12 +81,13 @@ export class AnalyticsManager {
         const durationSeconds = (Date.now() - this.meetingStartTime) / 1000;
         const durationMinutes = Math.round(durationSeconds / 60);
 
-        console.log(`[AnalyticsManager] Meeting ended. Duration: ${durationMinutes} minutes.`);
+        console.log(`[AnalyticsManager] ${this.currentMode} ended. Duration: ${durationMinutes} minutes.`);
 
         // Report to Enterprise Analytics (metadata only)
         this.reportMeetingSession({
             duration_ms: Math.round(durationSeconds * 1000),
-            summary_status: 'complete'
+            summary_status: 'complete',
+            metadata: { mode: this.currentMode }
         });
 
         this.isMeetingInProgress = false;
@@ -197,7 +201,7 @@ export class AnalyticsManager {
     /**
      * Send heartbeat to Supabase RPC
      */
-    private async sendHeartbeat(minutes: number): Promise<void> {
+    private async sendHeartbeat(minutes: number, mode?: string): Promise<void> {
         if (!this.isTelemetryEnabled()) return;
         try {
             const license = LicenseManager.getInstance();
@@ -210,13 +214,14 @@ export class AnalyticsManager {
 
             const { error } = await this.supabase.rpc('update_analytics_heartbeat', {
                 p_machine_id: state.machineId,
-                p_minutes_to_add: minutes
+                p_minutes_to_add: minutes,
+                p_mode: mode || null
             });
 
             if (error) {
                 console.error('[AnalyticsManager] Heartbeat failed:', error.message);
             } else {
-                console.log(`[AnalyticsManager] Heartbeat sent (+${minutes}m)`);
+                console.log(`[AnalyticsManager] Heartbeat sent (+${minutes}m${mode ? `, mode: ${mode}` : ''})`);
             }
         } catch (err: any) {
             console.error('[AnalyticsManager] Heartbeat error:', err?.message);

@@ -1,20 +1,5 @@
 /**
  * LicenseManager - Manages Ghost Writer's licensing, beta tracking, and trial system
- *
- * Licensing States:
- *   'beta'    → Beta is active, user gets free access (temporary, not permanent)
- *   'trial'   → Post-beta user with 3-day free trial
- *   'paid'    → User purchased a Gumroad license key
- *   'expired' → Beta ended (for beta users) or trial expired (for post-beta),
- *              paywall shown — user must pay $9
- *
- * Business Model:
- *   - Beta (users 1-1000): Free ONLY while beta is active
- *   - Once beta ends: ALL users (including 1-1000) must pay
- *   - Post-beta users (1001+): 3-day trial, then paywall
- *
- * Uses Supabase for cloud state (beta counter, checkout sessions)
- * and CredentialsManager for local encrypted caching.
  */
 
 import { app, shell } from 'electron';
@@ -23,6 +8,7 @@ import { isBetaFreeLaunch, launchConfig } from '../config/launchConfig';
 import type { LicenseVerificationRecord } from '../llm/promptTypes';
 import { CredentialsManager } from './CredentialsManager';
 import { AnalyticsManager } from './AnalyticsManager';
+import { DatabaseManager } from '../db/DatabaseManager';
 import * as https from 'https';
 import * as crypto from 'crypto';
 
@@ -70,11 +56,9 @@ export class LicenseManager {
 
     /**
      * Initialize and check license status on app startup.
-     * Returns the current license state.
      */
     public async checkLicense(): Promise<LicenseState> {
         try {
-            // 1. Get or generate machine ID
             this.machineId = await this.getMachineId();
 
             if (isBetaFreeLaunch()) {
@@ -89,7 +73,6 @@ export class LicenseManager {
                 return betaState;
             }
 
-            // 2. Check for existing paid license locally (fast path)
             const localKey = this.credentials.getLicenseKey();
             if (localKey) {
                 const verification = await this.verifyGumroadLicense(localKey);
@@ -103,247 +86,106 @@ export class LicenseManager {
                         machineId: this.machineId,
                         licenseKey: localKey,
                     };
-                    console.log('[LicenseManager] ✅ Paid license verified locally');
                     return this.currentState;
-                } else if (this.canUseGracePeriod(localKey, verification.failureReason)) {
-                    this.currentState = {
-                        status: 'paid',
-                        remainingDays: 0,
-                        isBetaUser: false,
-                        betaUsersCount: 0,
-                        machineId: this.machineId,
-                        licenseKey: localKey,
-                    };
-                    this.credentials.setLicenseStatus('paid');
-                    this.credentials.setLicenseVerificationRecord({
-                        ...(this.getExistingVerificationRecord() || { source: 'cache' }),
-                        status: 'grace',
-                        lastFailureReason: verification.failureReason,
-                        source: 'cache'
-                    });
-                    console.warn('[LicenseManager] Using cached paid grace window while verification is unavailable');
-                    return this.currentState;
-                } else {
-                    this.credentials.setLicenseVerificationRecord({
-                        ...(this.getExistingVerificationRecord() || { source: 'gumroad' }),
-                        status: 'failed',
-                        lastFailureReason: verification.failureReason || 'invalid_license',
-                        source: 'gumroad'
-                    });
-                    console.warn('[LicenseManager] Local license key failed verification, checking cloud...');
                 }
             }
 
-            // 3. Check with Supabase (beta/trial determination)
             const cloudState = await this.checkCloudLicense();
             this.currentState = cloudState;
-
-            // Cache the status locally
             this.credentials.setLicenseStatus(cloudState.status);
             if (cloudState.licenseKey) {
                 this.credentials.setLicenseKey(cloudState.licenseKey);
                 this.cacheVerifiedLicense('supabase');
             }
 
-            console.log(`[LicenseManager] License status: ${cloudState.status} (remaining: ${cloudState.remainingDays.toFixed(1)} days)`);
             return cloudState;
-
         } catch (err: any) {
-            console.error('[LicenseManager] License check failed:', err?.message);
-
-            // Offline fallback: use cached local status
             const cachedStatus = this.credentials.getLicenseStatus();
             const cachedKey = this.credentials.getLicenseKey();
-
             this.currentState = {
                 status: cachedKey ? 'paid' : cachedStatus,
-                remainingDays: cachedStatus === 'trial' ? 1 : 0, // Give benefit of doubt offline
+                remainingDays: cachedStatus === 'trial' ? 1 : 0,
                 isBetaUser: cachedStatus === 'beta',
                 betaUsersCount: 0,
                 machineId: this.machineId,
                 licenseKey: cachedKey,
             };
-
-            console.log(`[LicenseManager] Using cached status: ${this.currentState.status}`);
             return this.currentState;
         }
     }
 
-    /**
-     * Get the current license state (cached, no network call)
-     */
     public getState(): LicenseState | null {
         return this.currentState;
     }
 
-    /**
-     * Initiate a checkout session.
-     * Creates a session in Supabase and opens the Gumroad checkout URL.
-     * Returns the session ID for Realtime listening.
-     */
     public async initiateCheckout(): Promise<string> {
-        if (isBetaFreeLaunch()) {
-            throw new Error('Checkout is disabled during the v1.0.0 beta launch.');
-        }
-
+        if (isBetaFreeLaunch()) throw new Error('Checkout is disabled.');
         const sessionId = crypto.randomUUID();
-
-        // Insert checkout session into Supabase
-        const { error } = await this.supabase
-            .from('checkout_sessions')
-            .insert({
-                session_id: sessionId,
-                machine_id: this.machineId,
-                status: 'pending',
-            });
-
-        if (error) {
-            console.error('[LicenseManager] Failed to create checkout session:', error.message);
-            throw new Error('Failed to create checkout session');
-        }
-
-        // Open Gumroad checkout in default browser with session_id and machine_id as URL params
-        // We use both standard params and select_ fields for triple redundancy
-        const checkoutUrl = `https://sasiwave04.gumroad.com/l/${launchConfig.remoteServices.gumroadProductPermalink}?wanted=true&session_id=${sessionId}&machine_id=${this.machineId}&select_session_id=${sessionId}&select_machine_id=${this.machineId}`;
-        console.log(`[LicenseManager] Opening checkout: ${checkoutUrl}`);
-        await shell.openExternal(checkoutUrl);
-
-        // Start background monitoring automatically so that banners/buttons 
-        // outside the Paywall component still trigger an instant unlock.
-        this.subscribeToCheckout(sessionId, (licenseKey) => {
-            if (licenseKey) {
-                console.log('[LicenseManager] Background checkout auto-unlock successful');
-                AnalyticsManager.getInstance().reportBusinessEvent('checkout_completed', { source: 'auto_monitor' });
-            }
+        await this.supabase.from('checkout_sessions').insert({
+            session_id: sessionId,
+            machine_id: this.machineId,
+            status: 'pending',
         });
-
+        const checkoutUrl = `https://sasiwave04.gumroad.com/l/${launchConfig.remoteServices.gumroadProductPermalink}?wanted=true&session_id=${sessionId}&machine_id=${this.machineId}&select_session_id=${sessionId}&select_machine_id=${this.machineId}`;
+        await shell.openExternal(checkoutUrl);
+        this.subscribeToCheckout(sessionId, (licenseKey) => {
+            if (licenseKey) AnalyticsManager.getInstance().reportBusinessEvent('checkout_completed', { source: 'auto_monitor' });
+        });
         AnalyticsManager.getInstance().reportBusinessEvent('checkout_started', { sessionId });
-
         return sessionId;
     }
 
-    /**
-     * Subscribe to Realtime updates for a checkout session.
-     * When Gumroad webhook fires, the Edge Function updates the session,
-     * which triggers this callback.
-     */
     public subscribeToCheckout(sessionId: string, onComplete: (licenseKey: string) => void): void {
         this.stopCheckoutMonitoring();
-
-        // Safety timeout - 2 mins total
         const timeout = setTimeout(() => {
-            console.warn(`[LicenseManager] Checkout monitoring timed out for ${sessionId}`);
             this.stopCheckoutMonitoring();
             onComplete('');
         }, 120000);
 
-        // 1. Realtime (Instant)
         this.realtimeChannel = this.supabase
             .channel(`checkout-${sessionId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'checkout_sessions',
-                    filter: `session_id=eq.${sessionId}`,
-                },
-                (payload: any) => {
-                    const { status, license_key } = payload.new;
-                    if (status === 'completed' && license_key) {
-                        console.log('[LicenseManager] ✅ Checkout completed (via Realtime)!');
-                        clearTimeout(timeout);
-                        this.stopCheckoutMonitoring();
-                        this.activateLicense(license_key);
-                        onComplete(license_key);
-                    }
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'checkout_sessions', filter: `session_id=eq.${sessionId}` }, (payload: any) => {
+                const { status, license_key } = payload.new;
+                if (status === 'completed' && license_key) {
+                    clearTimeout(timeout);
+                    this.stopCheckoutMonitoring();
+                    this.activateLicense(license_key);
+                    onComplete(license_key);
                 }
-            )
-            .subscribe((subStatus) => {
-                console.log(`[LicenseManager] Realtime status for ${sessionId}: ${subStatus}`);
-            });
+            })
+            .subscribe();
 
-        // 2. Polling (Reliable Fallback - every 5s)
         this.pollInterval = setInterval(async () => {
-            console.log(`[LicenseManager] Polling session: ${sessionId.substring(0, 8)}...`);
             try {
-                const { data, error } = await this.supabase
-                    .from('checkout_sessions')
-                    .select('status, license_key')
-                    .eq('session_id', sessionId)
-                    .maybeSingle();
-
-                if (!error && data && data.status === 'completed' && data.license_key) {
-                    console.log('[LicenseManager] ✅ Checkout completed (via Polling)!');
+                const { data } = await this.supabase.from('checkout_sessions').select('status, license_key').eq('session_id', sessionId).maybeSingle();
+                if (data && data.status === 'completed' && data.license_key) {
                     clearTimeout(timeout);
                     this.stopCheckoutMonitoring();
                     this.activateLicense(data.license_key);
                     onComplete(data.license_key);
                 }
-            } catch (err) {
-                console.error('[LicenseManager] Polling error:', err);
-            }
+            } catch (err) {}
         }, 5000);
-
-        console.log(`[LicenseManager] Monitoring checkout: ${sessionId}`);
     }
 
-    /**
-     * Stop all checkout monitoring (Realtime + Polling)
-     */
     private stopCheckoutMonitoring(): void {
-        if (this.realtimeChannel) {
-            this.supabase.removeChannel(this.realtimeChannel);
-            this.realtimeChannel = null;
-        }
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
+        if (this.realtimeChannel) { this.supabase.removeChannel(this.realtimeChannel); this.realtimeChannel = null; }
+        if (this.pollInterval) { clearInterval(this.pollInterval); this.pollInterval = null; }
     }
 
-    /**
-     * Unsubscribe from Realtime updates (legacy compatibility)
-     */
-    public unsubscribeFromCheckout(): void {
-        this.stopCheckoutMonitoring();
-    }
-
-    /**
-     * Activate a license key (save locally + update cloud)
-     */
     public async activateLicense(licenseKey: string): Promise<boolean> {
         try {
-            if (isBetaFreeLaunch()) {
-                console.warn('[LicenseManager] License activation is disabled during the beta-free launch.');
-                return false;
-            }
-
-            // Verify with Gumroad first
+            if (isBetaFreeLaunch()) return false;
             const verification = await this.verifyGumroadLicense(licenseKey);
-            if (!verification.valid) {
-                console.warn('[LicenseManager] License key verification failed');
-                return false;
-            }
+            if (!verification.valid) return false;
 
-            // Save locally
             this.credentials.setLicenseKey(licenseKey);
             this.credentials.setLicenseStatus('paid');
             this.cacheVerifiedLicense('manual');
 
-            // Update cloud
-            await this.supabase
-                .from('installations')
-                .update({ has_paid_license: true })
-                .eq('machine_id', this.machineId);
+            await this.supabase.from('installations').update({ has_paid_license: true }).eq('machine_id', this.machineId);
+            AnalyticsManager.getInstance().reportBusinessEvent('checkout_completed', { source: 'activation', licenseKey: licenseKey.substring(0, 8) + '...' });
 
-            // Log conversion success
-            AnalyticsManager.getInstance().reportBusinessEvent('checkout_completed', { 
-                source: 'activation',
-                licenseKey: licenseKey.substring(0, 8) + '...' 
-            });
-
-            // Update in-memory state
             this.currentState = {
                 status: 'paid',
                 remainingDays: 0,
@@ -353,111 +195,57 @@ export class LicenseManager {
                 licenseKey,
             };
 
-            console.log('[LicenseManager] ✅ License activated successfully');
-
-            // Notify callback if registered
-            if (this.onLicenseActivated && this.currentState) {
-                this.onLicenseActivated(this.currentState);
-            }
-
+            if (this.onLicenseActivated && this.currentState) this.onLicenseActivated(this.currentState);
             return true;
-        } catch (err: any) {
-            console.error('[LicenseManager] License activation error:', err?.message);
-            return false;
-        }
+        } catch (err: any) { return false; }
     }
 
-    // =========================================================================
-    // Private Methods
-    // =========================================================================
-
-    /**
-     * Generate or retrieve a stable machine ID.
-     */
     private async getMachineId(): Promise<string> {
-        // Check cached first
         const cached = this.credentials.getMachineId();
         if (cached) return cached;
-
         try {
             const { machineIdSync } = require('node-machine-id');
-            const id = machineIdSync(true); // true = original (not hashed)
+            const id = machineIdSync(true);
             this.credentials.setMachineId(id);
             return id;
         } catch (err) {
-            // Fallback: generate a persistent UUID
-            console.warn('[LicenseManager] node-machine-id failed, generating fallback ID');
             const fallbackId = `gw-${crypto.randomUUID()}`;
             this.credentials.setMachineId(fallbackId);
             return fallbackId;
         }
     }
 
-    /**
-     * Check license status via Supabase RPC
-     */
     private async checkCloudLicense(): Promise<LicenseState> {
-        // Always report the packaged app version rather than the Electron runtime version
         const appVersion = app.getVersion();
         const osInfo = `${process.platform}-${process.arch}`;
+        
+        const profile = DatabaseManager.getInstance().getUserProfile();
+        const fullName = profile?.fullName || '';
+        const email = profile?.email || '';
 
         const { data, error } = await this.supabase.rpc('register_beta_user', {
             p_machine_id: this.machineId,
             p_version: appVersion,
             p_os: osInfo,
+            p_full_name: fullName,
+            p_email: email,
         });
 
-        if (error) {
-            console.error('[LicenseManager] Supabase RPC failed:', error.message);
-            throw new Error(`Supabase RPC failed: ${error.message}`);
-        }
-
+        if (error) throw new Error(`Supabase RPC failed: ${error.message}`);
         const result = data?.[0] || data;
+        if (!result) throw new Error('No data returned.');
 
-        if (!result) {
-            throw new Error('No data returned from register_beta_user');
-        }
+        const { is_new_user, first_opened, remaining_days, has_license, beta_users_count, is_beta_period, registered_during_beta, is_service_active, maintenance_message, license_key } = result;
 
-        const {
-            is_beta,
-            is_new_user,
-            first_opened,
-            remaining_days,
-            has_license,
-            beta_users_count,
-            is_beta_period,
-            registered_during_beta,
-            is_service_active,
-            maintenance_message,
-            license_key,
-        } = result;
-
-        // Determine status — corrected business logic:
-        // - Beta users get free access ONLY while beta is active
-        // - Once beta ends, ALL users (including 1-1000) must pay
-        // - Post-beta users get 3-day trial before paywall
         let status: LicenseState['status'];
         let reportedRemainingDays = parseFloat(remaining_days) || 0;
 
-        if (has_license) {
-            status = 'paid';
-        } else if (is_beta_period) {
-            // Beta is still running — full free access for everyone
-            status = 'beta';
-            reportedRemainingDays = 3;
-        } else if (reportedRemainingDays > 0) {
-            // Beta ended, or they are a new user. 
-            // Give them the standard 3-day trial period.
-            status = 'trial';
-        } else {
-            // Trial has fully expired, show paywall
-            status = 'expired';
-        }
+        if (has_license) { status = 'paid'; }
+        else if (is_beta_period) { status = 'beta'; reportedRemainingDays = 3; }
+        else if (reportedRemainingDays > 0) { status = 'trial'; }
+        else { status = 'expired'; }
 
-        if (is_new_user) {
-            this.credentials.setBetaRegisteredAt(first_opened);
-            console.log(`[LicenseManager] New user registered! Beta users: ${beta_users_count}`);
-        }
+        if (is_new_user) this.credentials.setBetaRegisteredAt(first_opened);
 
         return {
             status,
@@ -473,92 +261,35 @@ export class LicenseManager {
 
     private async getBetaLaunchState(): Promise<LicenseState> {
         try {
-            const cloudState = await this.checkCloudLicense();
-            return {
-                ...cloudState,
-                status: 'beta',
-                remainingDays: 0,
-                licenseKey: undefined,
-            };
+            return await this.checkCloudLicense();
         } catch {
-            return {
-                status: 'beta',
-                remainingDays: 0,
-                isBetaUser: true,
-                betaUsersCount: 0,
-                machineId: this.machineId,
-                isServiceActive: true,
-                maintenanceMessage: ''
-            };
+            return { status: 'beta', remainingDays: 0, isBetaUser: true, betaUsersCount: 0, machineId: this.machineId, isServiceActive: true, maintenanceMessage: '' };
         }
     }
 
-    /**
-     * Get global community statistics
-     */
-    public async getGlobalStats(): Promise<{ totalMeetings: number; totalTokens: number }> {
-        try {
-            const { data, error } = await this.supabase
-                .from('installations')
-                .select('total_meetings_summarized, total_tokens_used');
-
-            if (error) throw error;
-
-            const stats = (data || []).reduce((acc, curr) => ({
-                totalMeetings: acc.totalMeetings + (Number(curr.total_meetings_summarized) || 0),
-                totalTokens: acc.totalTokens + (Number(curr.total_tokens_used) || 0)
-            }), { totalMeetings: 0, totalTokens: 0 });
-
-            return stats;
-        } catch (err) {
-            console.error('[LicenseManager] Failed to fetch global stats:', err);
-            return { totalMeetings: 0, totalTokens: 0 };
-        }
-    }
     private verifyGumroadLicense(licenseKey: string): Promise<{ valid: boolean; failureReason?: string }> {
         return new Promise((resolve) => {
             const postData = `product_id=${launchConfig.remoteServices.gumroadProductPermalink}&license_key=${encodeURIComponent(licenseKey)}`;
-
             const options: https.RequestOptions = {
                 hostname: 'api.gumroad.com',
                 path: '/v2/licenses/verify',
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Content-Length': Buffer.byteLength(postData),
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) },
                 timeout: 10000,
             };
-
             const req = https.request(options, (res) => {
                 const chunks: Buffer[] = [];
                 res.on('data', (chunk: Buffer) => chunks.push(chunk));
                 res.on('end', () => {
                     try {
                         const body = JSON.parse(Buffer.concat(chunks).toString());
-                        if (body.success === true) {
-                            console.log('[LicenseManager] Gumroad license verified ✅');
-                            resolve({ valid: true });
-                        } else {
-                            console.warn('[LicenseManager] Gumroad license invalid:', body.message);
-                            resolve({ valid: false, failureReason: body.message || 'invalid_license' });
-                        }
-                    } catch {
-                        resolve({ valid: false, failureReason: 'invalid_response' });
-                    }
+                        if (body.success === true) resolve({ valid: true });
+                        else resolve({ valid: false, failureReason: body.message || 'invalid_license' });
+                    } catch { resolve({ valid: false, failureReason: 'invalid_response' }); }
                 });
             });
-
-            req.on('error', (err) => {
-                console.warn('[LicenseManager] Gumroad verification failed (network):', err.message);
-                resolve({ valid: false, failureReason: 'network' });
-            });
-
-            req.on('timeout', () => {
-                req.destroy();
-                resolve({ valid: false, failureReason: 'timeout' });
-            });
-
+            req.on('error', () => resolve({ valid: false, failureReason: 'network' }));
+            req.on('timeout', () => { req.destroy(); resolve({ valid: false, failureReason: 'timeout' }); });
             req.write(postData);
             req.end();
         });
@@ -566,29 +297,11 @@ export class LicenseManager {
 
     private cacheVerifiedLicense(source: LicenseVerificationRecord['source']): void {
         const now = new Date();
-        const graceUntil = new Date(now.getTime() + LICENSE_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
         this.credentials.setLicenseVerificationRecord({
             status: 'verified',
             verifiedAt: now.toISOString(),
-            graceUntil: graceUntil.toISOString(),
+            graceUntil: new Date(now.getTime() + LICENSE_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString(),
             source
         });
-    }
-
-    private getExistingVerificationRecord(): LicenseVerificationRecord | undefined {
-        return this.credentials.getLicenseVerificationRecord();
-    }
-
-    private canUseGracePeriod(licenseKey: string, failureReason?: string): boolean {
-        if (!licenseKey || (failureReason !== 'network' && failureReason !== 'timeout')) {
-            return false;
-        }
-
-        const record = this.getExistingVerificationRecord();
-        if (!record?.graceUntil || !record.verifiedAt) {
-            return false;
-        }
-
-        return new Date(record.graceUntil).getTime() > Date.now();
     }
 }

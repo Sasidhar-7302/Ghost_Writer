@@ -67,11 +67,12 @@ curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/ins
 More detail: [Privacy](docs/PRIVACY.md)
 
 ## Current Launch Posture
-
+ 
 - Version: `1.0.0`
-- Distribution: unsigned direct-download desktop beta
-- Monetization: disabled for the v1.0.0 beta launch
-- Primary install path: terminal one-liners plus manual downloads as fallback
+- Distribution: Unsigned direct-download desktop beta
+- Infrastructure: Hardened enterprise analytics with granular meeting/interview tracking
+- Monetization: Disabled for the v1.0.0 beta launch
+- Primary install path: Terminal one-liners plus manual downloads as fallback
 
 ## Known Limitations
 
