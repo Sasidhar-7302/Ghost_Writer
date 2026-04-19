@@ -1,6 +1,10 @@
 /* Foundation */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+html {
+    scroll-padding-top: 80px;
+}
+
 :root {
     --background: #000000;
     --foreground: #ffffff;
@@ -196,4 +200,39 @@ main {
     height: 0.75rem;
     border-radius: 50%;
     background: #3f3f46;
+}
+
+/* KBD Styles */
+.kbd-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0 0.5rem;
+    background: linear-gradient(180deg, #27272a 0%, #09090b 100%);
+    border: 1px solid #3f3f46;
+    border-bottom: 3px solid #18181b;
+    border-radius: 0.5rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #e4e4e7;
+    margin: 0 0.25rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+}
+
+/* Guide Specifics */
+.ambient-glow.purple {
+    background: radial-gradient(circle, #a855f7 0%, transparent 60%);
+    width: 700px;
+    height: 700px;
+    animation-delay: -2s;
+}
+
+.ambient-glow.green {
+    background: radial-gradient(circle, #22c55e 0%, transparent 60%);
+    width: 500px;
+    height: 500px;
+    animation-delay: -8s;
 }
