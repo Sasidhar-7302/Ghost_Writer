@@ -42,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Build Native Audio Module (Windows)
-        working-directory: native-module
+        working-directory: electron/native
         run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
 
       - name: Build Windows Installer
@@ -91,7 +91,7 @@ jobs:
         run: npm ci
 
       - name: Build Native Audio Module (macOS)
-        working-directory: native-module
+        working-directory: electron/native
         run: npx @napi-rs/cli build --platform --release --target aarch64-apple-darwin
 
       - name: Download pre-compiled Whisper Binaries (macOS)

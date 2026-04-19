@@ -30,6 +30,16 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        targets: ${{ matrix.os == 'windows-latest' && 'x86_64-pc-windows-msvc' || 'aarch64-apple-darwin' }}
+
+    - name: Build Native Audio Module
+      working-directory: electron/native
+      run: npx @napi-rs/cli build --platform --release --target ${{ matrix.os == 'windows-latest' && 'x86_64-pc-windows-msvc' || 'aarch64-apple-darwin' }}
+
     - name: Run TypeScript check
       run: npx tsc --noEmit
 

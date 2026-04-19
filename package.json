@@ -18,7 +18,7 @@
     "watch": "tsc -p electron/tsconfig.json --watch",
     "start": "npm run app:dev",
     "dist": "npm run app:build",
-    "build:native": "cd native-module && napi build --platform --release",
+    "build:native": "cd electron/native && napi build --platform --release",
     "lint": "eslint . --max-warnings 1000",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "test": "npm run test:accuracy && npm run test:interview-naturalness && npm run test:audio-echo-suppression && npm run test:e2e && npm run test:system-audio && npm run test:smoke && npm run test:meeting-summary-routing && npm run test:meeting-screenshot-persistence && npm run test:fallback",
@@ -44,9 +44,9 @@
       "dist-electron/**/*",
       "package.json",
       "node_modules/**/*",
-      "!**/native-module/target/**",
-      "!**/native-module/src/**",
-      "!**/native-module/.cargo/**"
+      "!**/electron/native/target/**",
+      "!**/electron/native/src/**",
+      "!**/electron/native/.cargo/**"
     ],
     "asarUnpack": [
       "**/*.node",
@@ -215,6 +215,6 @@
     "ws": "^8.19.0"
   },
   "optionalDependencies": {
-    "ghost-writer-audio": "file:./native-module"
+    "ghost-writer-audio": "file:./electron/native"
   }
 }
