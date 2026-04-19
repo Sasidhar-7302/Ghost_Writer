@@ -119,7 +119,12 @@ export class LicenseManager {
     }
 
     public async initiateCheckout(): Promise<string> {
-        if (isBetaFreeLaunch()) throw new Error('Checkout is disabled.');
+        // Only block checkout if they are currently in an active beta period.
+        // If they are trial/expired, let them buy even if the config is "beta-free".
+        if (isBetaFreeLaunch() && this.currentState?.status === 'beta') {
+            throw new Error('Checkout is disabled for active beta users.');
+        }
+
         const sessionId = crypto.randomUUID();
         await this.supabase.from('checkout_sessions').insert({
             session_id: sessionId,
@@ -175,7 +180,7 @@ export class LicenseManager {
 
     public async activateLicense(licenseKey: string): Promise<boolean> {
         try {
-            if (isBetaFreeLaunch()) return false;
+            // Allow manual activation even in beta-free mode if they have a key
             const verification = await this.verifyGumroadLicense(licenseKey);
             if (!verification.valid) return false;
 
@@ -235,7 +240,19 @@ export class LicenseManager {
         const result = data?.[0] || data;
         if (!result) throw new Error('No data returned.');
 
-        const { is_new_user, first_opened, remaining_days, has_license, beta_users_count, is_beta_period, registered_during_beta, is_service_active, maintenance_message, license_key } = result;
+        // Map column names from Supabase RPC (RETURNS TABLE) to JS local variables
+        const { 
+            is_new_user, 
+            trial_started_at: first_opened, 
+            days_remaining: remaining_days, 
+            has_paid_license: has_license, 
+            total_beta_users: beta_users_count, 
+            is_beta_program_active: is_beta_period, 
+            is_beta_expired, // used to determine if they registered during beta
+            is_service_active, 
+            maintenance_message, 
+            license_key 
+        } = result;
 
         let status: LicenseState['status'];
         let reportedRemainingDays = parseFloat(remaining_days) || 0;
@@ -250,7 +267,7 @@ export class LicenseManager {
         return {
             status,
             remainingDays: reportedRemainingDays,
-            isBetaUser: registered_during_beta || false,
+            isBetaUser: !is_beta_expired, // If not expired/not-beta, they are a beta user
             betaUsersCount: beta_users_count || 0,
             machineId: this.machineId,
             licenseKey: license_key,
