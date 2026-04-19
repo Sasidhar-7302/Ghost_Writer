@@ -72,6 +72,9 @@ export interface StoredCredentials {
     openrouterApiKey?: string;
     remoteDisplayPin?: string;
     remoteDisplayPort?: number;
+    // Stealth Mode
+    isUndetectable?: boolean;
+    disguiseMode?: string;
 }
 
 export class CredentialsManager {
@@ -246,6 +249,14 @@ export class CredentialsManager {
 
     public getTelemetryEnabled(): boolean {
         return this.credentials.telemetryEnabled ?? launchConfig.telemetryDefaultEnabled;
+    }
+
+    public getIsUndetectable(): boolean {
+        return !!this.credentials.isUndetectable;
+    }
+
+    public getDisguiseMode(): string | undefined {
+        return this.credentials.disguiseMode;
     }
 
     // License getters
@@ -501,6 +512,18 @@ export class CredentialsManager {
         this.credentials.fullPrivacyPreviousSttProvider = undefined;
         this.credentials.fullPrivacyPreviousModel = undefined;
         this.saveCredentials();
+    }
+
+    public setIsUndetectable(enabled: boolean): void {
+        this.credentials.isUndetectable = enabled;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Undetectable mode set to: ${enabled}`);
+    }
+
+    public setDisguiseMode(mode: string): void {
+        this.credentials.disguiseMode = mode;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Disguise mode set to: ${mode}`);
     }
 
     // License setters

@@ -56,6 +56,12 @@
   --bg-surface-frosted: rgba(255, 255, 255, 0.05);
   --shadow-premium: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
   --bg-card-alpha: rgba(20, 20, 25, 0.4);
+
+  /* Neural Awakening Redesign Tokens */
+  --neural-bg-aurora-1: rgba(56, 189, 248, 0.15);
+  --neural-bg-aurora-2: rgba(139, 92, 246, 0.1);
+  --neural-glass-bg: rgba(10, 10, 15, 0.4);
+  --neural-glass-border: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme='light'] {

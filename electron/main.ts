@@ -1330,6 +1330,7 @@ export class AppState {
 
   public setUndetectable(state: boolean): void {
     this.isUndetectable = state
+    this.credentialsManager.setIsUndetectable(state)
     this.windowHelper.setContentProtection(state)
     this.settingsWindowHelper.setContentProtection(state)
 
@@ -1379,6 +1380,7 @@ export class AppState {
 
   public setDisguise(mode: 'terminal' | 'settings' | 'activity' | 'none'): void {
     this.disguiseMode = mode;
+    this.credentialsManager.setDisguiseMode(mode);
 
     // Only apply the disguise if we are currently in undetectable mode
     // Otherwise, just save the preference for later
@@ -1538,8 +1540,18 @@ async function initializeApp() {
   // 5. UI and System Integration
   appState.createWindow()
 
-  // Apply initial stealth state based on isUndetectable setting
-  if (!appState.getUndetectable()) {
+  // Apply initial stealth state based on stored credentials
+  const persistedUndetectable = CredentialsManager.getInstance().getIsUndetectable();
+  const persistedDisguise = CredentialsManager.getInstance().getDisguiseMode() as any;
+
+  if (persistedDisguise) {
+    appState.setDisguise(persistedDisguise);
+  }
+
+  if (persistedUndetectable) {
+    console.log('[Init] Restoring Undetectable Mode');
+    appState.setUndetectable(true);
+  } else {
     appState.showTray();
   }
 

@@ -34,6 +34,8 @@ module.exports = {
       },
       fontFamily: {
         sans: ["Inter", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        heading: ["Outfit", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
         celeb: ["CelebMF", "sans-serif"],
         "celeb-light": ["CelebMFLight", "sans-serif"]
       },

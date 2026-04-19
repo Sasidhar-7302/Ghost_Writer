@@ -328,6 +328,14 @@ export function initializeIpcHandlers(appState: AppState): void {
     return { success: true };
   });
 
+  safeIpcHandle("get-user-profile", async () => {
+    return DatabaseManager.getInstance().getUserProfile();
+  });
+
+  safeIpcHandle("save-user-profile", async (event, profile: any) => {
+    return DatabaseManager.getInstance().saveUserProfile(profile);
+  });
+
 
   // Generate suggestion from transcript - Ghost Writer style text-only reasoning
   safeIpcHandle("generate-suggestion", async (event, context: string, lastQuestion: string) => {

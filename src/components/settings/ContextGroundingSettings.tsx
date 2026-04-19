@@ -84,39 +84,6 @@ export const ContextGroundingSettings: React.FC = () => {
         }
     };
 
-    const handleSaveText = async (type: 'resume' | 'jd') => {
-        try {
-            setLoading(true);
-            let result;
-            if (type === 'resume') {
-                if (isMeeting) {
-                    result = await window.electronAPI.saveProjectText(projectText);
-                } else {
-                    result = await window.electronAPI.saveResumeText(resumeText);
-                }
-            } else {
-                if (isMeeting) {
-                    result = await window.electronAPI.saveAgendaText(agendaText);
-                } else {
-                    result = await window.electronAPI.saveJDText(jdText);
-                }
-            }
-
-            if (result.success) {
-                const label = type === 'resume'
-                    ? (isMeeting ? 'Project Documentation' : 'Resume')
-                    : (isMeeting ? 'Agenda' : 'Job Description');
-                showStatus('success', `${label} saved successfully!`);
-            } else {
-                showStatus('error', `Failed to save: ${result.error}`);
-            }
-        } catch (error) {
-            showStatus('error', `Error saving text: ${error}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleClear = async (type: 'resume' | 'jd') => {
         const label = type === 'resume'
             ? (isMeeting ? 'Project Documentation' : 'Resume')
@@ -149,6 +116,36 @@ export const ContextGroundingSettings: React.FC = () => {
             setLoading(false);
         }
     };
+
+    // Auto-save logic
+    useEffect(() => {
+        if (loading) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const docs = await window.electronAPI.getContextDocuments();
+                if (isMeeting) {
+                    if (projectText !== (docs.projectText || '')) {
+                        await window.electronAPI.saveProjectText(projectText);
+                    }
+                    if (agendaText !== (docs.agendaText || '')) {
+                        await window.electronAPI.saveAgendaText(agendaText);
+                    }
+                } else {
+                    if (resumeText !== (docs.resumeText || '')) {
+                        await window.electronAPI.saveResumeText(resumeText);
+                    }
+                    if (jdText !== (docs.jdText || '')) {
+                        await window.electronAPI.saveJDText(jdText);
+                    }
+                }
+            } catch (err) {
+                console.error('Auto-save context failed:', err);
+            }
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [resumeText, jdText, projectText, agendaText]);
 
     const showStatus = (type: 'success' | 'error', message: string) => {
         setStatus({ type, message });
@@ -211,23 +208,6 @@ export const ContextGroundingSettings: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="relative">
-                    <textarea
-                        value={isMeeting ? projectText : resumeText}
-                        onChange={(e) => isMeeting ? setProjectText(e.target.value) : setResumeText(e.target.value)}
-                        placeholder={isMeeting
-                            ? "Paste project documentation, technical specs, or meeting notes here..."
-                            : "Paste your resume text here, or upload a PDF/DOCX file..."}
-                        className="w-full h-48 bg-bg-input border border-border-subtle rounded-md p-3 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none resize-none font-mono text-text-primary scrollbar-thin"
-                    />
-                    <button
-                        onClick={() => handleSaveText('resume')}
-                        disabled={loading}
-                        className="absolute bottom-3 right-3 px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded text-xs font-medium shadow-lg transition-colors flex items-center gap-1"
-                    >
-                        <Save size={14} /> Save Text
-                    </button>
-                </div>
                 <p className="text-xs text-text-tertiary mt-2">
                     Uploaded files are automatically converted to text. You can edit the extracted text above.
                 </p>
@@ -276,13 +256,6 @@ export const ContextGroundingSettings: React.FC = () => {
                             : "Paste the Job Description text here..."}
                         className="w-full h-48 bg-bg-input border border-border-subtle rounded-md p-3 text-sm focus:border-accent-primary focus:ring-1 focus:ring-accent-primary outline-none resize-none font-mono text-text-primary scrollbar-thin"
                     />
-                    <button
-                        onClick={() => handleSaveText('jd')}
-                        disabled={loading}
-                        className="absolute bottom-3 right-3 px-3 py-1.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded text-xs font-medium shadow-lg transition-colors flex items-center gap-1"
-                    >
-                        <Save size={14} /> Save Text
-                    </button>
                 </div>
             </div>
         </div>

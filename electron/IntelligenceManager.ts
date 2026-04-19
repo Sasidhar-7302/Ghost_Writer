@@ -1019,6 +1019,15 @@ export class IntelligenceManager extends EventEmitter {
             return;
         }
 
+                // Capture current context documents and prompt settings for persistence
+        const contextDocs = ContextDocumentManager.getInstance().getAllDocuments();
+        const promptSettings = CredentialsManager.getInstance().getPromptSettings();
+        const contextSnapshot = {
+            ...contextDocs,
+            promptSettings,
+            timestamp: Date.now()
+        };
+
         const snapshot = {
             transcript: [...this.fullTranscript],
             usage: [...this.fullUsage],
@@ -1026,7 +1035,8 @@ export class IntelligenceManager extends EventEmitter {
             durationMs: durationMs,
             context: this.getFullSessionContext(), // Use FULL session context, not just recent window
             screenshots: [...this.currentScreenshots],
-            meetingMetadata: this.currentMeetingMetadata ? { ...this.currentMeetingMetadata } : null
+            meetingMetadata: this.currentMeetingMetadata ? { ...this.currentMeetingMetadata } : null,
+            context_json: JSON.stringify(contextSnapshot)
         };
 
         // 2. Reset state immediately so new meeting can start or UI is clean
@@ -1135,7 +1145,8 @@ export class IntelligenceManager extends EventEmitter {
             title?: string;
             calendarEventId?: string;
             source?: 'manual' | 'calendar';
-        } | null
+        } | null;
+        context_json?: string;
     }, meetingId: string): Promise<void> {
         let title = "Untitled Session";
         let summaryData: { overview?: string, actionItems: string[], keyPoints: string[] } = { actionItems: [], keyPoints: [] };
@@ -1241,7 +1252,8 @@ export class IntelligenceManager extends EventEmitter {
                 calendarEventId: calendarEventId,
                 source: source,
                 isProcessed: true, // Mark as processed
-                screenshots: [...data.screenshots]
+                screenshots: [...data.screenshots],
+                context_json: data.context_json
             };
 
             // Save to SQLite

@@ -151,4 +151,13 @@ export class ContextDocumentManager {
     public clearAgenda(): void {
         if (fs.existsSync(this.agendaPath)) fs.unlinkSync(this.agendaPath);
     }
+
+    public getAllDocuments(): { resumeText: string; jdText: string; projectText: string; agendaText: string } {
+        return {
+            resumeText: this.getResumeText(),
+            jdText: this.getJDText(),
+            projectText: this.getProjectKnowledgeText(),
+            agendaText: this.getAgendaText()
+        };
+    }
 }

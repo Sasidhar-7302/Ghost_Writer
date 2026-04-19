@@ -33,6 +33,7 @@ export interface Meeting {
     source?: 'manual' | 'calendar';
     isProcessed?: boolean;
     screenshots?: string[];
+    context_json?: string;
 }
 
 export interface TokenUsage {
@@ -215,6 +216,10 @@ export class DatabaseManager {
         } catch (e) { /* Column likely exists */ }
 
         try {
+            this.db.exec("ALTER TABLE meetings ADD COLUMN context_json TEXT");
+        } catch (e) { /* Column likely exists */ }
+
+        try {
             this.db.exec("ALTER TABLE meetings ADD COLUMN is_processed INTEGER DEFAULT 1"); // Default to 1 (true) for existing records
         } catch (e) { /* Column likely exists */ }
 
@@ -338,8 +343,8 @@ export class DatabaseManager {
         }
 
         const insertMeeting = this.db.prepare(`
-            INSERT OR REPLACE INTO meetings (id, title, start_time, duration_ms, summary_json, created_at, calendar_event_id, source, is_processed, screenshots_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO meetings (id, title, start_time, duration_ms, summary_json, created_at, calendar_event_id, source, is_processed, screenshots_json, context_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const insertTranscript = this.db.prepare(`
@@ -369,7 +374,8 @@ export class DatabaseManager {
                 meeting.calendarEventId || null,
                 meeting.source || 'manual',
                 meeting.isProcessed ? 1 : 0,
-                JSON.stringify(meeting.screenshots || [])
+                JSON.stringify(meeting.screenshots || []),
+                meeting.context_json || null
             );
 
             // 2. Insert Transcript
@@ -579,7 +585,8 @@ export class DatabaseManager {
             source: meetingRow.source,
             transcript: transcript,
             usage: usage,
-            screenshots: screenshotsArray
+            screenshots: screenshotsArray,
+            context_json: meetingRow.context_json
         };
     }
 

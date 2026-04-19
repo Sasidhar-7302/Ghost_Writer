@@ -44,6 +44,7 @@ interface Meeting {
         items?: string[];
     }>;
     screenshots?: string[];
+    context_json?: string;
 }
 
 const ScreenshotPreview = ({ path }: { path: string }) => {
@@ -77,7 +78,7 @@ interface MeetingDetailsProps {
 const MeetingDetails: React.FC<MeetingDetailsProps> = ({ meeting: initialMeeting }) => {
     // We need local state for the meeting object to reflect optimistic updates
     const [meeting, setMeeting] = useState<Meeting>(initialMeeting);
-    const [activeTab, setActiveTab] = useState<'summary' | 'transcript' | 'usage' | 'screenshots'>('summary');
+    const [activeTab, setActiveTab] = useState<'summary' | 'transcript' | 'usage' | 'screenshots' | 'context'>('summary');
     const [query, setQuery] = useState('');
     const [isCopied, setIsCopied] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -242,51 +243,62 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                             </div>
                         </div>
 
-                        {/* Tabs */}
-                        {/* Designing Tabs to match reference 1:1 (Dark Pill Container) */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="bg-white/5 p-1.5 rounded-2xl inline-flex items-center gap-1 border border-white/5 backdrop-blur-3xl">
-                                {['summary', 'transcript', 'usage', 'screenshots'].map((tab) => (
+                        {/* Tabs & Actions Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-y-4 mb-4">
+                            {/* Segmented Control Tabs */}
+                            <div className="bg-white/[0.03] p-1 rounded-full inline-flex items-center gap-1 border border-white/5 backdrop-blur-3xl shadow-2xl">
+                                {['summary', 'transcript', 'usage', 'screenshots', 'context'].map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(tab as any)}
                                         className={`
-                                            relative px-5 py-2 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all duration-500 z-10
-                                            ${activeTab === tab ? 'text-black' : 'text-text-tertiary hover:text-text-primary'}
+                                            relative px-6 py-2.5 text-[10px] font-mono font-bold uppercase tracking-[0.2em] rounded-full transition-all duration-300 z-10
+                                            ${activeTab === tab ? 'text-[#08080c]' : 'text-text-tertiary hover:text-white hover:bg-white/5'}
                                         `}
                                     >
                                         {activeTab === tab && (
                                             <motion.div
                                                 layoutId="activeTabBackground"
-                                                className="absolute inset-0 bg-white rounded-xl -z-10 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)]"
+                                                className="absolute inset-0 bg-white rounded-full -z-10 shadow-[0_5px_15px_-5px_rgba(255,255,255,0.4)]"
                                                 initial={false}
-                                                transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
                                             />
                                         )}
                                         {tab}
                                     </button>
                                 ))}
                             </div>
-
-                            {/* Actions: Regenerate & Copy */}
-                            <div className="flex items-center gap-4">
+ 
+                            {/* Secondary Actions Group */}
+                            <div className="flex items-center gap-2 bg-white/[0.02] p-1 rounded-full border border-white/5 backdrop-blur-xl">
                                 {activeTab === 'summary' && (
                                     <button
                                         onClick={handleRegenerate}
                                         disabled={isRegenerating}
-                                        className={`flex items-center gap-2 text-xs font-medium transition-all ${isRegenerating ? 'text-text-tertiary animate-pulse' : 'text-text-secondary hover:text-text-primary'}`}
+                                        className={`flex items-center gap-2 px-4 py-2 text-[10px] font-mono font-black uppercase tracking-widest rounded-full transition-all ${isRegenerating ? 'text-accent-primary animate-pulse bg-accent-primary/5' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                        title="Regenerate Summary"
                                     >
-                                        <RefreshCw size={14} className={isRegenerating ? 'animate-spin' : ''} />
-                                        {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+                                        <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
+                                        <span>{isRegenerating ? 'Syncing...' : 'Regen'}</span>
                                     </button>
                                 )}
                                 
                                 <button
                                     onClick={handleCopy}
-                                    className="flex items-center gap-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
+                                    className="flex items-center gap-2 px-4 py-2 text-[10px] font-mono font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/5 rounded-full transition-all"
+                                    title={isCopied ? 'Copied to clipboard' : 'Copy to clipboard'}
                                 >
-                                    {isCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                                    {isCopied ? 'Copied' : activeTab === 'summary' ? 'Copy full summary' : activeTab === 'transcript' ? 'Copy full transcript' : 'Copy usage'}
+                                    {isCopied ? (
+                                        <>
+                                            <Check size={12} className="text-emerald-500" />
+                                            <span className="text-emerald-500">Done</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy size={12} />
+                                            <span>Copy</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -497,6 +509,76 @@ ${meeting.detailedSummary.keyPoints?.map(item => `- ${item}`).join('\n') || 'Non
                                 ) : (
                                     <p className="text-text-tertiary">No screenshots taken during this session.</p>
                                 )}
+                            </motion.section>
+                        )}
+
+                        {activeTab === 'context' && (
+                            <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8 pb-10">
+                                {(() => {
+                                    try {
+                                        const ctx = meeting.context_json ? JSON.parse(meeting.context_json) : null;
+                                        if (!ctx) return <p className="text-text-tertiary">No context data preserved for this session.</p>;
+
+                                        return (
+                                            <div className="space-y-10">
+                                                {/* Documents Section */}
+                                                <div className="space-y-6">
+                                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-primary opacity-50">Synchronized Documents</h3>
+                                                    
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        {ctx.resumeText && (
+                                                            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+                                                                <div className="flex items-center gap-2 text-text-primary">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                                                    <span className="text-xs font-bold uppercase tracking-widest">Candidate Resume</span>
+                                                                </div>
+                                                                <div className="text-[13px] leading-relaxed text-text-secondary opacity-80 line-clamp-6 whitespace-pre-wrap font-mono">
+                                                                    {ctx.resumeText}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {ctx.jdText && (
+                                                            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+                                                                <div className="flex items-center gap-2 text-text-primary">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                                                    <span className="text-xs font-bold uppercase tracking-widest">Job Description</span>
+                                                                </div>
+                                                                <div className="text-[13px] leading-relaxed text-text-secondary opacity-80 line-clamp-6 whitespace-pre-wrap font-mono">
+                                                                    {ctx.jdText}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {!ctx.resumeText && !ctx.jdText && <p className="text-text-tertiary text-xs italic">No documents were attached to this session.</p>}
+                                                    </div>
+                                                </div>
+
+                                                {/* Prompt Settings Section */}
+                                                {ctx.promptSettings && (
+                                                    <div className="space-y-6">
+                                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-primary opacity-50">Active Prompt Calibration</h3>
+                                                        <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
+                                                            <div>
+                                                                <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary block mb-2">Technical Interview Mode</span>
+                                                                <p className="text-[13px] text-text-secondary font-medium leading-relaxed italic border-l-2 border-white/10 pl-4 py-1">
+                                                                    {ctx.promptSettings.interviewPrompt || "Standard AI Assistant Architecture"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                <div className="pt-4 flex items-center gap-2 opacity-30">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                                                    <span className="text-[9px] font-mono uppercase tracking-widest">Snapshot Captured {new Date(ctx.timestamp || meeting.date).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    } catch (e) {
+                                        return <p className="text-text-tertiary">Error parsing session context.</p>;
+                                    }
+                                })()}
                             </motion.section>
                         )}
                         </div> {/* space-y-8 */}

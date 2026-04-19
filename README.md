@@ -6,7 +6,7 @@
   <br>
 
   [![License](https://img.shields.io/badge/license-PROPRIETARY-red?style=for-the-badge)](LICENSE)
-  [![Release](https://img.shields.io/badge/release-v1.1.0-0ea5e9?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
+  [![Release](https://img.shields.io/badge/release-v1.0.0-0ea5e9?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
   [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-111827?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
   [![Launch Mode](https://img.shields.io/badge/launch-desktop%20beta-10b981?style=for-the-badge)](https://github.com/Sasidhar-7302/Ghost_Writer/releases)
 
@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/ins
 ## Data And Privacy
 
 - API keys and license data are stored with Electron `safeStorage` when available.
-- Telemetry is optional and disabled by default for v1.1.0.
+- Telemetry is optional and disabled by default for v1.0.0.
 - Full Privacy Mode blocks cloud STT and cloud LLM routing until local dependencies are ready.
 - Local transcripts, meeting history, and context files stay on-device unless you explicitly use a cloud provider.
 
@@ -68,9 +68,9 @@ More detail: [Privacy](docs/PRIVACY.md)
 
 ## Current Launch Posture
 
-- Version: `1.1.0`
+- Version: `1.0.0`
 - Distribution: unsigned direct-download desktop beta
-- Monetization: disabled for the v1.1.0 beta launch
+- Monetization: disabled for the v1.0.0 beta launch
 - Primary install path: terminal one-liners plus manual downloads as fallback
 
 ## Known Limitations

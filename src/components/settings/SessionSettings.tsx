@@ -161,57 +161,92 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
         }));
     };
 
-    const handleSavePrompts = async () => {
-        try {
-            setSaving(true);
+    // Auto-save logic for prompts
+    useEffect(() => {
+        if (loading || !hasLoadedPromptTemplates) return;
 
-            const results = await Promise.all(
-                editablePromptModes.map(async (promptMode) => {
-                    const bundledPrompt = promptTemplates[promptMode]?.prompt || '';
-                    const draft = promptDrafts[promptMode] ?? bundledPrompt;
-                    const normalizedDraft = draft.trim();
-                    const normalizedBundledPrompt = bundledPrompt.trim();
-
-                    const result = await window.electronAPI.updatePromptSettings(promptMode, {
-                        extraInstructions: '',
-                        fullOverride: normalizedDraft === normalizedBundledPrompt ? '' : draft
-                    });
-
-                    return {
-                        promptMode,
-                        result,
-                        nextSettings: {
-                            ...(promptSettings[promptMode] || { enabled: true, defaultPromptId: promptTemplates[promptMode]?.id || '' }),
-                            defaultPromptId: promptTemplates[promptMode]?.id || '',
-                            extraInstructions: '',
-                            fullOverride: normalizedDraft === normalizedBundledPrompt ? '' : draft,
-                            enabled: true
-                        }
-                    };
-                })
-            );
-
-            const failed = results.find(({ result }) => !result.success);
-            if (failed) {
-                showStatus('error', `Failed to save ${promptTemplates[failed.promptMode]?.title || failed.promptMode}: ${failed.result.error}`);
-                return;
-            }
-
-            setPromptSettings((prev) => {
-                const next = { ...prev };
-                for (const { promptMode, nextSettings } of results) {
-                    next[promptMode] = nextSettings;
-                }
-                return next;
+        const timer = setTimeout(async () => {
+            const changedModes = editablePromptModes.filter(mode => {
+                const bundledPrompt = promptTemplates[mode]?.prompt || '';
+                const draft = promptDrafts[mode] ?? bundledPrompt;
+                const currentOverride = promptSettings[mode]?.fullOverride || '';
+                const normalizedDraft = draft.trim();
+                const normalizedBundledPrompt = bundledPrompt.trim();
+                const expectedOverride = normalizedDraft === normalizedBundledPrompt ? '' : draft;
+                return expectedOverride !== currentOverride;
             });
 
-            showStatus('success', `${isInterview ? 'Interview' : 'Meeting'} prompts saved.`);
-        } catch (error) {
-            showStatus('error', `Error saving prompts: ${error}`);
-        } finally {
-            setSaving(false);
-        }
-    };
+            if (changedModes.length === 0) return;
+
+            setSaving(true);
+            try {
+                const results = await Promise.all(
+                    changedModes.map(async (promptMode) => {
+                        const bundledPrompt = promptTemplates[promptMode]?.prompt || '';
+                        const draft = promptDrafts[promptMode] ?? bundledPrompt;
+                        const normalizedDraft = draft.trim();
+                        const normalizedBundledPrompt = bundledPrompt.trim();
+                        const fullOverride = normalizedDraft === normalizedBundledPrompt ? '' : draft;
+
+                        await window.electronAPI.updatePromptSettings(promptMode, {
+                            extraInstructions: '',
+                            fullOverride
+                        });
+
+                        return { promptMode, fullOverride };
+                    })
+                );
+
+                setPromptSettings(prev => {
+                    const next = { ...prev };
+                    results.forEach(({ promptMode, fullOverride }) => {
+                        next[promptMode] = {
+                            ...(next[promptMode] || { enabled: true, defaultPromptId: promptTemplates[promptMode]?.id || '' }),
+                            fullOverride,
+                            enabled: true
+                        };
+                    });
+                    return next;
+                });
+            } catch (err) {
+                console.error('Auto-save prompts failed:', err);
+            } finally {
+                setSaving(false);
+            }
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [promptDrafts]);
+
+    // Auto-save logic for context files
+    useEffect(() => {
+        if (loading) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const docs = await window.electronAPI.getContextDocuments();
+                if (isInterview) {
+                    if (contextFile1 !== (docs.resumeText || '')) {
+                        await window.electronAPI.saveResumeText(contextFile1);
+                    }
+                    if (contextFile2 !== (docs.jdText || '')) {
+                        await window.electronAPI.saveJDText(contextFile2);
+                    }
+                } else {
+                    if (contextFile1 !== (docs.projectText || '')) {
+                        await window.electronAPI.saveProjectText(contextFile1);
+                    }
+                    if (contextFile2 !== (docs.agendaText || '')) {
+                        await window.electronAPI.saveAgendaText(contextFile2);
+                    }
+                }
+            } catch (err) {
+                console.error('Auto-save context failed:', err);
+            }
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [contextFile1, contextFile2]);
 
     const handleResetPrompts = () => {
         const nextDrafts: Record<string, string> = {};
@@ -299,35 +334,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
         } finally {
             setLoading(false);
             if (e.target) e.target.value = '';
-        }
-    };
-
-    const handleSaveContextText = async (type: 'file1' | 'file2') => {
-        try {
-            setLoading(true);
-            let result;
-            if (type === 'file1') {
-                result = isInterview
-                    ? await window.electronAPI.saveResumeText(contextFile1)
-                    : await window.electronAPI.saveProjectText(contextFile1);
-            } else {
-                result = isInterview
-                    ? await window.electronAPI.saveJDText(contextFile2)
-                    : await window.electronAPI.saveAgendaText(contextFile2);
-            }
-
-            if (result.success) {
-                const label = type === 'file1'
-                    ? (isInterview ? 'Resume' : 'Project Documentation')
-                    : (isInterview ? 'Job Description' : 'Agenda');
-                showStatus('success', `${label} text saved!`);
-            } else {
-                showStatus('error', `Failed to save: ${result.error}`);
-            }
-        } catch (error) {
-            showStatus('error', `Error saving text: ${error}`);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -430,14 +436,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                         >
                             Use Default
                         </button>
-                        <button
-                            onClick={handleSavePrompts}
-                            disabled={saving || !hasUnsavedPromptChanges}
-                            className="px-6 py-2 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded-xl text-xs font-black transition-all shadow-[0_4px_20px_rgba(0,242,255,0.3)] flex items-center gap-2 disabled:opacity-50"
-                        >
-                            {saving ? <RotateCcw size={14} className="animate-spin" /> : <Save size={14} />}
-                            SAVE CHANGES
-                        </button>
                     </div>
                 </div>
 
@@ -533,13 +531,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                             placeholder={isInterview ? 'Paste resume text here...' : 'Paste project documentation here...'}
                             className="w-full h-56 bg-bg-input border border-border-subtle rounded-2xl p-6 text-xs font-mono text-text-primary focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary/50 outline-none resize-none transition-all scrollbar-thin"
                         />
-                        <button
-                            onClick={() => handleSaveContextText('file1')}
-                            className="absolute bottom-4 right-4 p-2.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded-xl shadow-[0_4px_15px_rgba(0,242,255,0.3)] transition-all"
-                            title="Save Content"
-                        >
-                            <Save size={16} />
-                        </button>
                     </div>
                 </section>
 
@@ -586,13 +577,6 @@ export const SessionSettings: React.FC<SessionSettingsProps> = ({ mode }) => {
                             placeholder={isInterview ? 'Paste job description here...' : 'Paste agenda here...'}
                             className="w-full h-56 bg-bg-input border border-border-subtle rounded-2xl p-6 text-xs font-mono text-text-primary focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary/50 outline-none resize-none transition-all scrollbar-thin"
                         />
-                        <button
-                            onClick={() => handleSaveContextText('file2')}
-                            className="absolute bottom-4 right-4 p-2.5 bg-accent-primary hover:bg-accent-secondary text-bg-primary rounded-xl shadow-[0_4px_15px_rgba(0,242,255,0.3)] transition-all"
-                            title="Save Content"
-                        >
-                            <Save size={16} />
-                        </button>
                     </div>
                 </section>
             </div>

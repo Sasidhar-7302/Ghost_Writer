@@ -1652,7 +1652,7 @@ Provide only the answer, nothing else.`;
                                         <div className="flex-1 flex items-center justify-center p-6">
                                             <div className="text-center text-slate-500 text-[12px]">
                                                 <Sparkles className="w-5 h-5 mx-auto mb-2 opacity-40" />
-                                                Press <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px]">Ctrl+J</kbd> for instant answer
+                                                Press <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px]">Ctrl+B</kbd> to hide/show • <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px]">Ctrl+J</kbd> for instant answer
                                             </div>
                                         </div>
                                     )}

@@ -233,6 +233,7 @@ export interface ElectronAPI {
   getMeetingMode: () => Promise<boolean>
   setMeetingMode: (isMeeting: boolean) => Promise<{ success: boolean; error?: string }>
   getTelemetrySettings: () => Promise<{ enabled: boolean }>
+  setTelemetrySettings: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   setTelemetryEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   onTelemetrySettingsChanged: (callback: (data: { enabled: boolean }) => void) => () => void
 

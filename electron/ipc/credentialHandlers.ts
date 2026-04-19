@@ -497,7 +497,7 @@ export function registerCredentialHandlers(appState: AppState): void {
     }
   });
 
-  ipcMain.handle("set-telemetry-enabled", async (_, enabled: boolean) => {
+  ipcMain.handle("set-telemetry-settings", async (_, enabled: boolean) => {
     try {
       const { CredentialsManager } = require('../services/CredentialsManager');
       const { AnalyticsManager } = require('../services/AnalyticsManager');
@@ -678,4 +678,6 @@ export function registerCredentialHandlers(appState: AppState): void {
       return { success: false, error: error.message };
     }
   });
+
+
 }

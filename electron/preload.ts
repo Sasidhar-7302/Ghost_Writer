@@ -138,6 +138,8 @@ interface ElectronAPI {
   clearAgenda: () => Promise<{ success: boolean; error?: string }>
 
   getContextDocuments: () => Promise<{ resumeText: string; jdText: string; projectText: string; agendaText: string; isMeetingMode: boolean }>
+  getUserProfile: () => Promise<any>
+  saveUserProfile: (profile: any) => Promise<boolean>
 
   // Intelligence Mode IPC
   generateAssist: () => Promise<{ insight: string | null }>
@@ -159,6 +161,8 @@ interface ElectronAPI {
   updateMeetingSummary: (id: string, updates: { overview?: string, actionItems?: string[], keyPoints?: string[], actionItemsTitle?: string, keyPointsTitle?: string }) => Promise<boolean>
   onMeetingsUpdated: (callback: () => void) => () => void
   getGlobalStats: () => Promise<{ totalMeetings: number; totalTokens: number }>
+  deleteMeeting: (id: string) => Promise<boolean>
+  setWindowMode: (mode: 'launcher' | 'overlay') => Promise<void>
 
   // Intelligence Mode Events
   onIntelligenceAssistUpdate: (callback: (data: { insight: string }) => void) => () => void
@@ -234,7 +238,11 @@ interface ElectronAPI {
   // Telemetry
   getTelemetrySettings: () => Promise<{ enabled: boolean }>
   setTelemetrySettings: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+  setTelemetryEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   onTelemetrySettingsChanged: (callback: (settings: { enabled: boolean }) => void) => () => void
+  getPromptSettings: () => Promise<any>
+  updatePromptSettings: (mode: string, patch: any) => Promise<{ success: boolean; error?: string }>
+  getDefaultPromptTemplates: () => Promise<any>
 }
 
 export const PROCESSING_EVENTS = {
@@ -432,6 +440,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getContextDocuments: () => ipcRenderer.invoke('get-context-documents'),
   clearResume: () => ipcRenderer.invoke('clear-resume'),
   clearJD: () => ipcRenderer.invoke('clear-jd'),
+  getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
+  saveUserProfile: (profile: any) => ipcRenderer.invoke('save-user-profile', profile),
 
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => ipcRenderer.invoke("set-stt-provider", provider),
@@ -563,6 +573,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
   },
   getGlobalStats: () => ipcRenderer.invoke("get-global-stats"),
+  deleteMeeting: (id: string) => ipcRenderer.invoke("delete-meeting", id),
+  setWindowMode: (mode: 'launcher' | 'overlay') => ipcRenderer.invoke("set-window-mode", mode),
 
   // Intelligence Mode Events
   onIntelligenceAssistUpdate: (callback: (data: { insight: string }) => void) => {
@@ -800,6 +812,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Telemetry
   getTelemetrySettings: () => ipcRenderer.invoke("get-telemetry-settings"),
   setTelemetrySettings: (enabled: boolean) => ipcRenderer.invoke("set-telemetry-settings", enabled),
+  setTelemetryEnabled: (enabled: boolean) => ipcRenderer.invoke("set-telemetry-settings", enabled),
   onTelemetrySettingsChanged: (callback: (settings: { enabled: boolean }) => void) => {
     const subscription = (_: any, settings: { enabled: boolean }) => callback(settings)
     ipcRenderer.on("telemetry-settings-changed", subscription)
@@ -807,4 +820,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("telemetry-settings-changed", subscription)
     }
   },
+  getPromptSettings: () => ipcRenderer.invoke("get-prompt-settings"),
+  updatePromptSettings: (mode: string, patch: any) => ipcRenderer.invoke("update-prompt-settings", mode, patch),
+  getDefaultPromptTemplates: () => ipcRenderer.invoke("get-default-prompt-templates"),
 })
