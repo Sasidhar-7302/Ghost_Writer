@@ -329,8 +329,12 @@
                     </div>
                     <div class="glass-card p-6">
                         <h3 class="text-lg font-semibold mb-2">Where do I get support?</h3>
-                        <p class="text-sm text-gray-400 leading-relaxed">
-                            For all questions, beta access, or technical support, please contact us directly at <a href="mailto:chintu.ai2026@gmail.com" class="text-brand-blue">chintu.ai2026@gmail.com</a>.
+                        <p class="text-sm text-gray-400 leading-relaxed flex items-center gap-2">
+                            For all questions or technical support, contact us directly at 
+                            <a href="mailto:chintu.ai2026@gmail.com" class="text-brand-blue">chintu.ai2026@gmail.com</a>
+                            <button onclick="copyText('chintu.ai2026@gmail.com', 'copySupport')" id="copySupport" class="p-1 hover:bg-white/10 rounded transition-colors" title="Copy email">
+                                <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-6a2 2 0 00-2 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                            </button>
                         </p>
                     </div>
                 </div>
@@ -367,10 +371,15 @@
                 <div>
                     <h4 class="text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6">Contact</h4>
                     <p class="text-sm text-gray-500 mb-6">Questions? Reach out to our team directly.</p>
-                    <a href="mailto:chintu.ai2026@gmail.com" class="group flex items-center gap-3 text-sm font-semibold text-white hover:text-brand-blue transition-all">
-                        chintu.ai2026@gmail.com
-                        <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </a>
+                    <div class="flex items-center gap-3">
+                        <a href="mailto:chintu.ai2026@gmail.com" class="group flex items-center gap-3 text-sm font-semibold text-white hover:text-brand-blue transition-all">
+                            chintu.ai2026@gmail.com
+                            <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </a>
+                        <button onclick="copyText('chintu.ai2026@gmail.com', 'copyFooter')" id="copyFooter" class="p-2 hover:bg-white/10 rounded-lg transition-colors border border-white/5" title="Copy email">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-6a2 2 0 00-2 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -387,13 +396,25 @@
     </footer>
 
     <script>
+        function copyText(text, btnId) {
+            navigator.clipboard.writeText(text);
+            const btn = document.getElementById(btnId);
+            const originalContent = btn.innerHTML;
+            
+            btn.innerHTML = '<svg class="w-4 h-4 text-green-400 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+            
+            setTimeout(() => {
+                btn.innerHTML = originalContent;
+            }, 2000);
+        }
+
         function copyCmd(os) {
             const cmd = os === 'win'
                 ? 'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex"'
                 : 'curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh | bash';
 
-            navigator.clipboard.writeText(cmd);
-
+            copyText(cmd, os === 'win' ? 'copyBtnWin' : 'copyBtnMac');
+            
             const btnId = os === 'win' ? 'copyBtnWin' : 'copyBtnMac';
             const btn = document.getElementById(btnId);
             const originalText = btn.innerText;
