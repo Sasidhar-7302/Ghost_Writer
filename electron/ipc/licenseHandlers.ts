@@ -60,9 +60,4 @@ export function registerLicenseHandlers(): void {
     safeHandle('refresh-license', async () => {
         return await license.checkLicense();
     });
-
-    // Get community analytics
-    safeHandle('get-global-stats', async () => {
-        return await license.getGlobalStats();
-    });
 }
