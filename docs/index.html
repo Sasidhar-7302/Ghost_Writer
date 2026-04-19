@@ -218,7 +218,7 @@
             </div>
         </section>
 
-        <section id="faq" class="py-20 px-4 bg-gradient-to-b from-transparent to-[#050505]">
+        <section id="faq" class="py-20 px-4 bg-gradient-to-b from-transparent to-brand-black/50">
             <div class="max-w-4xl mx-auto">
                 <div class="text-center mb-12">
                     <h2 class="text-4xl font-bold mb-4">What to expect in beta</h2>
@@ -227,7 +227,7 @@
                     </p>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-4 mb-20">
                     <div class="glass-card p-6">
                         <h3 class="text-lg font-semibold mb-2">How is data handled?</h3>
                         <p class="text-sm text-gray-400 leading-relaxed">
@@ -257,11 +257,52 @@
         </section>
     </main>
 
-    <footer class="border-t border-white/5 py-12 text-center text-gray-600 relative z-10 bg-black">
-        <div class="flex justify-center items-center gap-3 mb-4">
-            <span class="font-bold text-gray-400 tracking-widest uppercase text-sm">Ghost Writer v1.0.0</span>
+    <footer class="border-t border-white/5 pt-20 pb-10 bg-[#050505] relative z-10 transition-all">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
+                <!-- Column 1: Brand -->
+                <div class="space-y-6">
+                    <div class="text-2xl font-bold tracking-tighter text-white">Ghost Writer</div>
+                    <p class="text-sm text-gray-500 leading-relaxed max-w-[240px]">
+                        The ultimate stealth copilot for high-stakes interviews and meetings.
+                    </p>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/5 bg-white/5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        v1.0.0 Production Beta
+                    </div>
+                </div>
+
+                <!-- Column 2: Navigation -->
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6">Product</h4>
+                    <ul class="space-y-4 text-sm font-medium">
+                        <li><a href="#demo" class="text-gray-500 hover:text-white transition-colors">Watch Demo</a></li>
+                        <li><a href="#setup" class="text-gray-500 hover:text-white transition-colors">Setup Guide</a></li>
+                        <li><a href="#features" class="text-gray-500 hover:text-white transition-colors">Features</a></li>
+                        <li><a href="#install" class="text-gray-500 hover:text-brand-blue transition-colors">One-Click Install</a></li>
+                    </ul>
+                </div>
+
+                <!-- Column 3: Contact -->
+                <div>
+                    <h4 class="text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6">Contact</h4>
+                    <p class="text-sm text-gray-500 mb-6">Questions? Reach out to our team directly.</p>
+                    <a href="mailto:chintu.ai2026@gmail.com" class="group flex items-center gap-3 text-sm font-semibold text-white hover:text-brand-blue transition-all">
+                        chintu.ai2026@gmail.com
+                        <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-[11px] text-gray-600 font-medium tracking-wide">
+                    &copy; 2026 Ghost Writer Team. All rights reserved.
+                </p>
+                <div class="flex gap-6 text-[11px] font-medium text-gray-600">
+                    <span class="cursor-pointer hover:text-white transition-colors">Windows x64 Build</span>
+                    <span class="cursor-pointer hover:text-white transition-colors">macOS Silicon Build</span>
+                </div>
+            </div>
         </div>
-        <p class="text-xs font-light">Desktop beta for Windows x64 and macOS arm64.</p>
     </footer>
 
     <script>

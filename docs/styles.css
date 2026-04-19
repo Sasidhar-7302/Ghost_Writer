@@ -19,6 +19,13 @@ body {
     font-family: 'Inter', sans-serif;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
 }
 
 /* Typography Enhancements */
@@ -79,12 +86,12 @@ body {
     width: 600px;
     height: 600px;
     background: radial-gradient(circle, var(--accent) 0%, transparent 60%);
-    opacity: 0.15;
-    filter: blur(100px);
+    opacity: 0.12;
+    filter: blur(120px);
     border-radius: 50%;
     z-index: -1;
     pointer-events: none;
-    animation: breathe 10s ease-in-out infinite alternate;
+    animation: breathe 15s ease-in-out infinite alternate;
 }
 
 .ambient-glow.blue {
