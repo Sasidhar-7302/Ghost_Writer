@@ -17,7 +17,10 @@ function Fail([string]$Message) {
 }
 
 function Ensure-SupportedPlatform {
-    if (-not $IsWindows) {
+    # Check if OS is Windows (handles PS 5.1 where $IsWindows is not defined)
+    $isActuallyWindows = if (Get-Variable IsWindows -ErrorAction SilentlyContinue) { $IsWindows } else { $env:OS -eq "Windows_NT" }
+    
+    if (-not $isActuallyWindows) {
         Fail "This installer supports Windows only."
     }
 
