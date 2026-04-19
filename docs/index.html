@@ -46,7 +46,7 @@
                     Ghost Writer is a desktop beta for high-stakes interviews. Get character-by-character AI answers streamed directly to your phone while keeping your PC completely clean.
                 </p>
 
-                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
                     <a
                         href="https://github.com/Sasidhar-7302/Ghost_Writer/releases/download/v1.0.0/Ghost.Writer.Setup.exe"
                         class="group relative px-8 py-4 bg-brand-white text-brand-black font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
@@ -54,11 +54,31 @@
                         Download v1.0.0
                     </a>
                     <a
-                        href="#stealth-mode"
+                        href="#demo"
                         class="group relative px-8 py-4 glass-card text-brand-white font-semibold rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 hover:bg-white/10"
                     >
-                        Explore Stealth Mode
+                        Watch Demo
                     </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- PRODUCT DEMO SECTION -->
+        <section id="demo" class="py-24 px-4 border-t border-white/5 bg-black/20">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold mb-4">See it in action</h2>
+                    <p class="text-gray-400 text-lg">Experience the power of real-time stealth intelligence.</p>
+                </div>
+                
+                <div class="glass-card aspect-video max-w-5xl mx-auto flex items-center justify-center bg-black/40 border-2 border-white/5">
+                    <div class="text-center p-8">
+                        <div class="w-20 h-20 bg-brand-blue/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg class="w-10 h-10 text-brand-blue" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.841z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Live Demo Presentation</h3>
+                        <p class="text-gray-500 text-sm max-w-md mx-auto">Ghost Writer handles a complex technical interview using local grounding and real-time mobile sync.</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -108,32 +128,48 @@
             </div>
         </section>
 
-        <section id="install" class="py-20 px-4 mt-12 border-t border-white/5">
-            <div class="max-w-5xl mx-auto">
-                <div class="text-center mb-12">
-                    <h2 class="text-4xl md:text-5xl font-bold mb-4">One-command install</h2>
-                    <p class="text-gray-400 max-w-2xl mx-auto text-lg font-light">
-                        Deploy directly to your local machine. No complex setup, no proxy required.
-                    </p>
+        <section id="setup" class="py-24 px-4 border-t border-white/5">
+             <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold mb-4">Quick Setup Guide</h2>
+                    <p class="text-gray-400">Launch Ghost Writer in under 3 minutes.</p>
                 </div>
 
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="glass-card p-6">
-                        <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80">Windows x64</p>
-                        <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
-                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex"</code>
-                            <button onclick="copyCmd('win')" id="copyBtnWin" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-3">Installs per-user, verifies the release checksum, and upgrades in place.</p>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="relative">
+                        <div class="text-[80px] font-bold text-white/5 absolute -top-12 -left-4">01</div>
+                        <h3 class="text-xl font-bold mb-4 text-brand-blue">Install</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed mb-6">Run the one-command installer below to deploy Ghost Writer to your local user directory.</p>
                     </div>
+                    <div class="relative">
+                        <div class="text-[80px] font-bold text-white/5 absolute -top-12 -left-4">02</div>
+                        <h3 class="text-xl font-bold mb-4 text-brand-purple">Configure</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed mb-6">Launch the app, enter your API keys (Gemini, Claude, or local Ollama), and upload your context documents.</p>
+                    </div>
+                    <div class="relative">
+                        <div class="text-[80px] font-bold text-white/5 absolute -top-12 -left-4">03</div>
+                        <h3 class="text-xl font-bold mb-4 text-green-400">Sync</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed mb-6">Scan the QR code with your phone to open the Stealth Remote Display. You are now ready for your meeting.</p>
+                    </div>
+                </div>
 
-                    <div class="glass-card p-6">
-                        <p class="text-[10px] text-brand-purple uppercase tracking-[0.3em] mb-3 font-black opacity-80">macOS arm64</p>
-                        <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
-                            <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh | bash</code>
-                            <button onclick="copyCmd('mac')" id="copyBtnMac" class="shrink-0 bg-brand-purple/10 hover:bg-brand-purple/20 text-brand-purple px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
+                <div id="install" class="mt-20">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="glass-card p-6">
+                            <p class="text-[10px] text-brand-blue uppercase tracking-[0.3em] mb-3 font-black opacity-80">Windows x64</p>
+                            <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
+                                <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.ps1 | iex"</code>
+                                <button onclick="copyCmd('win')" id="copyBtnWin" class="shrink-0 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
+                            </div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-3">Installs into <code>~/Applications</code>, verifies the release checksum, and upgrades in place.</p>
+
+                        <div class="glass-card p-6">
+                            <p class="text-[10px] text-brand-purple uppercase tracking-[0.3em] mb-3 font-black opacity-80">macOS arm64</p>
+                            <div class="bg-black/40 p-3 rounded-lg flex items-center justify-between gap-4 border border-white/5">
+                                <code class="text-[11px] font-mono text-gray-300 overflow-hidden text-ellipsis whitespace-nowrap">curl -fsSL https://raw.githubusercontent.com/Sasidhar-7302/Ghost_Writer/main/install.sh | bash</code>
+                                <button onclick="copyCmd('mac')" id="copyBtnMac" class="shrink-0 bg-brand-purple/10 hover:bg-brand-purple/20 text-brand-purple px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all">Copy</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -205,9 +241,15 @@
                         </p>
                     </div>
                     <div class="glass-card p-6">
+                        <h3 class="text-lg font-semibold mb-2">Our Recommendations</h3>
+                        <p class="text-sm text-gray-400 leading-relaxed">
+                            For the best stealth experience, we recommend using <b>Gemini 1.5 Flash</b> for lightning-fast character streaming and ensuring your session PIN is updated frequently.
+                        </p>
+                    </div>
+                    <div class="glass-card p-6">
                         <h3 class="text-lg font-semibold mb-2">Where do I get support?</h3>
                         <p class="text-sm text-gray-400 leading-relaxed">
-                            Support is currently handled via our repository issue tracker or directly via email at <a href="mailto:chintu.ai2026@gmail.com" class="text-brand-blue">chintu.ai2026@gmail.com</a>.
+                            For all questions, beta access, or technical support, please contact us directly at <a href="mailto:chintu.ai2026@gmail.com" class="text-brand-blue">chintu.ai2026@gmail.com</a>.
                         </p>
                     </div>
                 </div>
