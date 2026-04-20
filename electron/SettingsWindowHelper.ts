@@ -5,7 +5,7 @@ const isDev = process.env.NODE_ENV === "development"
 
 const startUrl = isDev
     ? (process.env.ELECTRON_RENDERER_URL || "http://localhost:5180")
-    : `file://${path.join(__dirname, "../dist/index.html")}`
+    : `file://${path.join(__dirname, "../../dist/index.html")}`
 
 export class SettingsWindowHelper {
     private settingsWindow: BrowserWindow | null = null

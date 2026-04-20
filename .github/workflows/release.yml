@@ -45,6 +45,9 @@ jobs:
         working-directory: electron/native
         run: npx @napi-rs/cli build --platform --release --target x86_64-pc-windows-msvc
 
+      - name: Install Native App Dependencies (Windows)
+        run: npx electron-builder install-app-deps --platform win32 --arch x64
+
       - name: Build Windows Installer
         run: npm run dist -- --win -c.extraMetadata.version=${{ github.event.inputs.version }}
 
