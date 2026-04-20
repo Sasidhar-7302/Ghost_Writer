@@ -32,11 +32,12 @@ const PROCESS_INTERVAL_MS = 1500; // 1.5s chunks balance latency and transcript 
 const MIN_BUFFER_BYTES = 48000;
 
 // Silence threshold - skip processing if audio is too quiet
-const SILENCE_RMS_THRESHOLD = 50;
+const SILENCE_RMS_THRESHOLD = 300;
 
 const NON_SPEECH_TRANSCRIPT_PATTERNS = [
     /^\[(?:MUSIC(?: PLAYING)?|PHONE RINGING|NOISE|END PLAYBACK|APPLAUSE|LAUGHTER|INAUDIBLE|SILENCE|BLANK_AUDIO)\]$/i,
-    /^\((?:music|upbeat music|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing)\)$/i,
+    /^\((?:music|upbeat music|gentle music|ambient noise|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing|speaking in foreign language|foreign speech|low chatter|silence)\)$/i,
+    /^(?:music|gentle music|upbeat music|speaking in foreign language|foreign speech|low chatter|\[blank_audio\])$/i,
 ];
 
 // Default whisper.cpp threads for speed + accuracy balance
@@ -757,15 +758,18 @@ export class LocalWhisperSTT extends EventEmitter {
      */
     private cleanTranscript(text: string): string {
         if (!text) return '';
+        
+        // Comprehensive regex to strip out common Whisper non-speech markers and hallucinations
+        // This handles cases like "(gentle music) Actual Speech" by removing the marker
         let cleaned = text
-            .replace(/\[BLANK_AUDIO\]/gi, '')
-            .replace(/\(music\)/gi, '')
-            .replace(/\(noise\)/gi, '')
-            // Map [SPEAKER_00] to (Speaker 1)
-            .replace(/\[SPEAKER_(\d{2})\]/gi, (match, p1) => {
-                const id = parseInt(p1, 10);
-                return `(Speaker ${id + 1}) `;
+            .replace(/\[(?:MUSIC(?: PLAYING)?|PHONE RINGING|NOISE|END PLAYBACK|APPLAUSE|LAUGHTER|INAUDIBLE|SILENCE|BLANK_AUDIO|SPEAKER_\d{2})\]/gi, (match) => {
+                if (match.toLowerCase().includes('speaker')) {
+                    const id = parseInt(match.match(/\d+/)?.[0] || '0', 10);
+                    return `(Speaker ${id + 1}) `;
+                }
+                return '';
             })
+            .replace(/\((?:music|upbeat music|gentle music|ambient noise|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing|speaking in foreign language|foreign speech|low chatter|silence)\)/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
 

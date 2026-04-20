@@ -84,12 +84,14 @@ export class SystemAudioCapture extends EventEmitter {
             // Health check: verify audio data is actually arriving
             // Loopback only generates events when audio plays through speakers,
             // so use a longer timeout and don't kill the stream on failure
+            let warningShown = false;
             setTimeout(() => {
-                if (this.isRecording && !receivedData) {
-                    console.warn('[SystemAudioCapture] No audio data received after 5s — loopback is waiting for system audio');
+                if (this.isRecording && !receivedData && !warningShown) {
+                    console.warn('[SystemAudioCapture] No audio detected yet. (Normal if no system audio is currently playing)');
+                    warningShown = true;
                     // Don't emit error - loopback will deliver data once audio plays
                 }
-            }, 5000);
+            }, 8000);
         } catch (error) {
             console.error('[SystemAudioCapture] Failed to start:', error);
             this.emit('error', error);

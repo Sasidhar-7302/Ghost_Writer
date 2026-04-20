@@ -483,6 +483,69 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setGroqSttModel: (model: string) => ipcRenderer.invoke("set-groq-stt-model", model),
   testSttConnection: (provider: 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson', apiKey: string, region?: string) => ipcRenderer.invoke("test-stt-connection", provider, apiKey, region),
 
+  // Native Audio Status
+  getNativeAudioStatus: () => ipcRenderer.invoke("native-audio-status"),
+
+  // Session Reset
+  onSessionReset: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("session-reset", subscription)
+    return () => {
+      ipcRenderer.removeListener("session-reset", subscription)
+    }
+  },
+
+  // Audio Capture Fallback
+  onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("audio-capture-fallback", subscription)
+    return () => {
+      ipcRenderer.removeListener("audio-capture-fallback", subscription)
+    }
+  },
+
+  // Raw Audio for WebAudio fallback
+  sendRawAudio: (data: Buffer) => {
+    ipcRenderer.send("raw-audio-data", data)
+  },
+
+  // Intelligence Streaming Token Events
+  onIntelligenceSuggestedAnswerToken: (callback: (data: { token: string; question?: string; confidence?: number }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("intelligence-suggested-answer-token", subscription)
+    return () => {
+      ipcRenderer.removeListener("intelligence-suggested-answer-token", subscription)
+    }
+  },
+  onIntelligenceRefinedAnswerToken: (callback: (data: { token: string; intent: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("intelligence-refined-answer-token", subscription)
+    return () => {
+      ipcRenderer.removeListener("intelligence-refined-answer-token", subscription)
+    }
+  },
+  onIntelligenceRecapToken: (callback: (data: { token: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("intelligence-recap-token", subscription)
+    return () => {
+      ipcRenderer.removeListener("intelligence-recap-token", subscription)
+    }
+  },
+  onIntelligenceFollowUpQuestionsToken: (callback: (data: { token: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("intelligence-follow-up-questions-token", subscription)
+    return () => {
+      ipcRenderer.removeListener("intelligence-follow-up-questions-token", subscription)
+    }
+  },
+  onIntelligenceFollowUpQuestionsUpdate: (callback: (data: { questions: string }) => void) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on("intelligence-follow-up-questions-update", subscription)
+    return () => {
+      ipcRenderer.removeListener("intelligence-follow-up-questions-update", subscription)
+    }
+  },
+
   // Native Audio Service Events
   onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean }) => void) => {
     const subscription = (_: any, data: any) => callback(data)
