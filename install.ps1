@@ -4,7 +4,7 @@ $RepoOwner = "Sasidhar-7302"
 $RepoName = "Ghost_Writer"
 $ManifestUrl = "https://github.com/$RepoOwner/$RepoName/releases/latest/download/release-manifest.json"
 $ExpectedExeName = "Ghost.Writer.Setup.exe"
-$ExpectedInstallPath = Join-Path $env:LOCALAPPDATA "Programs\GhostWriter-App\Ghost Writer.exe"
+$ExpectedInstallPath = Join-Path $env:LOCALAPPDATA "Programs\Ghost Writer\Ghost Writer.exe"
 $TempRoot = Join-Path $env:TEMP "ghost-writer-install"
 
 function Write-Step([string]$Message) {
@@ -92,7 +92,7 @@ function Verify-Install {
         return
     }
 
-    $fallback = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "Programs") -Filter "Ghost Writer.exe" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "GhostWriter-App" } | Select-Object -First 1
+    $fallback = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "Programs") -Filter "Ghost Writer.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($fallback) {
         Write-Step "Install verified at $($fallback.FullName)"
         return
