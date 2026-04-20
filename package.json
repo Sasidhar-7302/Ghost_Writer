@@ -1,6 +1,6 @@
 {
   "name": "ghost-writer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "./dist-electron/electron/main.js",
   "description": "Desktop beta for high-fidelity meeting and interview assistance",
   "scripts": {
@@ -38,7 +38,7 @@
   },
   "build": {
     "appId": "com.electron.ghost-writer",
-    "productName": "Ghost Writer",
+    "productName": "Ghost Writer App",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
