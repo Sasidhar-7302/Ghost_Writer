@@ -208,12 +208,13 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
         try {
             const inputDeviceId = localStorage.getItem('preferredInputDeviceId');
             const outputDeviceId = localStorage.getItem('preferredOutputDeviceId');
+            const captureMode = localStorage.getItem('preferredAudioCaptureMode') || undefined;
 
             await window.electronAPI.invoke('start-meeting', {
                 title: preparedEvent.title,
                 calendarEventId: preparedEvent.id,
                 source: 'calendar',
-                audio: { inputDeviceId, outputDeviceId }
+                audio: { inputDeviceId, outputDeviceId, captureMode }
             });
             setIsPrepared(false);
         } catch (e) {
@@ -307,12 +308,12 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
         }
     };
 
-    // Helper to format duration to mm:ss or mmm:ss
     const formatDurationPill = (durationStr: string) => {
-        // Assume format "X min"
+        if (!durationStr) return '00:00';
+        if (durationStr.includes(':')) return durationStr;
+        
         const minutes = parseInt(durationStr.replace('min', '').trim()) || 0;
-        const mm = minutes.toString().padStart(2, '0');
-        return `${mm}:00`;
+        return `${minutes.toString().padStart(2, '0')}:00`;
     };
 
     const { isMac } = usePlatform();
@@ -723,6 +724,9 @@ const Launcher: React.FC<LauncherProps> = ({ onStartMeeting, onOpenSettings, onR
                                                 </div>
                                             </section>
                                         ))}
+
+                                        {/* Bottom spacer to clear taskbar and provide breathing room */}
+                                        <div className="h-32 pointer-events-none" />
 
                                         {meetings.length === 0 && (
                                             <div className="p-4 text-text-tertiary text-sm">No recent meetings.</div>

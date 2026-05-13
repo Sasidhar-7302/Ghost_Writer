@@ -272,7 +272,8 @@ export function registerCredentialHandlers(appState: AppState): void {
   ipcMain.handle("get-stored-credentials", async () => {
     try {
       const { CredentialsManager } = require('../services/CredentialsManager');
-      const creds = CredentialsManager.getInstance().getAllCredentials();
+      const manager = CredentialsManager.getInstance();
+      const creds = manager.getAllCredentials();
 
       return {
         hasGeminiKey: !!creds.geminiApiKey,
@@ -284,6 +285,7 @@ export function registerCredentialHandlers(appState: AppState): void {
         hasOpenrouterKey: !!creds.openrouterApiKey,
         googleServiceAccountPath: creds.googleServiceAccountPath || null,
         sttProvider: creds.sttProvider || 'google',
+        audioCaptureMode: manager.getAudioCaptureMode(),
         groqSttModel: creds.groqSttModel || 'whisper-large-v3-turbo',
         hasSttGroqKey: !!creds.groqSttApiKey,
         hasSttOpenaiKey: !!creds.openAiSttApiKey,
@@ -302,7 +304,7 @@ export function registerCredentialHandlers(appState: AppState): void {
       return { 
         hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, 
         hasNvidiaKey: false, hasDeepseekKey: false, hasOpenrouterKey: false,
-        googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', 
+        googleServiceAccountPath: null, sttProvider: 'google', audioCaptureMode: 'dual-stream', groqSttModel: 'whisper-large-v3-turbo', 
         hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, 
         hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', 
         hasResume: false, hasJobDescription: false, airGapMode: false, telemetryEnabled: false 

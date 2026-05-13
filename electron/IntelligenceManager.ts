@@ -24,7 +24,7 @@ export interface SuggestionTrigger {
     confidence: number;
 }
 
-import { AnswerLLM, AssistLLM, FollowUpLLM, RecapLLM, FollowUpQuestionsLLM, WhatToAnswerLLM, prepareTranscriptForWhatToAnswer, GROQ_TITLE_PROMPT, GROQ_SUMMARY_JSON_PROMPT, buildPromptForMode, buildTemporalContext, AssistantResponse, classifyIntent, postProcessForInterview } from './llm';
+import { AssistLLM, FollowUpLLM, RecapLLM, FollowUpQuestionsLLM, InterviewCopilot, MeetingCopilot, prepareTranscriptForWhatToAnswer, GROQ_TITLE_PROMPT, GROQ_SUMMARY_JSON_PROMPT, buildPromptForMode, buildTemporalContext, AssistantResponse, classifyIntent, postProcessForInterview } from './llm';
 import { desktopCapturer } from 'electron';
 import { DatabaseManager, Meeting } from './db/DatabaseManager';
 import { ContextDocumentManager } from './services/ContextDocumentManager';
@@ -64,6 +64,7 @@ export interface ContextItem {
     role: 'interviewer' | 'user' | 'assistant';
     text: string;
     timestamp: number;
+    speaker?: string; // Original speaker label (e.g. "Person 1")
 }
 
 // Mode types
@@ -175,14 +176,17 @@ export class IntelligenceManager extends EventEmitter {
     // Mode state
     private activeMode: IntelligenceMode = 'idle';
     private assistCancellationToken: AbortController | null = null;
+    private whatToSayCancellationToken: AbortController | null = null;
+    private followUpCancellationToken: AbortController | null = null;
 
     // Mode-specific LLMs (new architecture)
-    private answerLLM: AnswerLLM | null = null;
+    private interviewCopilot: InterviewCopilot | null = null;
+    private meetingCopilot: MeetingCopilot | null = null;
     private assistLLM: AssistLLM | null = null;
     private followUpLLM: FollowUpLLM | null = null;
     private recapLLM: RecapLLM | null = null;
     private followUpQuestionsLLM: FollowUpQuestionsLLM | null = null;
-    private whatToAnswerLLM: WhatToAnswerLLM | null = null;
+    
 
     // Keep reference to LLMHelper for client access
     private llmHelper: LLMHelper;
@@ -220,7 +224,8 @@ export class IntelligenceManager extends EventEmitter {
      */
     public initializeLLMs(): void {
         // Initializing mode-specific LLMs
-        this.answerLLM = new AnswerLLM(this.llmHelper);
+        this.interviewCopilot = new InterviewCopilot(this.llmHelper);
+        this.meetingCopilot = new MeetingCopilot(this.llmHelper);
         this.assistLLM = new AssistLLM(this.llmHelper);
         // Wait, I missed AssistLLM in my refactoring list. 
         // But the user plan said: "AnswerLLM", "RecapLLM", "FollowUpLLM", "WhatToAnswerLLM".
@@ -231,7 +236,7 @@ export class IntelligenceManager extends EventEmitter {
         this.followUpLLM = new FollowUpLLM(this.llmHelper);
         this.recapLLM = new RecapLLM(this.llmHelper);
         this.followUpQuestionsLLM = new FollowUpQuestionsLLM(this.llmHelper);
-        this.whatToAnswerLLM = new WhatToAnswerLLM(this.llmHelper);
+        
     }
 
     public setModel(modelName: string): void {
@@ -270,9 +275,10 @@ export class IntelligenceManager extends EventEmitter {
         }
 
         this.contextItems.push({
-            role,
+            role: role as any,
             text,
-            timestamp: segment.timestamp
+            timestamp: segment.timestamp,
+            speaker: segment.speaker
         });
 
         this.evictOldEntries();
@@ -408,9 +414,9 @@ export class IntelligenceManager extends EventEmitter {
         }
 
         return items.map(item => {
-            const label = item.role === 'interviewer' ? 'INTERVIEWER' :
-                item.role === 'user' ? 'ME' :
-                    'ASSISTANT (PREVIOUS SUGGESTION)';
+            let label = item.role === 'user' ? 'YOU' :
+                        item.role === 'assistant' ? 'ASSISTANT' :
+                        (item.speaker ? item.speaker.toUpperCase() : 'INTERVIEWER');
             return `[${label}]: ${item.text}`;
         }).join('\n');
     }
@@ -454,17 +460,17 @@ export class IntelligenceManager extends EventEmitter {
 
         return transcript.map(segment => {
             const role = this.mapSpeakerToRole(segment.speaker);
-            const label = role === 'interviewer' ? 'INTERVIEWER' :
-                role === 'user' ? 'ME' :
-                    'ASSISTANT';
+            const label = role === 'user' ? 'YOU' :
+                        role === 'assistant' ? 'ASSISTANT' :
+                        (segment.speaker ? segment.speaker.toUpperCase() : 'INTERVIEWER');
             return `[${label}]: ${segment.text}`;
         }).join('\n');
     }
 
-    private mapSpeakerToRole(speaker: string): 'interviewer' | 'user' | 'assistant' {
+    private mapSpeakerToRole(speaker: string): 'user' | 'assistant' | 'interviewer' {
         if (speaker === 'user') return 'user';
         if (speaker === 'assistant') return 'assistant';
-        return 'interviewer'; // system audio = interviewer
+        return 'interviewer'; 
     }
 
     private evictOldEntries(): void {
@@ -563,25 +569,21 @@ export class IntelligenceManager extends EventEmitter {
             this.assistCancellationToken = null;
         }
 
+        // Cancel any in-flight what-to-say stream so a new question wins
+        if (this.whatToSayCancellationToken) {
+            console.log('[IntelligenceManager] Cancelling previous what-to-say stream');
+            this.whatToSayCancellationToken.abort();
+        }
+        const cancellationToken = new AbortController();
+        this.whatToSayCancellationToken = cancellationToken;
+
         this.setMode('what_to_say');
         this.lastTriggerTime = now;
 
         try {
-            // Use WhatToAnswerLLM for clean pipeline
-            if (!this.whatToAnswerLLM) {
-                // Fallback to AnswerLLM if not initialized
-                if (!this.answerLLM) {
-                    this.setMode('idle');
-                    return "Please configure your API Keys in Settings to use this feature.";
-                }
-                const context = this.getFormattedContext(180);
-                const answer = await this.answerLLM.generate(question || '', context);
-                if (answer) {
-                    this.addAssistantMessage(answer);
-                    this.emit('suggested_answer', answer, question || 'inferred', confidence);
-                }
+            if (!this.interviewCopilot || !this.meetingCopilot) {
                 this.setMode('idle');
-                return answer || "Could you repeat that? I want to make sure I address your question properly.";
+                return "Please configure your API Keys in Settings to use this feature.";
             }
 
             // Prepare transcript using the new clean pipeline
@@ -609,7 +611,8 @@ export class IntelligenceManager extends EventEmitter {
             const transcriptTurns = contextItems.map(item => ({
                 role: item.role,
                 text: item.text,
-                timestamp: item.timestamp
+                timestamp: item.timestamp,
+                speaker: item.speaker
             }));
 
             // Clean, sparsify, format in one call
@@ -633,14 +636,27 @@ export class IntelligenceManager extends EventEmitter {
             // Temporal RAG
 
             // Single-pass LLM call: question inference + answer generation with temporal context + intent
-            // NOW STREAMING - with optional image support
+            let stream: AsyncGenerator<string>;
+            const isMeeting = CredentialsManager.getInstance().getIsMeetingMode();
+            if (isMeeting) {
+                stream = this.meetingCopilot.generateAnswerStream(preparedTranscript, temporalContext, targetImagePath, cancellationToken.signal);
+            } else {
+                stream = this.interviewCopilot.generateAnswerStream(preparedTranscript, temporalContext, intentResult, targetImagePath, cancellationToken.signal);
+            }
 
             let fullAnswer = "";
-            const stream = this.whatToAnswerLLM.generateStream(preparedTranscript, temporalContext, intentResult, targetImagePath);
-
             for await (const token of stream) {
+                if (cancellationToken.signal.aborted) {
+                    console.log('[IntelligenceManager] what-to-say stream aborted mid-flight');
+                    return null;
+                }
                 this.emit('suggested_answer_token', token, question || 'inferred', confidence);
                 fullAnswer += token;
+            }
+
+            // If we were superseded after the stream ended, drop the result
+            if (cancellationToken.signal.aborted) {
+                return null;
             }
 
             // Sanity check final answer
@@ -677,10 +693,18 @@ export class IntelligenceManager extends EventEmitter {
             return fullAnswer;
 
         } catch (error) {
+            if ((error as Error)?.name === 'AbortError' || cancellationToken.signal.aborted) {
+                return null;
+            }
             this.emit('error', error as Error, 'what_to_say');
             this.setMode('idle');
             // Never fail silently - return a usable fallback
             return "Could you repeat that? I want to make sure I address your question properly.";
+        } finally {
+            // Only clear if we are still the active token (a newer call may have replaced us)
+            if (this.whatToSayCancellationToken === cancellationToken) {
+                this.whatToSayCancellationToken = null;
+            }
         }
     }
 
@@ -881,14 +905,19 @@ export class IntelligenceManager extends EventEmitter {
         this.setMode('manual');
 
         try {
-            if (!this.answerLLM) {
+            if (!this.interviewCopilot || !this.meetingCopilot) {
                 this.setMode('idle');
                 return null;
             }
 
-            // Use AnswerLLM with manual question
             const context = this.getFormattedContext(120);
-            const answer = await this.answerLLM.generate(question, context);
+            let answer = "";
+            const isMeeting = CredentialsManager.getInstance().getIsMeetingMode();
+            if (isMeeting) {
+                answer = await this.meetingCopilot.generateManualAnswer(question, context);
+            } else {
+                answer = await this.interviewCopilot.generateManualAnswer(question, context);
+            }
 
             if (answer) {
                 // Store in context
@@ -1019,12 +1048,17 @@ export class IntelligenceManager extends EventEmitter {
             return;
         }
 
-                // Capture current context documents and prompt settings for persistence
-        const contextDocs = ContextDocumentManager.getInstance().getAllDocuments();
-        const promptSettings = CredentialsManager.getInstance().getPromptSettings();
+        // Capture current context documents and prompt settings for persistence
+        const contextManager = ContextDocumentManager.getInstance();
+        const creds = CredentialsManager.getInstance();
+        const isMeeting = creds.getIsMeetingMode();
+        
         const contextSnapshot = {
-            ...contextDocs,
-            promptSettings,
+            resumeText: isMeeting ? "" : contextManager.getResumeText(),
+            jdText: isMeeting ? "" : contextManager.getJDText(),
+            projectKnowledge: contextManager.getProjectKnowledgeText(),
+            agendaText: contextManager.getAgendaText(),
+            promptSettings: creds.getPromptSettings(),
             timestamp: Date.now()
         };
 
@@ -1042,7 +1076,13 @@ export class IntelligenceManager extends EventEmitter {
         // 2. Reset state immediately so new meeting can start or UI is clean
         this.reset();
 
-        const durationStr = `${Math.floor(durationMs / 60000)}:${((durationMs % 60000) / 1000).toFixed(0).padStart(2, '0')}`;
+        const totalSeconds = Math.floor(durationMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const durationStr = hours > 0 
+            ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            : `${minutes}:${seconds.toString().padStart(2, '0')}`;
         const meetingId = require('crypto').randomUUID();
 
         const placeholder: Meeting = {
@@ -1181,14 +1221,15 @@ export class IntelligenceManager extends EventEmitter {
             if (this.recapLLM && data.transcript.length > 2) {
                 const contextManager = ContextDocumentManager.getInstance();
                 const creds = CredentialsManager.getInstance();
+                const isMeetingMode = creds.getIsMeetingMode();
                 const summaryPrompt = buildPromptForMode({
                     mode: 'recap',
                     settings: creds.getPromptSettings(),
-                    resumeText: contextManager.getResumeText(),
-                    jdText: contextManager.getJDText(),
+                    resumeText: isMeetingMode ? "" : contextManager.getResumeText(),
+                    jdText: isMeetingMode ? "" : contextManager.getJDText(),
                     projectKnowledge: contextManager.getProjectKnowledgeText(),
                     agendaText: contextManager.getAgendaText(),
-                    sessionMode: 'meeting'
+                    sessionMode: isMeetingMode ? 'meeting' : 'interview'
                 });
 
                 const groqSummaryPrompt = GROQ_SUMMARY_JSON_PROMPT; // Context is now removed from the template
@@ -1306,8 +1347,9 @@ export class IntelligenceManager extends EventEmitter {
                 // Reconstruct context from transcript
                 // Format: [SPEAKER]: text
                 const context = details.transcript?.map(t => {
-                    const label = t.speaker === 'interviewer' ? 'INTERVIEWER' :
-                        t.speaker === 'user' ? 'ME' : 'ASSISTANT';
+                    let label = t.speaker?.toUpperCase() || 'OTHER';
+                    if (label === 'USER') label = 'YOU';
+                    if (label === 'INTERVIEWER') label = 'PERSON 1';
                     return `[${label}]: ${t.text}`;
                 }).join('\n') || "";
 

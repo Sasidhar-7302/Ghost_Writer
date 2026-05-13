@@ -53,7 +53,7 @@ Ghost Writer is an Electron desktop application with a multi-layered architectur
 
 ### 1. Audio Pipeline
 
-The audio pipeline captures both microphone and system audio using a Rust native module compiled via N-API.
+The audio pipeline captures microphone and/or system audio using a Rust native module compiled via N-API.
 
 **Key files:**
 - `native-module/src/microphone.rs` — Microphone capture (WASAPI/CoreAudio)
@@ -61,6 +61,14 @@ The audio pipeline captures both microphone and system audio using a Rust native
 - `native-module/src/speaker/macos.rs` — macOS loopback capture (ScreenCaptureKit)
 - `electron/audio/MicrophoneCapture.ts` — TypeScript wrapper for mic
 - `electron/audio/SystemAudioCapture.ts` — TypeScript wrapper for loopback
+- `electron/audio/audioCaptureMode.ts` — Shared capture-profile policy
+
+**Capture profiles:**
+- `dual-stream` starts loopback and microphone STT streams. This is the default for active meetings and interviews.
+- `system-only` starts loopback only. It prevents false local `You` transcripts during muted or listen-only sessions.
+- `mic-only` starts microphone only. It is intended for local dictation or in-person capture when loopback is unavailable.
+
+The main process gates every native and fallback PCM write through the active capture profile. Profile changes are persisted by `CredentialsManager`, exposed over STT/audio IPC, and can be changed while a meeting is active.
 
 **DSP Pipeline (Rust):**
 1. **Capture** — Platform-native capture at native sample rate (typically 48kHz)
@@ -74,7 +82,7 @@ The audio pipeline captures both microphone and system audio using a Rust native
 When native capture is unavailable, the system switches to a renderer-side fallback:
 - **System Audio**: Utilizes `navigator.mediaDevices.getDisplayMedia` with `systemAudio: 'include'`.
 - **Microphone**: Utilizes `navigator.mediaDevices.getUserMedia(audio: true)`.
-- **Processing**: PCM data is captured at 16kHz, converted from Float32 to Int16 in the renderer, and streamed to the main process via the `raw-audio-stream` IPC channel.
+- **Processing**: PCM data is captured at 16kHz, converted from Float32 to Int16 in the renderer, tagged as `system` or `microphone`, and streamed to the main process via the `raw-audio-data` IPC channel. The legacy `raw-audio-stream` channel remains accepted for compatibility.
 - **Integration**: The main process receives these buffers and writes them directly to the active STT engine, bypassing the native Rust loop.
 
 ### 3. Whisper STT (`LocalWhisperSTT.ts`)

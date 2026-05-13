@@ -105,25 +105,29 @@ const WHISPER_MODELS: Record<string, { url: string; size: string }> = {
         size: '466MB',
     },
     'small-tdrz': {
-        url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en-tdrz.bin',
+        url: 'https://huggingface.co/akashmjn/tinydiarize-whisper.cpp/resolve/main/ggml-small.en-tdrz.bin',
         size: '466MB',
+    },
+    'medium-tdrz': {
+        url: '', // Community release pending
+        size: '1.5GB',
     },
     'medium': {
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
         size: '1.5GB',
     },
     'large': {
-        url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large.bin',
-        size: '6.2GB',
+        url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin',
+        size: '1.5GB',
     },
 };
 
 // Default model depends on hardware:
-//   - NVIDIA GPU: 'medium' (best accuracy, 1.5GB loads into VRAM in ~2s)
-//   - CPU-only:   'tiny'   (fastest CPU inference, 74MB loads in <1s)
+//   - NVIDIA GPU: 'small-tdrz' (diarization support + good speed/accuracy)
+//   - CPU-only:   'tiny'        (fastest CPU inference)
 const GPU_DEFAULT_MODEL = 'small-tdrz';
 const CPU_DEFAULT_MODEL = 'tiny';
-const DEFAULT_MODEL = 'small-tdrz'; // Switch default to tdrz for new features
+const DEFAULT_MODEL = 'small-tdrz';
 
 export interface WhisperPaths {
     binaryPath: string;
@@ -131,7 +135,9 @@ export interface WhisperPaths {
     isReady: boolean;
 }
 
-export class WhisperModelManager {
+import { EventEmitter } from 'events';
+
+export class WhisperModelManager extends EventEmitter {
     private static instance: WhisperModelManager | null = null;
     private whisperDir: string;
     private binDir: string;
@@ -143,6 +149,7 @@ export class WhisperModelManager {
     private hasUserExplicitlyChosen: boolean = false;
 
     constructor(model: string = DEFAULT_MODEL) {
+        super();
         this.selectedModel = model;
 
         // Use app's userData directory for storage

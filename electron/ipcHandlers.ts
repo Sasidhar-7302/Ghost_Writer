@@ -8,11 +8,13 @@ import { rateLimiter } from "./utils/rateLimiter"
 
 import { ENGLISH_VARIANTS } from "./config/languages"
 import {
-  GEMINI_PRO_MODEL,
-  GEMINI_FLASH_MODEL,
   UNIVERSAL_ANSWER_PROMPT,
   injectUserContext
-} from "./llm/prompts"
+} from "./llm/prompts/index"
+import { sanitizeUserContent } from "./llm/promptSanitizer"
+
+const GEMINI_PRO_MODEL = "gemini-1.5-pro";
+const GEMINI_FLASH_MODEL = "gemini-1.5-flash";
 
 // Sub-handler modules
 import { registerCredentialHandlers } from "./ipc/credentialHandlers"
@@ -25,6 +27,10 @@ import { registerLicenseHandlers } from "./ipc/licenseHandlers"
 
 let ipcHandlersInitialized = false;
 
+// Track AbortControllers for gemini-chat-stream so a new request from the same
+// renderer cancels the previous in-flight stream.
+const streamAbortControllers = new Map<number, AbortController>();
+
 import { setupSystemHandlers } from './ipc/systemHandlers';
 
 function buildGroundedChatSystemPrompt(appState: AppState): string {
@@ -35,8 +41,8 @@ function buildGroundedChatSystemPrompt(appState: AppState): string {
 
   return injectUserContext(
     basePrompt,
-    appState.contextManager.getResumeText(),
-    appState.contextManager.getJDText(),
+    isMeetingMode ? "" : appState.contextManager.getResumeText(),
+    isMeetingMode ? "" : appState.contextManager.getJDText(),
     appState.contextManager.getProjectKnowledgeText(),
     appState.contextManager.getAgendaText(),
     isMeetingMode ? "meeting" : "interview"
@@ -65,6 +71,7 @@ export function initializeIpcHandlers(appState: AppState): void {
     "setup-whisper",
     "set-local-whisper-model",
     "set-local-whisper-paths",
+    "download-whisper-model",
     "select-local-file",
     "set-groq-stt-api-key",
     "set-openai-stt-api-key",
@@ -107,7 +114,7 @@ export function initializeIpcHandlers(appState: AppState): void {
   });
   safeIpcHandle(
     "update-content-dimensions",
-    async (event, { width, height }: { width: number; height: number }) => {
+    async (event, { width, height, isExpanded }: { width: number; height: number; isExpanded?: boolean }) => {
       if (!width || !height) return
 
       const senderWebContents = event.sender
@@ -121,7 +128,7 @@ export function initializeIpcHandlers(appState: AppState): void {
         overlayWin && !overlayWin.isDestroyed() && overlayWin.webContents.id === senderWebContents.id
       ) {
         // GhostWriterInterface logic - Resize ONLY the overlay window using dedicated method
-        appState.getWindowHelper().setOverlayDimensions(width, height)
+        appState.getWindowHelper().setOverlayDimensions(width, height, isExpanded !== false)
       }
     }
   )
@@ -216,7 +223,6 @@ export function initializeIpcHandlers(appState: AppState): void {
 
   safeIpcHandle("minimize-current-window", async (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
-    const overlayWindow = appState.getWindowHelper().getOverlayWindow()
     const isUndetectable = appState.getUndetectable()
 
     if (!senderWindow || senderWindow.isDestroyed()) {
@@ -224,17 +230,13 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
 
     if (isUndetectable) {
-      // In Ghost Mode, minimize means completely disappear (hide)
+      // Stealth: disappear completely (overlay stays skip-taskbar)
       senderWindow.hide()
       return
     }
 
-    // Normal Mode
-    if (overlayWindow && senderWindow === overlayWindow) {
-      appState.getWindowHelper().switchToLauncher()
-      return
-    }
-
+    // Visible mode: ensure overlay can appear in the Windows taskbar when minimized
+    senderWindow.setSkipTaskbar(false)
     senderWindow.minimize()
   })
 
@@ -419,6 +421,24 @@ export function initializeIpcHandlers(appState: AppState): void {
 
   // Streaming IPC Handler
   safeIpcHandle("gemini-chat-stream", async (event, message: string, imagePath?: string, context?: string, options?: { skipSystemPrompt?: boolean }) => {
+    const senderId = event.sender.id;
+
+    // Rate-limit before allocating resources (counts against global quota)
+    if (!rateLimiter.canProceed('gemini-chat-stream')) {
+      event.sender.send("gemini-stream-error", "Rate limit reached. Please wait a moment before sending another message.");
+      return null;
+    }
+    rateLimiter.markStart('gemini-chat-stream');
+
+    // Cancel any in-flight stream from the same renderer window
+    const existing = streamAbortControllers.get(senderId);
+    if (existing) {
+      console.log(`[IPC] Cancelling previous gemini-chat-stream for sender ${senderId}`);
+      existing.abort();
+    }
+    const abortController = new AbortController();
+    streamAbortControllers.set(senderId, abortController);
+
     try {
       console.log("[IPC] gemini-chat-stream started using LLMHelper.streamChat");
       const llmHelper = appState.processingHelper.getLLMHelper();
@@ -426,10 +446,13 @@ export function initializeIpcHandlers(appState: AppState): void {
         ? undefined
         : buildGroundedChatSystemPrompt(appState);
 
+      // Sanitize user-supplied content before it reaches the LLM
+      const safeMessage = sanitizeUserContent(message, { maxLength: 4000 });
+
       // Update IntelligenceManager with USER message immediately
       const intelligenceManager = appState.getIntelligenceManager();
       intelligenceManager.addTranscript({
-        text: message,
+        text: safeMessage,
         speaker: 'user',
         timestamp: Date.now(),
         final: true
@@ -439,8 +462,6 @@ export function initializeIpcHandlers(appState: AppState): void {
 
       // Context Injection for "Answer" button (100s rolling window)
       if (!context) {
-        // User requested 100 seconds of context for the answer button
-        // Logic: If no explicit context provided (like from manual override), auto-inject from IntelligenceManager
         try {
           const autoContext = intelligenceManager.getFormattedContext(100);
           if (autoContext && autoContext.trim().length > 0) {
@@ -452,41 +473,67 @@ export function initializeIpcHandlers(appState: AppState): void {
         }
       }
 
+      const safeContext = context ? sanitizeUserContent(context) : undefined;
+
       try {
-        // USE streamChat which handles routing with structured payload
         const stream = llmHelper.streamChat({
-          message,
+          message: safeMessage,
           imagePath,
-          context,
+          context: safeContext,
           systemPrompt,
+          signal: abortController.signal,
           options: { skipSystemPrompt: options?.skipSystemPrompt }
         });
 
         for await (const token of stream) {
+          if (abortController.signal.aborted) break;
           event.sender.send("gemini-stream-token", token);
           fullResponse += token;
         }
 
-        event.sender.send("gemini-stream-done");
+        if (!abortController.signal.aborted) {
+          event.sender.send("gemini-stream-done");
 
-        // Update IntelligenceManager with ASSISTANT message after completion
-        if (fullResponse.trim().length > 0) {
-          intelligenceManager.addAssistantMessage(fullResponse);
-          // Log Usage for streaming chat
-          intelligenceManager.logUsage('chat', message, fullResponse);
+          // Update IntelligenceManager with ASSISTANT message after completion
+          if (fullResponse.trim().length > 0) {
+            intelligenceManager.addAssistantMessage(fullResponse);
+            intelligenceManager.logUsage('chat', safeMessage, fullResponse);
+          }
         }
 
       } catch (streamError: any) {
-        console.error("[IPC] Streaming error:", streamError);
-        event.sender.send("gemini-stream-error", streamError.message || "Unknown streaming error");
+        if (streamError?.name !== 'AbortError' && !abortController.signal.aborted) {
+          console.error("[IPC] Streaming error:", streamError);
+          event.sender.send("gemini-stream-error", streamError.message || "Unknown streaming error");
+        }
+      } finally {
+        // Only clean up if we're still the active controller for this sender
+        if (streamAbortControllers.get(senderId) === abortController) {
+          streamAbortControllers.delete(senderId);
+        }
+        rateLimiter.markEnd('gemini-chat-stream');
       }
 
-      return null; // Return null as data is sent via events
+      return null;
 
     } catch (error: any) {
+      streamAbortControllers.delete(senderId);
+      rateLimiter.markEnd('gemini-chat-stream');
       console.error("[IPC] Error in gemini-chat-stream setup:", error);
       throw error;
     }
+  });
+
+  // Allow the renderer to explicitly cancel an in-flight stream
+  safeIpcHandle("gemini-chat-stream-cancel", async (event) => {
+    const senderId = event.sender.id;
+    const controller = streamAbortControllers.get(senderId);
+    if (controller) {
+      controller.abort();
+      streamAbortControllers.delete(senderId);
+      console.log(`[IPC] gemini-chat-stream cancelled by renderer ${senderId}`);
+    }
+    return { cancelled: true };
   });
 
   safeIpcHandle("quit-app", () => {
@@ -623,6 +670,7 @@ export function initializeIpcHandlers(appState: AppState): void {
         hasDeepseekKey: !!creds.deepseekApiKey,
         googleServiceAccountPath: creds.googleServiceAccountPath || null,
         sttProvider: creds.sttProvider || 'google',
+        audioCaptureMode: CredentialsManager.getInstance().getAudioCaptureMode(),
         groqSttModel: creds.groqSttModel || 'whisper-large-v3-turbo',
         hasSttGroqKey: !!creds.groqSttApiKey,
         hasSttOpenaiKey: !!creds.openAiSttApiKey,
@@ -638,7 +686,7 @@ export function initializeIpcHandlers(appState: AppState): void {
         hasAgenda: !!appState.contextManager.getAgendaText(),
       };
     } catch (error: any) {
-      return { hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, hasNvidiaKey: false, hasDeepseekKey: false, googleServiceAccountPath: null, sttProvider: 'google', groqSttModel: 'whisper-large-v3-turbo', hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', hasResume: false, hasJobDescription: false, hasProject: false, hasAgenda: false };
+      return { hasGeminiKey: false, hasGroqKey: false, hasOpenaiKey: false, hasClaudeKey: false, hasNvidiaKey: false, hasDeepseekKey: false, googleServiceAccountPath: null, sttProvider: 'google', audioCaptureMode: 'dual-stream', groqSttModel: 'whisper-large-v3-turbo', hasSttGroqKey: false, hasSttOpenaiKey: false, hasDeepgramKey: false, hasElevenLabsKey: false, hasAzureKey: false, azureRegion: 'eastus', hasIbmWatsonKey: false, ibmWatsonRegion: 'us-south', hasResume: false, hasJobDescription: false, hasProject: false, hasAgenda: false };
     }
   });
 
@@ -646,7 +694,7 @@ export function initializeIpcHandlers(appState: AppState): void {
   // STT Provider Management Handlers
   // ==========================================
 
-  safeIpcHandle("set-stt-provider", async (_, provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson') => {
+  safeIpcHandle("set-stt-provider", async (_, provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => {
     try {
       const { CredentialsManager } = require('./services/CredentialsManager');
       CredentialsManager.getInstance().setSttProvider(provider);

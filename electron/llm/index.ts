@@ -1,12 +1,14 @@
 // electron/llm/index.ts
 // Central export for all LLM modules
 
-export { AnswerLLM } from "./AnswerLLM";
 export { AssistLLM } from "./AssistLLM";
 export { FollowUpLLM } from "./FollowUpLLM";
 export { FollowUpQuestionsLLM } from "./FollowUpQuestionsLLM";
 export { RecapLLM } from "./RecapLLM";
-export { WhatToAnswerLLM } from "./WhatToAnswerLLM";
+export { InterviewCopilot } from "./services/InterviewCopilot";
+export { MeetingCopilot } from "./services/MeetingCopilot";
+export { MeetingSummarizer } from "./services/MeetingSummarizer";
+export type { MeetingSummary } from "./services/MeetingSummarizer";
 export { clampResponse, validateResponse, postProcessForInterview, stripMetaCommentary } from "./postProcessor";
 export {
     cleanTranscript,
@@ -31,15 +33,18 @@ export { buildPromptForMode, getDefaultPromptSettings, getDefaultPromptTemplates
 export { PROMPT_MODES } from "./promptTypes";
 export type { LicenseVerificationRecord, PromptMode, PromptSettings, PromptSettingsMap } from "./promptTypes";
 export {
-    HARD_SYSTEM_PROMPT,
-    ANSWER_MODE_PROMPT,
-    ASSIST_MODE_PROMPT,
-    FOLLOWUP_MODE_PROMPT,
-    RECAP_MODE_PROMPT,
-    WHAT_TO_ANSWER_PROMPT,
-    TEMPORAL_CONTEXT_TEMPLATE,
+    CORE_IDENTITY,
+    UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
+    UNIVERSAL_FOLLOW_UP_QUESTIONS_PROMPT,
+    UNIVERSAL_MEETING_ANSWER_PROMPT,
+    UNIVERSAL_RECAP_PROMPT,
+    UNIVERSAL_FOLLOWUP_PROMPT,
+    UNIVERSAL_ASSIST_PROMPT,
+    IMAGE_ANALYSIS_PROMPT,
+    UNIVERSAL_ANSWER_PROMPT,
+    UNIVERSAL_SYSTEM_PROMPT,
     GROQ_TITLE_PROMPT,
     GROQ_SUMMARY_JSON_PROMPT,
     FOLLOWUP_EMAIL_PROMPT,
-    GROQ_FOLLOWUP_EMAIL_PROMPT
-} from "./prompts";
+    injectUserContext
+} from "./prompts/index";

@@ -177,6 +177,15 @@ export class ShortcutsHelper {
       handler: () => this.handleResetSession(),
       label: "reset session alias",
     });
+
+    registerShortcut({
+      accelerator: "CommandOrControl+Shift+M",
+      handler: () => {
+        const paused = this.appState.toggleListeningPause();
+        console.log(`[Shortcuts] Listening ${paused ? 'paused' : 'resumed'} via Ctrl+Shift+M`);
+      },
+      label: "toggle listening pause",
+    });
   }
 
   private registerScreenshotShortcuts(
@@ -275,7 +284,10 @@ export class ShortcutsHelper {
     }
 
     if (currentMode === "overlay" && overlayWindow) {
-      if (!overlayWindow.isVisible()) {
+      if (overlayWindow.isMinimized()) {
+        overlayWindow.restore();
+        overlayWindow.focus();
+      } else if (!overlayWindow.isVisible()) {
         overlayWindow.show();
         overlayWindow.focus();
       }

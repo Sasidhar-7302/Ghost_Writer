@@ -114,7 +114,7 @@ export class SettingsWindowHelper {
     private createWindow(x?: number, y?: number, showWhenReady: boolean = true): void {
         const windowSettings: Electron.BrowserWindowConstructorOptions = {
             width: 225, // Match React component width
-            height: 238, // Increased to accommodate new Transcript toggle
+            height: Math.min(Math.floor(screen.getPrimaryDisplay().workArea.height * 0.85), 714), // Increased 3x (from 238) but capped for screen fit
             frame: false,
             transparent: true,
             resizable: false,

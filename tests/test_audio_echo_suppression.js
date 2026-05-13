@@ -76,10 +76,71 @@ assertEqual(
 console.log('  OK legitimate user speech preserved');
 
 assertEqual(
-  pruneTranscriptEchoCandidates(recentInterviewer, now + 10000).length,
+  pruneTranscriptEchoCandidates(recentInterviewer, now + 21000).length,
   0,
   'Should discard interviewer echo candidates after the suppression window expires'
 );
 console.log('  OK stale candidates pruned');
+
+const recentLoopback = [
+  { text: 'and container', timestamp: now - 800, final: true },
+];
+assertEqual(
+  isLikelyEchoTranscript('and', recentLoopback, now),
+  true,
+  'Should suppress short mic fragments that are already on loopback (speakerphone echo)'
+);
+console.log('  OK short loopback fragment suppressed');
+
+assertEqual(
+  isLikelyEchoTranscript('and', [{ text: 'unrelated topic', timestamp: now - 800, final: true }], now),
+  false,
+  'Should not suppress short user speech with no loopback match'
+);
+console.log('  OK unrelated short user speech preserved');
+
+assertEqual(
+  isLikelyEchoTranscript(
+    "if my doctor demands talk",
+    [{ text: "if my Docker daemon's stopped", timestamp: now - 500, final: true }],
+    now
+  ),
+  true,
+  'Should suppress near-simultaneous degraded speakerphone echo from the mic channel'
+);
+console.log('  OK degraded near-time echo suppressed');
+
+assertEqual(
+  isLikelyEchoTranscript(
+    "if my doctor demands talk",
+    [{ text: "if my Docker daemon's stopped", timestamp: now - 6000, final: true }],
+    now
+  ),
+  false,
+  'Should not use relaxed degraded-echo matching outside the near-time window'
+);
+console.log('  OK relaxed degraded matching is time-bounded');
+
+assertEqual(
+  isLikelyEchoTranscript(
+    "messy I'm. the best of my C_I_ I_C_",
+    [{ text: "messy I'm. I'm messy I.", timestamp: now - 500, final: true }],
+    now
+  ),
+  true,
+  'Should suppress near-time whisper artifact text from speakerphone echo'
+);
+console.log('  OK whisper artifact echo suppressed');
+
+assertEqual(
+  isLikelyEchoTranscript(
+    'this approach is messy but unrelated to the speaker',
+    [{ text: "messy I'm. I'm messy I.", timestamp: now - 500, final: true }],
+    now
+  ),
+  false,
+  'Should not suppress normal user text just because it shares one distinctive word'
+);
+console.log('  OK normal one-word-overlap user speech preserved');
 
 console.log('\nAudio echo suppression regression checks passed\n');

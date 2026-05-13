@@ -38,8 +38,8 @@ export class AssistLLM {
             const prompt = buildPromptForMode({
                 mode: 'assist',
                 settings: creds.getPromptSettings(),
-                resumeText,
-                jdText,
+                resumeText: isMeeting ? "" : resumeText,
+                jdText: isMeeting ? "" : jdText,
                 projectKnowledge,
                 agendaText,
                 sessionMode: isMeeting ? 'meeting' : 'interview'

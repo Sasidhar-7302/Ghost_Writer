@@ -420,14 +420,17 @@ export function postProcessForInterview(
             break;
         case 'behavioral':
         case 'weakness_strength':
-        case 'deep_dive':
         case 'leadership':
-            maxSentences = 8;
-            maxWords = 200;
+            maxSentences = 8;   // STAR stories can naturally run 6-8 sentences
+            maxWords = 220;
+            break;
+        case 'deep_dive':
+            maxSentences = 6;
+            maxWords = 160;
             break;
         case 'system_design':
-            maxSentences = 10;
-            maxWords = 300;
+            maxSentences = 12;  // Complex designs need more room
+            maxWords = 350;
             break;
         case 'coding':
             // Don't clamp code answers at all

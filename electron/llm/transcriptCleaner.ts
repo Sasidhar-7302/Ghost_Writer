@@ -6,6 +6,7 @@ export interface TranscriptTurn {
     role: 'interviewer' | 'user' | 'assistant';
     text: string;
     timestamp: number;
+    speaker?: string;
 }
 
 /**
@@ -100,7 +101,8 @@ export function cleanTranscript(turns: TranscriptTurn[]): TranscriptTurn[] {
             cleaned.push({
                 role: turn.role,
                 text: cleanedText,
-                timestamp: turn.timestamp
+                timestamp: turn.timestamp,
+                speaker: turn.speaker
             });
         }
     }
@@ -147,8 +149,9 @@ export function sparsifyTranscript(
  */
 export function formatTranscriptForLLM(turns: TranscriptTurn[]): string {
     return turns.map(turn => {
-        const label = turn.role === 'interviewer' ? 'INTERVIEWER' :
-            turn.role === 'user' ? 'ME' : 'ASSISTANT';
+        let label = turn.role === 'user' ? 'YOU' :
+                    turn.role === 'assistant' ? 'ASSISTANT' :
+                    (turn.speaker ? turn.speaker.toUpperCase() : 'INTERVIEWER');
         return `[${label}]: ${turn.text}`;
     }).join('\n');
 }

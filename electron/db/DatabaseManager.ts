@@ -16,6 +16,8 @@ export interface Meeting {
         overview?: string;
         actionItems: string[];
         keyPoints: string[];
+        actionItemsTitle?: string;
+        keyPointsTitle?: string;
     };
     transcript?: Array<{
         speaker: string;
@@ -80,8 +82,6 @@ export class DatabaseManager {
 
     private init() {
         try {
-            // Initializing database
-            // Ensure directory exists (though userData usually does)
             const dir = path.dirname(this.dbPath);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
@@ -104,7 +104,7 @@ export class DatabaseManager {
                 title TEXT,
                 start_time INTEGER,
                 duration_ms INTEGER,
-                summary_json TEXT, -- JSON containing actionItems, keyPoints, and legacy summary text if needed
+                summary_json TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 calendar_event_id TEXT,
                 source TEXT,
@@ -131,7 +131,7 @@ export class DatabaseManager {
                 timestamp INTEGER,
                 user_query TEXT,
                 ai_response TEXT,
-                metadata_json TEXT, -- JSON for lists or extra data
+                metadata_json TEXT,
                 FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
             );
         `;
@@ -155,7 +155,6 @@ export class DatabaseManager {
         `;
         this.db.exec(createUserProfileTable);
 
-        // RAG: Semantic chunks with embeddings
         const createChunksTable = `
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -173,7 +172,6 @@ export class DatabaseManager {
         `;
         this.db.exec(createChunksTable);
 
-        // RAG: Meeting-level summaries for global search
         const createChunkSummariesTable = `
             CREATE TABLE IF NOT EXISTS chunk_summaries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -186,7 +184,6 @@ export class DatabaseManager {
         `;
         this.db.exec(createChunkSummariesTable);
 
-        // RAG: Embedding queue for retry/failure handling
         const createEmbeddingQueueTable = `
             CREATE TABLE IF NOT EXISTS embedding_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -201,29 +198,15 @@ export class DatabaseManager {
         `;
         this.db.exec(createEmbeddingQueueTable);
 
-        // Create index for chunks lookup
         try {
             this.db.exec("CREATE INDEX IF NOT EXISTS idx_chunks_meeting ON chunks(meeting_id)");
-        } catch (e) { /* Index may exist */ }
+        } catch (e) { }
 
-        // Migration for existing tables
-        try {
-            this.db.exec("ALTER TABLE meetings ADD COLUMN calendar_event_id TEXT");
-        } catch (e) { /* Column likely exists */ }
+        try { this.db.exec("ALTER TABLE meetings ADD COLUMN calendar_event_id TEXT"); } catch (e) { }
+        try { this.db.exec("ALTER TABLE meetings ADD COLUMN source TEXT"); } catch (e) { }
+        try { this.db.exec("ALTER TABLE meetings ADD COLUMN context_json TEXT"); } catch (e) { }
+        try { this.db.exec("ALTER TABLE meetings ADD COLUMN is_processed INTEGER DEFAULT 1"); } catch (e) { }
 
-        try {
-            this.db.exec("ALTER TABLE meetings ADD COLUMN source TEXT");
-        } catch (e) { /* Column likely exists */ }
-
-        try {
-            this.db.exec("ALTER TABLE meetings ADD COLUMN context_json TEXT");
-        } catch (e) { /* Column likely exists */ }
-
-        try {
-            this.db.exec("ALTER TABLE meetings ADD COLUMN is_processed INTEGER DEFAULT 1"); // Default to 1 (true) for existing records
-        } catch (e) { /* Column likely exists */ }
-
-        // Token usage tracking table
         const createTokenUsageTable = `
             CREATE TABLE IF NOT EXISTS token_usage (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -238,13 +221,10 @@ export class DatabaseManager {
         `;
         this.db.exec(createTokenUsageTable);
 
-        // Create index for token usage queries
         try {
             this.db.exec("CREATE INDEX IF NOT EXISTS idx_token_usage_timestamp ON token_usage(timestamp)");
             this.db.exec("CREATE INDEX IF NOT EXISTS idx_token_usage_provider ON token_usage(provider)");
-        } catch (e) { /* Index may exist */ }
-
-        // Migrations completed
+        } catch (e) { }
     }
 
     private deleteScreenshotFiles(paths: string[]): void {
@@ -260,21 +240,14 @@ export class DatabaseManager {
         }
     }
 
-    // ============================================
-    // Public API
-    // ============================================
-
     public getUserProfile(): UserProfile | null {
         if (!this.db) return null;
-
         const row = this.db.prepare(`
             SELECT full_name, preferred_name, email, current_role, company, target_role, created_at, updated_at
             FROM user_profile
             WHERE id = 1
         `).get() as any;
-
         if (!row) return null;
-
         return {
             fullName: row.full_name,
             preferredName: row.preferred_name || '',
@@ -289,26 +262,14 @@ export class DatabaseManager {
 
     public saveUserProfile(profile: UserProfile): boolean {
         if (!this.db) return false;
-
         const fullName = profile.fullName?.trim();
         if (!fullName) return false;
-
         const now = new Date().toISOString();
-
         try {
             const existing = this.getUserProfile();
             this.db.prepare(`
-                INSERT INTO user_profile (
-                    id,
-                    full_name,
-                    preferred_name,
-                    email,
-                    current_role,
-                    company,
-                    target_role,
-                    created_at,
-                    updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO user_profile (id, full_name, preferred_name, email, current_role, company, target_role, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     full_name = excluded.full_name,
                     preferred_name = excluded.preferred_name,
@@ -317,18 +278,7 @@ export class DatabaseManager {
                     company = excluded.company,
                     target_role = excluded.target_role,
                     updated_at = excluded.updated_at
-            `).run(
-                1,
-                fullName,
-                profile.preferredName?.trim() || null,
-                profile.email?.trim() || null,
-                profile.currentRole?.trim() || null,
-                profile.company?.trim() || null,
-                profile.targetRole?.trim() || null,
-                existing?.createdAt || now,
-                now
-            );
-
+            `).run(1, fullName, profile.preferredName?.trim() || null, profile.email?.trim() || null, profile.currentRole?.trim() || null, profile.company?.trim() || null, profile.targetRole?.trim() || null, existing?.createdAt || now, now);
             return true;
         } catch (error) {
             console.error('[DatabaseManager] Failed to save user profile:', error);
@@ -337,10 +287,7 @@ export class DatabaseManager {
     }
 
     public saveMeeting(meeting: Meeting, startTimeMs: number, durationMs: number) {
-        if (!this.db) {
-            console.error('[DatabaseManager] DB not initialized');
-            return;
-        }
+        if (!this.db) return;
 
         const insertMeeting = this.db.prepare(`
             INSERT OR REPLACE INTO meetings (id, title, start_time, duration_ms, summary_json, created_at, calendar_event_id, source, is_processed, screenshots_json, context_json)
@@ -363,67 +310,30 @@ export class DatabaseManager {
         });
 
         const runTransaction = this.db.transaction(() => {
-            // 1. Insert Meeting
-            insertMeeting.run(
-                meeting.id,
-                meeting.title,
-                startTimeMs,
-                durationMs,
-                summaryJson,
-                meeting.date, // Using the ISO string as created_at for sorting simply
-                meeting.calendarEventId || null,
-                meeting.source || 'manual',
-                meeting.isProcessed ? 1 : 0,
-                JSON.stringify(meeting.screenshots || []),
-                meeting.context_json || null
-            );
+            insertMeeting.run(meeting.id, meeting.title, startTimeMs, durationMs, summaryJson, meeting.date, meeting.calendarEventId || null, meeting.source || 'manual', meeting.isProcessed ? 1 : 0, JSON.stringify(meeting.screenshots || []), meeting.context_json || null);
 
-            // 2. Insert Transcript
             if (meeting.transcript) {
                 for (const segment of meeting.transcript) {
-                    insertTranscript.run(
-                        meeting.id,
-                        segment.speaker,
-                        segment.text,
-                        segment.timestamp
-                    );
+                    insertTranscript.run(meeting.id, segment.speaker, segment.text, segment.timestamp);
                 }
             }
 
-            // 3. Insert Interactions
             if (meeting.usage) {
                 for (const usage of meeting.usage) {
                     let metadata = null;
                     if (usage.items) {
                         metadata = JSON.stringify(usage.items);
-                    } else if (usage.type === 'followup_questions' && usage.answer) {
-                        // Sometimes answer is the array for questions, or we store it in metadata
-                        // In intelligence manager we pushed: { type: 'followup_questions', answer: fullQuestions }
-                        // Let's store that 'answer' (array) in metadata for this type
-                        if (Array.isArray(usage.answer)) {
-                            metadata = JSON.stringify(usage.answer);
-                        }
+                    } else if (usage.type === 'followup_questions' && usage.answer && Array.isArray(usage.answer)) {
+                        metadata = JSON.stringify(usage.answer);
                     }
-
-                    // Normalization
                     const answerText = Array.isArray(usage.answer) ? null : usage.answer || null;
-                    const queryText = usage.question || null;
-
-                    insertInteraction.run(
-                        meeting.id,
-                        usage.type,
-                        usage.timestamp,
-                        queryText,
-                        answerText,
-                        metadata
-                    );
+                    insertInteraction.run(meeting.id, usage.type, usage.timestamp, usage.question || null, answerText, metadata);
                 }
             }
         });
 
         try {
             runTransaction();
-            // Successfully saved meeting
         } catch (err) {
             console.error(`[DatabaseManager] Failed to save meeting ${meeting.id}`, err);
             throw err;
@@ -444,175 +354,97 @@ export class DatabaseManager {
 
     public updateMeetingSummary(id: string, updates: { overview?: string, actionItems?: string[], keyPoints?: string[], actionItemsTitle?: string, keyPointsTitle?: string }): boolean {
         if (!this.db) return false;
-
         try {
-            // 1. Get current summary_json
             const row = this.db.prepare('SELECT summary_json FROM meetings WHERE id = ?').get(id) as any;
             if (!row) return false;
-
             const existingData = JSON.parse(row.summary_json || '{}');
             const currentDetailed = existingData.detailedSummary || {};
-
-            // 2. Merge updates
-            const newDetailed = {
-                ...currentDetailed,
-                ...updates
-            };
-
-            // Should likely filter out undefined updates if spread doesn't handle them how we want, 
-            // but spread over undefined is fine. We want to overwrite if provided.
-            // If updates.overview is empty string, it overwrites. 
-            // If updates.overview is undefined, we use ...updates trick:
-            // Actually spread only includes own enumerable properties. If I pass { overview: "new" }, it works.
-
-            // However, we need to be careful not to wipe legacySummary if it exists
-            const newData = {
-                ...existingData,
-                detailedSummary: newDetailed
-            };
-
-            const jsonStr = JSON.stringify(newData);
-
-            // 3. Write back
+            const newDetailed = { ...currentDetailed, ...updates };
+            const newData = { ...existingData, detailedSummary: newDetailed };
             const stmt = this.db.prepare('UPDATE meetings SET summary_json = ? WHERE id = ?');
-            const info = stmt.run(jsonStr, id);
+            const info = stmt.run(JSON.stringify(newData), id);
             return info.changes > 0;
-
         } catch (error) {
             console.error(`[DatabaseManager] Failed to update summary for meeting ${id}:`, error);
             return false;
         }
     }
 
+    private formatDuration(ms: number): string {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return hours > 0 
+            ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
     public getRecentMeetings(limit: number = 50): Meeting[] {
         if (!this.db) return [];
-
-        const stmt = this.db.prepare(`
-            SELECT * FROM meetings 
-            ORDER BY created_at DESC 
-            LIMIT ?
-        `);
-
+        const stmt = this.db.prepare(`SELECT * FROM meetings ORDER BY created_at DESC LIMIT ?`);
         const rows = stmt.all(limit) as any[];
-
-        return rows.map(row => {
-            const summaryData = JSON.parse(row.summary_json || '{}');
-
-            // Format duration string if needed, but we typically store ms
-            // Let's recreate the 'duration' string "MM:SS" from duration_ms
-            const minutes = Math.floor(row.duration_ms / 60000);
-            const seconds = Math.floor((row.duration_ms % 60000) / 1000);
-            const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-            return {
-                id: row.id,
-                title: row.title,
-                date: row.created_at, // Use the stored ISO string
-                duration: durationStr,
-                summary: summaryData.legacySummary || '',
-                detailedSummary: summaryData.detailedSummary,
-                calendarEventId: row.calendar_event_id,
-                source: row.source as any,
-                // We don't load full transcript/usage for list view to keep it light
-                transcript: [] as any[],
-                usage: [] as any[],
-                screenshots: [] as string[]
-            };
-        });
+        return rows.map(row => ({
+            id: row.id,
+            title: row.title,
+            date: row.created_at,
+            duration: this.formatDuration(row.duration_ms),
+            summary: JSON.parse(row.summary_json || '{}').legacySummary || '',
+            detailedSummary: JSON.parse(row.summary_json || '{}').detailedSummary,
+            calendarEventId: row.calendar_event_id,
+            source: row.source,
+            transcript: [] as any[],
+            usage: [] as any[],
+            screenshots: [] as string[]
+        }));
     }
 
     public getMeetingDetails(id: string): Meeting | null {
         if (!this.db) return null;
-
-        const meetingStmt = this.db.prepare('SELECT * FROM meetings WHERE id = ?');
-        const meetingRow = meetingStmt.get(id) as any;
-
+        const meetingRow = this.db.prepare('SELECT * FROM meetings WHERE id = ?').get(id) as any;
         if (!meetingRow) return null;
 
-        // Get Transcript
-        const transcriptStmt = this.db.prepare('SELECT * FROM transcripts WHERE meeting_id = ? ORDER BY timestamp_ms ASC');
-        const transcriptRows = transcriptStmt.all(id) as any[];
+        const transcriptRows = this.db.prepare('SELECT * FROM transcripts WHERE meeting_id = ? ORDER BY timestamp_ms ASC').all(id) as any[];
+        const usageRows = this.db.prepare('SELECT * FROM ai_interactions WHERE meeting_id = ? ORDER BY timestamp ASC').all(id) as any[];
 
-        // Get Usage
-        const usageStmt = this.db.prepare('SELECT * FROM ai_interactions WHERE meeting_id = ? ORDER BY timestamp ASC');
-        const usageRows = usageStmt.all(id) as any[];
-
-        // Reconstruct
         const summaryData = JSON.parse(meetingRow.summary_json || '{}');
-        const screenshotsArray = JSON.parse(meetingRow.screenshots_json || '[]');
-        const minutes = Math.floor(meetingRow.duration_ms / 60000);
-        const seconds = Math.floor((meetingRow.duration_ms % 60000) / 1000);
-        const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-        const transcript = transcriptRows.map(row => ({
-            speaker: row.speaker,
-            text: row.content,
-            timestamp: row.timestamp_ms
-        }));
-
-        const usage = usageRows.map(row => {
-            let items: string[] | undefined;
-            let answer = row.ai_response;
-
-            if (row.metadata_json) {
-                try {
-                    const parsed = JSON.parse(row.metadata_json);
-                    if (Array.isArray(parsed)) {
-                        items = parsed;
-                        // Special case: for 'followup_questions', earlier we treated 'answer' as the array in memory
-                        // UI expects appropriate field. If type is 'followup_questions', usually answer is null and items has the questions.
-                    }
-                } catch (e) { }
-            }
-
-            return {
-                type: row.type,
-                timestamp: row.timestamp,
-                question: row.user_query,
-                answer: answer,
-                items: items
-            };
-        });
-
         return {
             id: meetingRow.id,
             title: meetingRow.title,
             date: meetingRow.created_at,
-            duration: durationStr,
+            duration: this.formatDuration(meetingRow.duration_ms),
             summary: summaryData.legacySummary || '',
             detailedSummary: summaryData.detailedSummary,
             calendarEventId: meetingRow.calendar_event_id,
             source: meetingRow.source,
-            transcript: transcript,
-            usage: usage,
-            screenshots: screenshotsArray,
+            transcript: transcriptRows.map(row => ({ speaker: row.speaker, text: row.content, timestamp: row.timestamp_ms })),
+            usage: usageRows.map(row => {
+                let items: string[] | undefined;
+                if (row.metadata_json) {
+                    try { const parsed = JSON.parse(row.metadata_json); if (Array.isArray(parsed)) items = parsed; } catch (e) { }
+                }
+                return { type: row.type, timestamp: row.timestamp, question: row.user_query, answer: row.ai_response, items };
+            }),
+            screenshots: JSON.parse(meetingRow.screenshots_json || '[]'),
             context_json: meetingRow.context_json
         };
     }
 
     public meetingExists(id: string): boolean {
         if (!this.db) return false;
-        const row = this.db.prepare('SELECT 1 FROM meetings WHERE id = ? LIMIT 1').get(id);
-        return !!row;
+        return !!this.db.prepare('SELECT 1 FROM meetings WHERE id = ? LIMIT 1').get(id);
     }
 
     public deleteMeeting(id: string): boolean {
         if (!this.db) return false;
-
         try {
             const row = this.db.prepare('SELECT screenshots_json FROM meetings WHERE id = ?').get(id) as any;
-            const stmt = this.db.prepare('DELETE FROM meetings WHERE id = ?');
-            const info = stmt.run(id);
-            console.log(`[DatabaseManager] Deleted meeting ${id}. Changes: ${info.changes}`);
+            const info = this.db.prepare('DELETE FROM meetings WHERE id = ?').run(id);
             if (info.changes > 0 && row?.screenshots_json) {
                 try {
                     const screenshots = JSON.parse(row.screenshots_json || '[]');
-                    if (Array.isArray(screenshots)) {
-                        this.deleteScreenshotFiles(screenshots);
-                    }
-                } catch {
-                    // Ignore malformed screenshot metadata during cleanup.
-                }
+                    if (Array.isArray(screenshots)) this.deleteScreenshotFiles(screenshots);
+                } catch { }
             }
             return info.changes > 0;
         } catch (error) {
@@ -623,71 +455,35 @@ export class DatabaseManager {
 
     public getUnprocessedMeetings(): Meeting[] {
         if (!this.db) return [];
-
-        // is_processed = 0 means false
-        const stmt = this.db.prepare(`
-            SELECT * FROM meetings 
-            WHERE is_processed = 0 
-            ORDER BY created_at DESC
-        `);
-
-        const rows = stmt.all() as any[];
-
-        return rows.map(row => {
-            // Reconstruct minimal meeting object for processing
-            // We mainly need ID to fetch transcripts later
-            const summaryData = JSON.parse(row.summary_json || '{}');
-            const minutes = Math.floor(row.duration_ms / 60000);
-            const seconds = Math.floor((row.duration_ms % 60000) / 1000);
-            const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-            return {
-                id: row.id,
-                title: row.title,
-                date: row.created_at,
-                duration: durationStr,
-                summary: summaryData.legacySummary || '',
-                detailedSummary: summaryData.detailedSummary,
-                calendarEventId: row.calendar_event_id,
-                source: row.source,
-                isProcessed: false,
-                transcript: [] as any[], // Fetched separately via getMeetingDetails or manually if needed
-                usage: [] as any[]
-            };
-        });
+        const rows = this.db.prepare(`SELECT * FROM meetings WHERE is_processed = 0 ORDER BY created_at DESC`).all() as any[];
+        return rows.map(row => ({
+            id: row.id,
+            title: row.title,
+            date: row.created_at,
+            duration: this.formatDuration(row.duration_ms),
+            summary: JSON.parse(row.summary_json || '{}').legacySummary || '',
+            detailedSummary: JSON.parse(row.summary_json || '{}').detailedSummary,
+            calendarEventId: row.calendar_event_id,
+            source: row.source,
+            isProcessed: false,
+            transcript: [] as any[],
+            usage: [] as any[]
+        }));
     }
 
     public clearAllData(): boolean {
         if (!this.db) return false;
-
         try {
             const meetingRows = this.db.prepare('SELECT screenshots_json FROM meetings').all() as any[];
             for (const row of meetingRows) {
                 try {
                     const screenshots = JSON.parse(row.screenshots_json || '[]');
-                    if (Array.isArray(screenshots)) {
-                        this.deleteScreenshotFiles(screenshots);
-                    }
-                } catch {
-                    // Ignore malformed screenshot metadata during cleanup.
-                }
+                    if (Array.isArray(screenshots)) this.deleteScreenshotFiles(screenshots);
+                } catch { }
             }
-
-            // Clear all tables (order matters due to foreign keys, but SQLite handles with ON DELETE CASCADE)
-            this.db.exec('DELETE FROM embedding_queue');
-            this.db.exec('DELETE FROM chunk_summaries');
-            this.db.exec('DELETE FROM chunks');
-            this.db.exec('DELETE FROM ai_interactions');
-            this.db.exec('DELETE FROM transcripts');
-            this.db.exec('DELETE FROM meetings');
-            this.db.exec('DELETE FROM user_profile');
-
+            this.db.exec('DELETE FROM embedding_queue; DELETE FROM chunk_summaries; DELETE FROM chunks; DELETE FROM ai_interactions; DELETE FROM transcripts; DELETE FROM meetings; DELETE FROM user_profile;');
             const meetingScreenshotDir = path.join(app.getPath('userData'), 'meeting_screenshots');
-            if (fs.existsSync(meetingScreenshotDir)) {
-                fs.rmSync(meetingScreenshotDir, { recursive: true, force: true });
-            }
-
-            // All data cleared
+            if (fs.existsSync(meetingScreenshotDir)) fs.rmSync(meetingScreenshotDir, { recursive: true, force: true });
             return true;
         } catch (error) {
             console.error('[DatabaseManager] Failed to clear all data:', error);
@@ -697,256 +493,41 @@ export class DatabaseManager {
 
     public seedDemoMeeting() {
         if (!this.db) return;
-
-        // Check if demo meeting already exists
-        const existing = this.db.prepare('SELECT id FROM meetings WHERE id = ?').get('demo-meeting');
-        if (existing) {
-            console.log('[DatabaseManager] Demo meeting already exists, overwriting with latest version.');
-            this.deleteMeeting('demo-meeting');
-        }
-
         const demoId = 'demo-meeting';
-
-        // Set date to today 9:30 AM
+        this.deleteMeeting(demoId);
         const today = new Date();
         today.setHours(9, 30, 0, 0);
-
-        const durationMs = 300000; // 5 min
-
-        const summaryMarkdown = `# Overview
-
-Ghost Writer is a real-time AI meeting assistant designed to help you stay focused, informed, and fast-moving during calls. Get live insights while you speak, instant answers to questions, and structured notes after every meeting.
-
-# Getting Started
-
-### Start a Session
-Click **Start Session** from the dashboard.
-Join a scheduled meeting and start directly from the meeting notification.
-
-### During a Meeting
-- Use the **five quick action buttons** for real-time assistance
-- Show or hide Ghost Writer at any time:
-  - **Mac**: Cmd + B
-  - **Windows**: Ctrl + B
-- Move the widget anywhere on your screen by hovering over the top pill and dragging
-
-# Main Features
-
-## Five Quick Action Buttons
-- **What to answer**: Instantly generates a context-aware response to the current topic.
-- **Shorten**: Refines the last suggested answer to be more concise and natural.
-- **Recap**: Generates a comprehensive summary of the conversation so far.
-- **Follow Up Question**: Suggests strategic questions you can ask to drive the conversation.
-- **Answer**: Manually trigger a response or use voice input to ask specific questions.
-
-## Meeting Insights (Launcher)
-- **Smart Note Taking**: Automatically captures key points, action items,
-- **Summary**: A concise high-level brief of the entire meeting.
-- **Transcript**: Full real-time speech-to-text transcript, available during and after the call.
-- **Usage**: Track your interaction history and see how Ghost Writer assisted you.
-
-## Live Insights
-Click **Live Insights** during a call to view:
-- Real-time questions and prompts
-- Detected keywords and topics
-- Context-aware suggestions based on the conversation
-- Click any insight to get an instant response.
-
-## AI Chat
-- Type your question and press **Enter** or click **Submit**
-- Enable **Smart Mode** for advanced reasoning and coding assistance
-
-## Screenshots
-- **Full Screen Screenshot**: Cmd + H
-- **Selective Screenshot**: Cmd + Shift + H
-
-# Making the Most of Ghost Writer
-
-### Custom Context
-Upload resumes, project briefs, sales scripts, or other documents to tailor responses to your workflow. (coming soon).
-
-### Language Preferences
-Go to **Settings → Language Preferences** to:
-- Change input and output language
-- Enable real-time translation during calls
-
-### Undetectability
-Unlock the **Undetectability** add-on to keep Ghost Writer invisible during screen sharing.
-
-# Interface Basics
-
-- **Dashboard**: Start meetings and view recent activity
-- **Start Session**: Begin a new meeting instantly
-- **Settings**: Configure API keys, language, and visibility
-- **History**: Review past meetings, notes, and transcripts
-
-# API Setup
-
-1. Open **Settings**
-2. Scroll to **Credentials**
-3. Add your API keys:
-   - **Gemini**
-   - **Groq**
-4. To enable real-time transcription, select the location of your **Google Cloud service account JSON file**.
-
-If you don’t already have one, follow the steps below to create it.
-
-# Creating a Google Speech-to-Text Service Account
-
-## 1. Create or Select a Project
-- Open **Google Cloud Console**
-- Create a new project or select an existing one
-- Ensure billing is enabled
-
-## 2. Enable Speech-to-Text API
-- Go to **APIs & Services → Library**
-- Enable **Speech-to-Text API**
-
-## 3. Create a Service Account
-- Navigate to **IAM & Admin → Service Accounts**
-- Click **Create Service Account**
-- **Name**: ghost-writer-stt
-- **Description**: optional
-
-## 4. Assign Permissions
-- Grant the following role: **Speech-to-Text User** (\`roles/speech.client\`)
-
-## 5. Create a JSON Key
-- Open the service account
-- Go to **Keys → Add Key → Create new key**
-- Select **JSON**
-- Download the file
-
-**Once downloaded, return to Settings → Credentials in Ghost Writer and select this file to complete setup.**
-
-# Free Google Cloud Credit (New Users)
-
-New Google Cloud accounts receive **$300 in free credits**, valid for 90 days.
-
-To activate:
-1. Visit [cloud.google.com](https://cloud.google.com)
-2. Click **Get started for free**
-3. Sign in with a Google account
-4. Add billing details (card required)
-5. Activate the free trial
-
-The credit can be used for Speech-to-Text and is sufficient for extended testing and regular usage.
-
-# Support
-
-If you need help with setup or usage, contact us anytime at:
-ghostwriter.contact@gmail.com`;
-
+        const durationMs = 300000;
         const demoMeeting: Meeting = {
             id: demoId,
             title: "Ghost Writer Demo & Guide",
             date: today.toISOString(),
             duration: "5:00",
-            summary: "An interactive demonstration showcasing Ghost Writer's core functionality, including stealth overlays, live transcription, and actionable insights.",
-            detailedSummary: {
-                overview: summaryMarkdown,
-                actionItems: [
-                    "Navigate to Settings and add a free Gemini or Groq API key, or install Ollama.",
-                    "Verify your Microphone and System Audio inputs in the Audio tab.",
-                    "Trigger 'What to answer' or 'Recap' during a mock session to test latency."
-                ],
-                keyPoints: [
-                    "Ghost Writer uses Temporal RAG to track conversational history and avoid repetitive answers.",
-                    "The glassmorphic overlay sits invisibly atop your other windows.",
-                    "Real-time interim transcripts enable suggestion generation before the speaker finishes their sentence."
-                ]
-            },
-            transcript: [
-                { speaker: 'interviewer', text: "Welcome to Ghost Writer! Let me show you how it works.", timestamp: 0 },
-                { speaker: 'user', text: "Thanks! I'm excited to try it out.", timestamp: 5000 },
-                { speaker: 'interviewer', text: "You have 5 quick action buttons. 'What to answer' listens to the conversation and suggests what you should say.", timestamp: 10000 },
-                { speaker: 'user', text: "That sounds helpful for interviews.", timestamp: 18000 },
-                { speaker: 'interviewer', text: "Check out the 'How to Use' section in the notes for API setup instructions.", timestamp: 20000 },
-                { speaker: 'interviewer', text: "'Shorten' condenses the last response. 'Recap' summarizes the entire conversation so far.", timestamp: 22000 },
-                { speaker: 'user', text: "What about the other buttons?", timestamp: 30000 },
-                { speaker: 'interviewer', text: "'Follow Up Questions' suggests questions you can ask. 'Answer' lets you speak a question and get an instant response.", timestamp: 35000 },
-                { speaker: 'user', text: "Can I take screenshots during calls?", timestamp: 45000 },
-                { speaker: 'interviewer', text: "Yes! Press Cmd+H for full screen or Cmd+Shift+H to select an area. The AI will analyze it and help you.", timestamp: 50000 },
-                { speaker: 'user', text: "How do I hide Ghost Writer during screen share?", timestamp: 60000 },
-                { speaker: 'interviewer', text: "Press Cmd+B to toggle visibility anytime. You can also enable undetectable mode in settings.", timestamp: 65000 },
-                { speaker: 'user', text: "This is amazing. What happens after the call?", timestamp: 75000 },
-                { speaker: 'interviewer', text: "You get detailed meeting notes with action items, key points, full transcript, and a log of all AI interactions.", timestamp: 80000 }
-            ],
-            usage: [
-                { type: 'assist', timestamp: 15000, question: 'What features does Ghost Writer have?', answer: 'Ghost Writer offers 5 quick action buttons, screenshot analysis, real-time transcription, and comprehensive meeting notes.' },
-                { type: 'followup', timestamp: 40000, question: 'How do the action buttons work?', answer: 'Each button serves a specific purpose: suggest answers, shorten responses, recap conversations, generate follow-up questions, or get instant voice-to-answer responses.' }
-            ],
+            summary: "An interactive demonstration showcasing Ghost Writer's core functionality.",
+            detailedSummary: { overview: "# Demo Overview", actionItems: ["Test the buttons"], keyPoints: ["Stealth mode is active"] },
+            transcript: [],
+            usage: [],
             isProcessed: true
         };
-
         this.saveMeeting(demoMeeting, today.getTime(), durationMs);
-        // Seeded demo meeting
     }
 
-    // Token Usage Tracking Methods
     public saveTokenUsage(usage: TokenUsage): void {
         if (!this.db) return;
-
-        const stmt = this.db.prepare(`
-            INSERT INTO token_usage (provider, model, input_tokens, output_tokens, cost, timestamp, session_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        stmt.run(
-            usage.provider,
-            usage.model,
-            usage.inputTokens,
-            usage.outputTokens,
-            usage.cost,
-            usage.timestamp.toISOString(),
-            usage.sessionId || null
-        );
+        this.db.prepare(`INSERT INTO token_usage (provider, model, input_tokens, output_tokens, cost, timestamp, session_id) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(usage.provider, usage.model, usage.inputTokens, usage.outputTokens, usage.cost, usage.timestamp.toISOString(), usage.sessionId || null);
     }
 
     public getTokenUsage(days: number = 30): TokenUsage[] {
         if (!this.db) return [];
-
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - days);
-
-        const stmt = this.db.prepare(`
-            SELECT * FROM token_usage
-            WHERE timestamp >= ?
-            ORDER BY timestamp DESC
-        `);
-
-        const rows = stmt.all(cutoffDate.toISOString()) as any[];
-        return rows.map(row => ({
-            id: row.id,
-            provider: row.provider,
-            model: row.model,
-            inputTokens: row.input_tokens,
-            outputTokens: row.output_tokens,
-            cost: row.cost,
-            timestamp: new Date(row.timestamp),
-            sessionId: row.session_id
-        }));
+        const rows = this.db.prepare(`SELECT * FROM token_usage WHERE timestamp >= ? ORDER BY timestamp DESC`).all(cutoffDate.toISOString()) as any[];
+        return rows.map(row => ({ id: row.id, provider: row.provider, model: row.model, inputTokens: row.input_tokens, outputTokens: row.output_tokens, cost: row.cost, timestamp: new Date(row.timestamp), sessionId: row.session_id }));
     }
 
     public getTokenUsageForSession(sessionId: string): TokenUsage[] {
         if (!this.db) return [];
-
-        const stmt = this.db.prepare(`
-            SELECT * FROM token_usage
-            WHERE session_id = ?
-            ORDER BY timestamp DESC
-        `);
-
-        const rows = stmt.all(sessionId) as any[];
-        return rows.map(row => ({
-            id: row.id,
-            provider: row.provider,
-            model: row.model,
-            inputTokens: row.input_tokens,
-            outputTokens: row.output_tokens,
-            cost: row.cost,
-            timestamp: new Date(row.timestamp),
-            sessionId: row.session_id
-        }));
+        const rows = this.db.prepare(`SELECT * FROM token_usage WHERE session_id = ? ORDER BY timestamp DESC`).all(sessionId) as any[];
+        return rows.map(row => ({ id: row.id, provider: row.provider, model: row.model, inputTokens: row.input_tokens, outputTokens: row.output_tokens, cost: row.cost, timestamp: new Date(row.timestamp), sessionId: row.session_id }));
     }
 }

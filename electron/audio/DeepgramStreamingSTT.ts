@@ -114,7 +114,8 @@ export class DeepgramStreamingSTT extends EventEmitter {
             `&sample_rate=${this.sampleRate}` +
             `&channels=${this.numChannels}` +
             `&smart_format=true` +
-            `&interim_results=true`;
+            `&interim_results=true` +
+            `&diarize=true`;
 
         console.log(`[DeepgramStreaming] Connecting (rate=${this.sampleRate}, ch=${this.numChannels})...`);
 
@@ -141,13 +142,21 @@ export class DeepgramStreamingSTT extends EventEmitter {
                 // { type: "Results", channel: { alternatives: [{ transcript, confidence }] }, is_final }
                 if (msg.type !== 'Results') return;
 
-                const transcript = msg.channel?.alternatives?.[0]?.transcript;
+                const alternative = msg.channel?.alternatives?.[0];
+                const transcript = alternative?.transcript;
                 if (!transcript) return;
+
+                let speakerId = undefined;
+                if (alternative.words && alternative.words.length > 0) {
+                    // Get the speaker of the first word (or most frequent, but first is easiest for streaming)
+                    speakerId = alternative.words[0].speaker;
+                }
 
                 this.emit('transcript', {
                     text: transcript,
                     isFinal: msg.is_final ?? false,
-                    confidence: msg.channel?.alternatives?.[0]?.confidence ?? 1.0,
+                    confidence: alternative?.confidence ?? 1.0,
+                    speakerId: speakerId
                 });
             } catch (err) {
                 console.error('[DeepgramStreaming] Parse error:', err);

@@ -2,6 +2,7 @@
 import { BrowserWindow, screen, app } from "electron"
 import { AppState } from "./main"
 import path from "node:path"
+import fs from "node:fs"
 
 const isDev = process.env.NODE_ENV === "development" && !app.isPackaged;
 
@@ -18,6 +19,11 @@ export class WindowHelper {
   private launcherSize: { width: number; height: number } | null = null
   // Track current window mode (persists even when overlay is hidden via Cmd+B)
   private currentWindowMode: 'launcher' | 'overlay' = 'launcher'
+
+  // Debounce timer for overlay bounds persistence
+  private overlayBoundsSaveTimer: ReturnType<typeof setTimeout> | null = null
+  private lastExpandedOverlayBounds: Electron.Rectangle | null = null
+  private overlayCollapsedForPill = false
 
   private appState: AppState
 
@@ -72,24 +78,59 @@ export class WindowHelper {
   }
 
   // Dedicated method for overlay window resizing - decoupled from launcher
-  public setOverlayDimensions(width: number, height: number): void {
+  public setOverlayDimensions(width: number, height: number, isExpanded: boolean = true): void {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return
-    // Noisy log removed for production
 
-    const [currentX, currentY] = this.overlayWindow.getPosition()
+    const bounds = this.overlayWindow.getBounds()
     const primaryDisplay = screen.getPrimaryDisplay()
-    const workArea = primaryDisplay.workAreaSize
-    const maxAllowedWidth = Math.floor(workArea.width * 0.9)
-    const maxAllowedHeight = Math.floor(workArea.height * 0.9)
-    const newWidth = Math.min(Math.max(width, 300), maxAllowedWidth) // min 300, max 90%
-    const newHeight = Math.min(Math.max(height, 1), maxAllowedHeight) // min 1, max 90%
-    const maxX = workArea.width - newWidth
-    const maxY = workArea.height - newHeight
-    const newX = Math.min(Math.max(currentX, 0), maxX)
-    const newY = Math.min(Math.max(currentY, 0), maxY)
+    const workArea = primaryDisplay.workArea
 
-    this.overlayWindow.setContentSize(newWidth, newHeight)
-    this.overlayWindow.setPosition(newX, newY)
+    if (!isExpanded) {
+      this.rememberExpandedOverlayBounds(bounds)
+      this.overlayCollapsedForPill = true
+    } else {
+      this.overlayCollapsedForPill = false
+      if (this.isCollapsedOverlaySize(width, height) && this.lastExpandedOverlayBounds) {
+        const restoredBounds = this.clampOverlayBounds(this.lastExpandedOverlayBounds)
+        this.overlayWindow.setBounds(restoredBounds)
+        this.rememberExpandedOverlayBounds(restoredBounds)
+        this.scheduleSaveOverlayBounds()
+        return
+      }
+    }
+
+    const maxAllowedWidth = Math.floor(workArea.width * 0.92)
+    const maxAllowedHeight = Math.min(
+      Math.floor(workArea.height * 0.88),
+      workArea.y + workArea.height - bounds.y
+    )
+
+    const newWidth = Math.min(Math.max(width, 400), maxAllowedWidth)
+    const newHeight = Math.min(Math.max(height, 260), maxAllowedHeight)
+
+    // Keep horizontal center stable when width changes (fixes overlay jumping left on Hide)
+    const centerX = bounds.x + bounds.width / 2
+    let newX = Math.round(centerX - newWidth / 2)
+    const newY = bounds.y
+
+    const minX = workArea.x
+    const maxX = workArea.x + workArea.width - newWidth
+    newX = Math.min(Math.max(newX, minX), maxX)
+
+    const minY = workArea.y
+    const maxY = workArea.y + workArea.height - newHeight
+    const clampedY = Math.min(Math.max(newY, minY), maxY)
+
+    this.overlayWindow.setBounds({
+      x: newX,
+      y: clampedY,
+      width: newWidth,
+      height: newHeight
+    })
+
+    if (isExpanded) {
+      this.rememberExpandedOverlayBounds({ x: newX, y: clampedY, width: newWidth, height: newHeight })
+    }
   }
 
   public createWindow(): void {
@@ -101,14 +142,15 @@ export class WindowHelper {
     this.screenHeight = workArea.height
 
     // Fixed dimensions per user request
+    // Fixed dimensions per user request - increased 3x from previous defaults
     const width = 1200;
-    const height = 800;
+    const height = Math.min(1000, Math.floor(workArea.height * 0.85));
 
     // Calculate centered X, and top-centered Y (5% from top)
     const x = Math.round(workArea.x + (workArea.width - width) / 2);
     // Ensure y is at least workArea.y (don't go offscreen top)
-    const topMargin = Math.round(workArea.height * 0.05);
-    const y = Math.round(workArea.x + topMargin);
+    const topMargin = Math.round(workArea.height * 0.04);
+    const y = Math.round(workArea.y + topMargin);
 
     const isMac = process.platform === 'darwin';
     // --- 1. Create Launcher Window ---
@@ -118,7 +160,7 @@ export class WindowHelper {
       x: x,
       y: y,
       minWidth: 600,
-      minHeight: 400,
+      minHeight: 600,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -163,11 +205,13 @@ export class WindowHelper {
     // DevTools handling removed for production
 
     // --- 2. Create Overlay Window (Hidden initially) ---
+    const isWin = process.platform === 'win32'
     const overlaySettings: Electron.BrowserWindowConstructorOptions = {
-      width: 1050,
-      height: 1,
-      minWidth: 800,
-      minHeight: 1,
+      width: 980,
+      height: Math.min(720, Math.floor(workArea.height * 0.7)),
+      minWidth: 320,
+      minHeight: 400,
+      // No maxHeight here — a hard cap breaks native bottom-edge resize on Windows for transparent frameless windows
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -180,10 +224,11 @@ export class WindowHelper {
       backgroundColor: "#00000000",
       alwaysOnTop: true,
       focusable: true,
-      resizable: false, // Enforce automatic resizing only
+      resizable: true,
       movable: true,
       skipTaskbar: true, // Don't show separately in dock/taskbar
       hasShadow: false, // Prevent shadow from adding perceived size/artifacts
+      ...(isWin ? { thickFrame: true as const } : {}),
     }
 
     this.overlayWindow = new BrowserWindow(overlaySettings)
@@ -202,7 +247,83 @@ export class WindowHelper {
     })
 
     this.setupWindowListeners()
+    this.syncOverlayTaskbarForUndetectableMode()
   }
+
+  /**
+   * When undetectable (stealth) is on, keep the overlay off the taskbar so it can vanish completely on hide.
+   * In visible mode, allow a normal taskbar entry when the overlay is minimized.
+   */
+  public syncOverlayTaskbarForUndetectableMode(): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return
+    this.overlayWindow.setSkipTaskbar(this.appState.getUndetectable())
+  }
+
+  // -----------------------------------------------------------------------
+  // Overlay bounds persistence helpers
+  // -----------------------------------------------------------------------
+  private getOverlayBoundsPath(): string {
+    return path.join(app.getPath('userData'), 'overlayBounds.json');
+  }
+
+  private saveOverlayBounds(): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+    if (this.overlayCollapsedForPill) return;
+    try {
+      const bounds = this.overlayWindow.getBounds();
+      this.rememberExpandedOverlayBounds(bounds);
+      fs.writeFileSync(this.getOverlayBoundsPath(), JSON.stringify(bounds), 'utf8');
+    } catch (e) {
+      // Non-fatal - just log and continue
+      console.warn('[WindowHelper] Failed to save overlay bounds:', e);
+    }
+  }
+
+  private loadOverlayBounds(): Electron.Rectangle | null {
+    try {
+      const p = this.getOverlayBoundsPath();
+      if (!fs.existsSync(p)) return null;
+      const raw = fs.readFileSync(p, 'utf8');
+      const b = JSON.parse(raw) as Electron.Rectangle;
+      // Validate basic shape
+      if (typeof b.x === 'number' && typeof b.y === 'number' && b.width > 0 && b.height > 0) {
+        const bounds = this.clampOverlayBounds(b);
+        this.rememberExpandedOverlayBounds(bounds);
+        return bounds;
+      }
+    } catch (e) {
+      console.warn('[WindowHelper] Failed to load overlay bounds:', e);
+    }
+    return null;
+  }
+
+  private scheduleSaveOverlayBounds(): void {
+    if (this.overlayCollapsedForPill) return;
+    if (this.overlayBoundsSaveTimer) clearTimeout(this.overlayBoundsSaveTimer);
+    this.overlayBoundsSaveTimer = setTimeout(() => this.saveOverlayBounds(), 500);
+  }
+
+  private isCollapsedOverlaySize(width: number, height: number): boolean {
+    return width <= 520 || height <= 320;
+  }
+
+  private rememberExpandedOverlayBounds(bounds: Electron.Rectangle): void {
+    if (this.isCollapsedOverlaySize(bounds.width, bounds.height)) return;
+    this.lastExpandedOverlayBounds = { ...bounds };
+  }
+
+  private clampOverlayBounds(bounds: Electron.Rectangle): Electron.Rectangle {
+    const workArea = screen.getPrimaryDisplay().workArea;
+    const width = Math.min(Math.max(bounds.width, 520), workArea.width);
+    const height = Math.min(Math.max(bounds.height, 620), Math.floor(workArea.height * 0.95));
+    return {
+      x: Math.max(workArea.x, Math.min(bounds.x, workArea.x + workArea.width - width)),
+      y: Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - height)),
+      width,
+      height,
+    };
+  }
+  // -----------------------------------------------------------------------
 
   private setupWindowListeners(): void {
     if (!this.launcherWindow) return
@@ -232,6 +353,12 @@ export class WindowHelper {
       this.overlayWindow = null
       this.isWindowVisible = false
     })
+
+    // Persist overlay bounds whenever the user moves or resizes it
+    if (this.overlayWindow) {
+      this.overlayWindow.on('move', () => this.scheduleSaveOverlayBounds());
+      this.overlayWindow.on('resize', () => this.scheduleSaveOverlayBounds());
+    }
 
     // Listen for overlay close if independent closing acts as "Stop Meeting"
     if (this.overlayWindow) {
@@ -300,16 +427,26 @@ export class WindowHelper {
 
     // Show Overlay FIRST
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      // Reset overlay position to center or last known? 
-      // For now, center it nicely
-      const primaryDisplay = screen.getPrimaryDisplay()
-      const workArea = primaryDisplay.workAreaSize
-      const x = Math.floor((workArea.width - 1050) / 2)
-      const y = Math.floor((workArea.height - 600) / 2)
+      // Restore last known bounds, or fall back to a sensible default
+      const savedBounds = this.loadOverlayBounds();
+      if (savedBounds) {
+        this.overlayWindow.setBounds(savedBounds);
+        this.rememberExpandedOverlayBounds(savedBounds);
+      } else {
+        const primaryDisplay = screen.getPrimaryDisplay()
+        const wa = primaryDisplay.workArea
+        // Default: large enough for transcript + answers (Cluely-style copilot footprint)
+        const defaultW = Math.min(1120, Math.max(900, Math.floor(wa.width * 0.58)))
+        const defaultH = Math.min(720, Math.max(620, Math.floor(wa.height * 0.68)))
+        const x = wa.x + Math.floor((wa.width - defaultW) / 2)
+        const y = wa.y + Math.floor(wa.height * 0.06)
+        const defaultBounds = { x, y, width: defaultW, height: defaultH };
+        this.overlayWindow.setBounds(defaultBounds);
+        this.rememberExpandedOverlayBounds(defaultBounds);
+      }
 
-      // Only reset if not already positioned? existing logic used to remember but let's reset for predictability
-      this.overlayWindow.setBounds({ x, y, width: 1050, height: 600 });
-
+      this.overlayCollapsedForPill = false;
+      this.syncOverlayTaskbarForUndetectableMode()
       this.overlayWindow.show();
       this.overlayWindow.focus();
       this.overlayWindow.setAlwaysOnTop(true, "screen-saver");

@@ -139,7 +139,7 @@ function detectIntentByContext(
     if (assistantMessageCount >= 2) {
         // Check if interviewer is drilling down
         const lines = recentTranscript.split('\n');
-        const interviewerLines = lines.filter(l => l.includes('[INTERVIEWER'));
+        const interviewerLines = lines.filter(l => l.includes('[INTERVIEWER') || l.includes('[PERSON'));
 
         // Short interviewer prompts after long exchanges = follow-up probe
         const lastInterviewerLine = interviewerLines[interviewerLines.length - 1] || '';

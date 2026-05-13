@@ -93,5 +93,19 @@ export function registerIntelligenceHandlers(appState: AppState): void {
       return { success: false, error: error.message };
     }
   });
+
+  // Pause / resume listening (same as Ctrl+Shift+M shortcut)
+  ipcMain.handle("toggle-listening-pause", async () => {
+    try {
+      const paused = appState.toggleListeningPause();
+      return { success: true, paused };
+    } catch (error: any) {
+      return { success: false, error: error.message, paused: false };
+    }
+  });
+
+  ipcMain.handle("get-listening-paused", async () => {
+    return { paused: appState.getIsListeningPaused() };
+  });
 }
 

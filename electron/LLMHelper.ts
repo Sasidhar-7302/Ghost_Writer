@@ -25,14 +25,15 @@ import { buildFullPrivacyBlockingMessage, getFullPrivacyStatus } from "./utils/f
 
 import {
   UNIVERSAL_SYSTEM_PROMPT,
-  HARD_SYSTEM_PROMPT,
-  GROQ_SYSTEM_PROMPT,
-  OPENAI_SYSTEM_PROMPT,
-  CLAUDE_SYSTEM_PROMPT,
+  CORE_IDENTITY as HARD_SYSTEM_PROMPT,
   IMAGE_ANALYSIS_PROMPT,
-  GEMINI_PRO_MODEL,
-  GEMINI_FLASH_MODEL
-} from "./llm/prompts";
+} from "./llm/prompts/index";
+
+const GEMINI_PRO_MODEL = "gemini-1.5-pro";
+const GEMINI_FLASH_MODEL = "gemini-1.5-flash";
+const GROQ_SYSTEM_PROMPT = ""; // Deprecated or handled by providers
+const OPENAI_SYSTEM_PROMPT = ""; // Deprecated or handled by providers
+const CLAUDE_SYSTEM_PROMPT = ""; // Deprecated or handled by providers
 
 export const OPENAI_MODEL = "gpt-4o-mini";
 export const CLAUDE_MODEL = "claude-3-5-haiku-latest";
@@ -1334,6 +1335,9 @@ ${visualDescription}
   // ─── UNIVERSAL STREAM ROUTING ─────────────────────────────────────
 
   public async * streamChat(payload: ChatPayload): AsyncGenerator<string, void, unknown> {
+    if (payload.signal?.aborted) {
+      return;
+    }
     const fullPrivacyError = await this.getFullPrivacyBlockingMessage(payload.imagePath);
     if (fullPrivacyError) {
       console.error("[LLMHelper] Full Privacy Mode block:", fullPrivacyError);
@@ -1342,7 +1346,13 @@ ${visualDescription}
     }
 
     const startedAt = Date.now();
-    yield* this.streamChatWithGemini(payload);
+    for await (const chunk of this.streamChatWithGemini(payload)) {
+      if (payload.signal?.aborted) {
+        console.log(`[LLMHelper] streamChat aborted after ${Date.now() - startedAt}ms`);
+        return;
+      }
+      yield chunk;
+    }
     console.log(`[LLMHelper] streamChat completed via ${this.getCurrentProvider()} in ${Date.now() - startedAt}ms`);
   }
 

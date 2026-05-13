@@ -37,3 +37,22 @@ pub const DSP_POLL_MS: u64 = 1;
 /// 128KB worth of f32 samples = 32768 samples
 /// At 48kHz = ~680ms buffer (plenty of headroom)
 pub const RING_BUFFER_SAMPLES: usize = 32768;
+
+// ============================================================================
+// AEC (Acoustic Echo Cancellation) Configuration
+// ============================================================================
+
+/// AEC reference ring buffer size in samples.
+/// Must hold enough reference audio to cover render-to-capture delay.
+/// 16000 samples @ 16kHz = 1000ms of reference history.
+/// This covers:
+///   - Laptop speakers: ~20-50ms delay
+///   - USB headsets: ~10-30ms delay
+///   - Bluetooth headsets: ~100-250ms round-trip
+///   - External interfaces (HiDock): ~30-80ms delay
+///   - Desktop speakers with room reflections: ~50-200ms delay
+pub const AEC_REFERENCE_BUFFER_SAMPLES: usize = 16000;
+
+/// Whether AEC is enabled by default when both streams are active
+pub const AEC_ENABLED_DEFAULT: bool = true;
+

@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { ChevronUp, ChevronDown, Minus, X } from "lucide-react";
+import { ChevronUp, ChevronDown, Minus, X, MicOff } from "lucide-react";
 import icon from "../icon.ico";
+
+const STT_PROVIDER_LABELS: Record<string, string> = {
+    'google': 'Google',
+    'groq': 'Groq',
+    'openai': 'OpenAI',
+    'deepgram': 'Deepgram',
+    'elevenlabs': 'ElevenLabs',
+    'azure': 'Azure',
+    'ibmwatson': 'Watson',
+    'local-whisper': 'Whisper',
+};
 
 interface TopPillProps {
     expanded: boolean;
     onToggle: () => void;
     onMinimize: () => void;
     onQuit: () => void;
+    sttProvider?: string;
+    isListeningPaused?: boolean;
+    className?: string;
 }
 
 export default function TopPill({
@@ -14,23 +28,27 @@ export default function TopPill({
     onToggle,
     onMinimize,
     onQuit,
+    sttProvider,
+    isListeningPaused = false,
+    className,
 }: TopPillProps) {
 
+    const providerLabel = sttProvider ? (STT_PROVIDER_LABELS[sttProvider] ?? sttProvider) : null;
 
     return (
-        <div className="flex justify-center mt-2 select-none z-50">
+        <div className={`flex justify-center mt-2 select-none z-50 ${className ?? ''}`}>
             <div
                 className="
           draggable-area
           flex items-center gap-2
           rounded-full
-          bg-[#1E1E1E]/80
+          bg-[#1E1E1E]/68
           backdrop-blur-md
           border border-white/10
           shadow-lg shadow-black/20
           pl-1.5 pr-1.5 py-1.5
           transition-all duration-300 ease-sculpted
-          hover:bg-[#1E1E1E]/90 hover:border-white/15 hover:shadow-xl
+          hover:bg-[#1E1E1E]/78 hover:border-white/15 hover:shadow-xl
         "
             >
                 {/* LOGO BUTTON */}
@@ -81,6 +99,20 @@ export default function TopPill({
                     <span className="tracking-wide opacity-80 group-hover:opacity-100">{expanded ? "Hide" : "Show"}</span>
                 </button>
 
+                {/* STT PROVIDER BADGE */}
+                {providerLabel && (
+                    <div
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold select-none transition-colors
+                            ${isListeningPaused
+                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                : 'bg-white/5 text-slate-400 border border-white/10'}`}
+                        title={isListeningPaused ? 'Listening paused (Ctrl+Shift+M to resume)' : `STT: ${providerLabel}`}
+                    >
+                        {isListeningPaused && <MicOff className="w-2.5 h-2.5" />}
+                        <span>{isListeningPaused ? 'PAUSED' : providerLabel}</span>
+                    </div>
+                )}
+
                 {/* STOP / QUIT BUTTON */}
                 <button
                     onClick={onMinimize}
@@ -93,7 +125,7 @@ export default function TopPill({
             interaction-base interaction-press
             hover:bg-white/10 hover:text-white
           "
-                    title="Minimize to launcher"
+                    title="Minimize"
                 >
                     <Minus className="w-3.5 h-3.5 opacity-80" />
                 </button>

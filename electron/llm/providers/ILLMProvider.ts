@@ -8,6 +8,12 @@ export interface ChatPayload {
     systemPrompt?: string;
     imagePath?: string;
     context?: string;
+    /**
+     * Cancellation signal. When aborted, the stream stops yielding tokens.
+     * Provider implementations may also pass this through to the underlying
+     * HTTP request so the upstream connection is closed immediately.
+     */
+    signal?: AbortSignal;
     options?: {
         temperature?: number;
         maxTokens?: number;

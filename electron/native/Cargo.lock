@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "aec3"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5912df8a8ee2db472dcb6a102d99c8a52c8b1efd96a57309122b381d47cffe88"
+dependencies = [
+ "crossbeam-channel",
+ "log",
+ "num-complex",
+ "rustfft",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -218,6 +230,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.5.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -325,9 +346,11 @@ dependencies = [
 name = "ghost-writer-audio"
 version = "0.1.0"
 dependencies = [
+ "aec3",
  "anyhow",
  "cidre",
  "cpal",
+ "log",
  "napi",
  "napi-derive",
  "once_cell",

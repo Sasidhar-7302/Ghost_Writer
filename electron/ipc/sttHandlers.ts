@@ -4,6 +4,12 @@
 import { ipcMain, dialog } from "electron";
 import type { AppState } from "../main";
 import { AudioDevices } from "../audio/AudioDevices";
+import {
+  normalizeAudioCaptureMode,
+  shouldCaptureMicrophoneAudio,
+  shouldCaptureSystemAudio,
+  type AudioCaptureMode
+} from "../audio/audioCaptureMode";
 
 let sttHandlersInitialized = false;
 
@@ -41,9 +47,29 @@ export function registerSTTHandlers(appState: AppState): void {
     }
   });
 
+  ipcMain.handle("set-audio-capture-mode", async (_, mode: AudioCaptureMode) => {
+    try {
+      await appState.setAudioCaptureMode(normalizeAudioCaptureMode(mode));
+      return { success: true, mode: appState.credentialsManager.getAudioCaptureMode() };
+    } catch (error: any) {
+      console.error("Error setting audio capture mode:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("get-audio-capture-mode", async () => {
+    return appState.credentialsManager.getAudioCaptureMode();
+  });
+
   // ==========================================
   // Local Whisper Setup
   // ==========================================
+
+  // Connect model manager events to renderer
+  const { WhisperModelManager } = require('../audio/WhisperModelManager');
+  WhisperModelManager.getInstance().on('progress', (data: any) => {
+    appState.getMainWindow()?.webContents.send('whisper-download-progress', data);
+  });
 
   ipcMain.handle("get-whisper-status", async () => {
     try {
@@ -397,19 +423,34 @@ export function registerSTTHandlers(appState: AppState): void {
   // Web Audio Fallback IPC
   // ==========================================
 
-  ipcMain.on("raw-audio-stream", (event, buffer: Buffer) => {
-    // Pipe this buffer to all active STT providers in AppState
-    // This is the bridge between renderer capture and server-side STT
-    const stt = appState.getGoogleSTT();
-    const sttUser = appState.getGoogleSTTUser();
+  const handleRawAudio = (_event: Electron.IpcMainEvent, data: Buffer | Uint8Array, source?: 'system' | 'microphone') => {
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    const mode = appState.credentialsManager.getAudioCaptureMode();
 
-    if (stt) {
-      stt.write(buffer);
+    if (source === 'microphone') {
+      if (shouldCaptureMicrophoneAudio(mode)) {
+        appState.getGoogleSTTUser()?.write(buffer);
+      }
+      return;
     }
-    if (sttUser) {
-      sttUser.write(buffer);
+
+    if (source === 'system') {
+      if (shouldCaptureSystemAudio(mode)) {
+        appState.getGoogleSTT()?.write(buffer);
+      }
+      return;
     }
-    // Deepgram, Azure, etc. usually use their own streaming logic or REST.
-    // Here we ensure the core streaming engine receives the raw PCM.
-  });
+
+    // Legacy renderer fallback messages did not identify the source. Route to
+    // active streams only, so listen-only mode cannot create local "You" turns.
+    if (shouldCaptureSystemAudio(mode)) {
+      appState.getGoogleSTT()?.write(buffer);
+    }
+    if (shouldCaptureMicrophoneAudio(mode)) {
+      appState.getGoogleSTTUser()?.write(buffer);
+    }
+  };
+
+  ipcMain.on("raw-audio-data", handleRawAudio);
+  ipcMain.on("raw-audio-stream", handleRawAudio);
 }

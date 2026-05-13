@@ -210,7 +210,7 @@ const MeetingChatOverlay: React.FC<MeetingChatOverlayProps> = ({
         if (meetingContext.transcript?.length) {
             const recentTranscript = meetingContext.transcript.slice(-20);
             const transcriptText = recentTranscript
-                .map(t => `[${t.speaker === 'user' ? 'Me' : 'Them'}]: ${t.text}`)
+                .map(t => `[${t.speaker === 'user' ? 'You' : (t.speaker || 'Other')}]: ${t.text}`)
                 .join('\n');
             parts.push(`\nRECENT TRANSCRIPT:\n${transcriptText}`);
         }

@@ -215,13 +215,14 @@ const App: React.FC = () => {
     try {
       const inputDeviceId = localStorage.getItem('preferredInputDeviceId');
       let outputDeviceId = localStorage.getItem('preferredOutputDeviceId');
+      const captureMode = localStorage.getItem('preferredAudioCaptureMode') || undefined;
       const useLegacyAudio = localStorage.getItem('useLegacyAudioBackend') === 'true';
 
       // Default to standard system audio
       outputDeviceId = "default";
 
       const result = await window.electronAPI.startMeeting({
-        audio: { inputDeviceId, outputDeviceId }
+        audio: { inputDeviceId, outputDeviceId, captureMode }
       });
       if (result.success) {
         analytics.trackMeetingStarted();
@@ -305,7 +306,7 @@ const App: React.FC = () => {
   if (isOverlayWindow) {
     return (
       <ErrorBoundary>
-        <div className="w-full relative bg-transparent">
+        <div className="h-full w-full min-h-0 min-w-0 relative bg-transparent">
           <QueryClientProvider client={queryClient}>
             <ToastProvider>
               <Suspense fallback={<LazyFallback label="Loading meeting overlay..." />}>

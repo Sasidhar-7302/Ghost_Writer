@@ -45,8 +45,7 @@ export function getRecommendedWhisperModel(vramGB: number | undefined, currentMo
         return currentModel;
     }
 
-    if (vramGB >= 8) return 'medium';
-    if (vramGB >= 4) return 'small';
+    if (vramGB >= 4) return 'small-tdrz';
     if (vramGB > 0) return 'base';
 
     return currentModel;

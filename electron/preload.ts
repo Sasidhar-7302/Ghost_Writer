@@ -5,6 +5,7 @@ interface ElectronAPI {
   updateContentDimensions: (dimensions: {
     width: number
     height: number
+    isExpanded?: boolean
   }) => Promise<void>
   getRecognitionLanguages: () => Promise<Record<string, any>>
   getScreenshots: () => Promise<Array<{ path: string; preview: string }>>
@@ -66,6 +67,7 @@ interface ElectronAPI {
     hasDeepseekKey: boolean;
     googleServiceAccountPath: string | null;
     sttProvider: string;
+    audioCaptureMode: 'dual-stream' | 'system-only' | 'mic-only';
     hasSttGroqKey: boolean;
     hasSttOpenaiKey: boolean;
     hasDeepgramKey: boolean;
@@ -88,11 +90,14 @@ interface ElectronAPI {
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => Promise<{ success: boolean; error?: string }>
   getSttProvider: () => Promise<string>
+  setAudioCaptureMode: (mode: 'dual-stream' | 'system-only' | 'mic-only') => Promise<{ success: boolean; mode?: string; error?: string }>
+  getAudioCaptureMode: () => Promise<'dual-stream' | 'system-only' | 'mic-only'>
   getWhisperStatus: () => Promise<{ hasBinary: boolean; hasModel: boolean; isDownloading: boolean; selectedModel: string; customBinaryPath?: string; customModelPath?: string }>
   setupWhisper: (model?: string) => Promise<boolean>
   setLocalWhisperModel: (model: string) => Promise<{ success: boolean; status: any }>
   setLocalWhisperPaths: (binaryPath?: string, modelPath?: string) => Promise<{ success: boolean; status: any }>
   selectLocalFile: (prompt: string, filters: any[]) => Promise<string | null>
+  downloadWhisperModel: (modelId: string) => Promise<{ success: boolean; status: any }>
   setGroqSttApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
 
   // Customizable Prompts
@@ -112,7 +117,7 @@ interface ElectronAPI {
   testSttConnection: (provider: 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson', apiKey: string, region?: string) => Promise<{ success: boolean; error?: string }>
 
   // Native Audio Service Events
-  onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean }) => void) => () => void
+  onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean; speakerId?: number }) => void) => () => void
   onNativeAudioSuggestion: (callback: (suggestion: { context: string; lastQuestion: string; confidence: number }) => void) => () => void
   onNativeAudioConnected: (callback: () => void) => () => void
   onNativeAudioDisconnected: (callback: () => void) => () => void
@@ -128,7 +133,7 @@ interface ElectronAPI {
   setRecognitionLanguage: (key: string) => Promise<{ success: boolean; error?: string }>
   onSessionReset: (callback: () => void) => () => void
   onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => () => void
-  sendRawAudio: (data: Buffer) => void
+  sendRawAudio: (data: Buffer, source?: 'system' | 'microphone') => void
 
   saveProjectText: (text: string) => Promise<{ success: boolean; error?: string }>
   saveAgendaText: (text: string) => Promise<{ success: boolean; error?: string }>
@@ -150,6 +155,9 @@ interface ElectronAPI {
   submitManualQuestion: (question: string) => Promise<{ answer: string | null; question: string }>
   getIntelligenceContext: () => Promise<{ context: string; lastAssistantMessage: string | null; activeMode: string }>
   resetIntelligence: () => Promise<{ success: boolean; error?: string }>
+  toggleListeningPause: () => Promise<{ success: boolean; paused: boolean; error?: string }>
+  getListeningPaused: () => Promise<{ paused: boolean }>
+  onListeningPausedStateChanged: (callback: (paused: boolean) => void) => () => void
 
   // Meeting Lifecycle
   startMeeting: (metadata?: any) => Promise<{ success: boolean; error?: string }>
@@ -185,6 +193,7 @@ interface ElectronAPI {
 
   // Streaming listeners
   streamGeminiChat: (message: string, imagePath?: string, context?: string, options?: { skipSystemPrompt?: boolean }) => Promise<void>
+  cancelGeminiChatStream: () => Promise<{ cancelled: boolean }>
   onGeminiStreamToken: (callback: (token: string) => void) => () => void
   onGeminiStreamDone: (callback: () => void) => () => void
   onGeminiStreamError: (callback: (error: string) => void) => () => void
@@ -264,7 +273,7 @@ export const PROCESSING_EVENTS = {
 
 // Expose the Electron API to the renderer process
 contextBridge.exposeInMainWorld("electronAPI", {
-  updateContentDimensions: (dimensions: { width: number; height: number }) =>
+  updateContentDimensions: (dimensions: { width: number; height: number; isExpanded?: boolean }) =>
     ipcRenderer.invoke("update-content-dimensions", dimensions),
   getRecognitionLanguages: () => ipcRenderer.invoke("get-recognition-languages"),
   takeScreenshot: () => ipcRenderer.invoke("take-screenshot"),
@@ -446,6 +455,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => ipcRenderer.invoke("set-stt-provider", provider),
   getSttProvider: () => ipcRenderer.invoke("get-stt-provider"),
+  setAudioCaptureMode: (mode: 'dual-stream' | 'system-only' | 'mic-only') => ipcRenderer.invoke("set-audio-capture-mode", mode),
+  getAudioCaptureMode: () => ipcRenderer.invoke("get-audio-capture-mode"),
 
   // Security
   getAirGapMode: () => ipcRenderer.invoke("get-air-gap-mode"),
@@ -458,6 +469,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setLocalWhisperModel: (model: string) => ipcRenderer.invoke("set-local-whisper-model", model),
   setLocalWhisperPaths: (binaryPath?: string, modelPath?: string) => ipcRenderer.invoke("set-local-whisper-paths", binaryPath, modelPath),
   selectLocalFile: (prompt: string, filters: any[]) => ipcRenderer.invoke("select-local-file", prompt, filters),
+  downloadWhisperModel: (modelId: string) => ipcRenderer.invoke("download-whisper-model", modelId),
   setGroqSttApiKey: (apiKey: string) => ipcRenderer.invoke("set-groq-stt-api-key", apiKey),
 
   // Customizable Prompts
@@ -505,8 +517,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   // Raw Audio for WebAudio fallback
-  sendRawAudio: (data: Buffer) => {
-    ipcRenderer.send("raw-audio-data", data)
+  sendRawAudio: (data: Buffer, source?: 'system' | 'microphone') => {
+    ipcRenderer.send("raw-audio-data", data, source)
   },
 
   // Intelligence Streaming Token Events
@@ -547,7 +559,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   // Native Audio Service Events
-  onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean }) => void) => {
+  onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean; speakerId?: number }) => void) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on("native-audio-transcript", subscription)
     return () => {
@@ -619,6 +631,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   submitManualQuestion: (question: string) => ipcRenderer.invoke("submit-manual-question", question),
   getIntelligenceContext: () => ipcRenderer.invoke("get-intelligence-context"),
   resetIntelligence: () => ipcRenderer.invoke("reset-intelligence"),
+  toggleListeningPause: () => ipcRenderer.invoke("toggle-listening-pause"),
+  getListeningPaused: () => ipcRenderer.invoke("get-listening-paused"),
+  onListeningPausedStateChanged: (callback: (paused: boolean) => void) => {
+    const subscription = (_: any, paused: boolean) => callback(paused);
+    ipcRenderer.on("listening-paused-state-changed", subscription);
+    return () => { ipcRenderer.removeListener("listening-paused-state-changed", subscription); };
+  },
 
   // Meeting Lifecycle
   startMeeting: (metadata?: any) => ipcRenderer.invoke("start-meeting", metadata),
@@ -726,6 +745,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Streaming listeners
   streamGeminiChat: (message: string, imagePath?: string, context?: string, options?: { skipSystemPrompt?: boolean }) => ipcRenderer.invoke("gemini-chat-stream", message, imagePath, context, options),
+  cancelGeminiChatStream: () => ipcRenderer.invoke("gemini-chat-stream-cancel"),
   onGeminiStreamToken: (callback: (token: string) => void) => {
     const subscription = (_: any, token: string) => callback(token)
     ipcRenderer.on("gemini-stream-token", subscription)

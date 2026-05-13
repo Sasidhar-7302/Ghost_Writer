@@ -1,10 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import { DEFAULT_MAX_OUTPUT_TOKENS, ILLMProvider, ChatPayload } from "./ILLMProvider";
-import { GEMINI_FLASH_MODEL, GEMINI_PRO_MODEL } from "../prompts";
+const GEMINI_PRO_MODEL = 'gemini-1.5-pro';
+const GEMINI_FLASH_MODEL = 'gemini-1.5-flash';
 
 // Re-export model constants for use by LLMHelper orchestrator
-export { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL } from "../prompts";
+export { GEMINI_PRO_MODEL, GEMINI_FLASH_MODEL };
 
 const MAX_OUTPUT_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS;
 

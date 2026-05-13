@@ -57,8 +57,8 @@ export class FollowUpLLM {
         return buildPromptForMode({
             mode: 'followUpRefinement',
             settings: creds.getPromptSettings(),
-            resumeText,
-            jdText,
+            resumeText: isMeeting ? "" : resumeText,
+            jdText: isMeeting ? "" : jdText,
             projectKnowledge,
             agendaText,
             sessionMode: isMeeting ? 'meeting' : 'interview'

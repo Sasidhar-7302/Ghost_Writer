@@ -33,12 +33,169 @@ const MIN_BUFFER_BYTES = 48000;
 
 // Silence threshold - skip processing if audio is too quiet
 const SILENCE_RMS_THRESHOLD = 300;
+const WHISPER_LOGPROB_THRESHOLD = -1.0;
+const WHISPER_NO_SPEECH_THRESHOLD = 0.6;
+const WHISPER_COMPRESSION_RATIO_THRESHOLD = 2.4;
+const MIN_MEAN_WORD_PROBABILITY = 0.35;
+const MIN_SHORT_SEGMENT_WORD_PROBABILITY = 0.5;
+const SEGMENT_END_TOLERANCE_SECONDS = 0.75;
+const WHISPER_ARTIFACT_RE = /(?:\b[A-Za-z]_\s*){2,}|\b[A-Za-z](?:_[A-Za-z]){1,}_?/;
 
 const NON_SPEECH_TRANSCRIPT_PATTERNS = [
     /^\[(?:MUSIC(?: PLAYING)?|PHONE RINGING|NOISE|END PLAYBACK|APPLAUSE|LAUGHTER|INAUDIBLE|SILENCE|BLANK_AUDIO)\]$/i,
-    /^\((?:music|upbeat music|gentle music|ambient noise|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing|speaking in foreign language|foreign speech|low chatter|silence)\)$/i,
-    /^(?:music|gentle music|upbeat music|speaking in foreign language|foreign speech|low chatter|\[blank_audio\])$/i,
+    /^\((?:music|upbeat music|gentle music|ambient noise|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing|speaking in foreign language|foreign speech|low chatter|sonic logo|silence)\)$/i,
+    /^(?:music|gentle music|upbeat music|speaking in foreign language|foreign speech|low chatter|sonic logo|\[blank_audio\])$/i,
+    /^(?:uh|um|hmm|mm|i uh|we uh|what uh|specific uh)$/i,
 ];
+
+type WhisperServerWord = {
+    word?: string;
+    probability?: number;
+};
+
+type WhisperServerSegment = {
+    text?: string;
+    start?: number;
+    end?: number;
+    avg_logprob?: number;
+    no_speech_prob?: number;
+    compression_ratio?: number;
+    words?: WhisperServerWord[];
+};
+
+type WhisperServerResponse = {
+    text?: string;
+    duration?: number;
+    segments?: WhisperServerSegment[];
+};
+
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
+}
+
+function cleanWhisperTranscriptText(text: string): string {
+    if (!text) return '';
+
+    const cleaned = text
+        .replace(/\[(?:MUSIC(?: PLAYING)?|PHONE RINGING|NOISE|END PLAYBACK|APPLAUSE|LAUGHTER|INAUDIBLE|SILENCE|BLANK_AUDIO)\]/gi, '')
+        .replace(/\(speaker\s*\?\)/gi, '')
+        .replace(/\((?:music|upbeat music|gentle music|ambient noise|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing|speaking in foreign language|foreign speech|low chatter|sonic logo|silence)\)/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (isNonSpeechTranscriptText(cleaned)) {
+        return '';
+    }
+
+    const words = cleaned.split(' ');
+    if (words.length > 5) {
+        const firstWord = words[0].toLowerCase();
+        const allSame = words.every(w => w.toLowerCase() === firstWord);
+        if (allSame) return '';
+    }
+
+    return cleaned;
+}
+
+function isNonSpeechTranscriptText(text: string): boolean {
+    if (!text) return true;
+
+    return NON_SPEECH_TRANSCRIPT_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function countLexicalWords(text: string): number {
+    return text
+        .split(/\s+/)
+        .filter((word) => /[A-Za-z0-9]/.test(word))
+        .length;
+}
+
+function meanWordProbability(segment: WhisperServerSegment): number | undefined {
+    const probabilities = (segment.words || [])
+        .filter((word) => word.word && /[A-Za-z0-9]/.test(word.word))
+        .map((word) => word.probability)
+        .filter(isFiniteNumber);
+
+    if (probabilities.length === 0) {
+        return undefined;
+    }
+
+    return probabilities.reduce((sum, probability) => sum + probability, 0) / probabilities.length;
+}
+
+function shouldDropWhisperSegment(segment: WhisperServerSegment, cleanedText: string, totalDuration?: number): boolean {
+    if (!cleanedText) {
+        return true;
+    }
+
+    const avgLogProb = segment.avg_logprob;
+    const noSpeechProb = segment.no_speech_prob;
+    const compressionRatio = segment.compression_ratio;
+    const rawText = segment.text || '';
+    const underscoreCount = (rawText.match(/_/g) || []).length;
+    const wordCount = countLexicalWords(cleanedText);
+    const meanProbability = meanWordProbability(segment);
+
+    if (
+        isFiniteNumber(noSpeechProb) &&
+        isFiniteNumber(avgLogProb) &&
+        noSpeechProb > WHISPER_NO_SPEECH_THRESHOLD &&
+        avgLogProb < WHISPER_LOGPROB_THRESHOLD
+    ) {
+        return true;
+    }
+
+    if (isFiniteNumber(compressionRatio) && compressionRatio > WHISPER_COMPRESSION_RATIO_THRESHOLD) {
+        return true;
+    }
+
+    if (isFiniteNumber(avgLogProb) && avgLogProb < WHISPER_LOGPROB_THRESHOLD - 0.2) {
+        return true;
+    }
+
+    if (
+        isFiniteNumber(totalDuration) &&
+        isFiniteNumber(segment.end) &&
+        segment.end > totalDuration + SEGMENT_END_TOLERANCE_SECONDS
+    ) {
+        return true;
+    }
+
+    if (underscoreCount >= 2 || WHISPER_ARTIFACT_RE.test(rawText)) {
+        return true;
+    }
+
+    if (isFiniteNumber(meanProbability)) {
+        if (meanProbability < MIN_MEAN_WORD_PROBABILITY) {
+            return true;
+        }
+
+        if (wordCount <= 2 && meanProbability < MIN_SHORT_SEGMENT_WORD_PROBABILITY) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+export function cleanLocalWhisperServerResponse(json: WhisperServerResponse): string {
+    const segments = Array.isArray(json?.segments) ? json.segments : [];
+    const totalDuration = isFiniteNumber(json?.duration) ? json.duration : undefined;
+
+    if (segments.length === 0) {
+        return cleanWhisperTranscriptText(json?.text || '');
+    }
+
+    return segments
+        .map((segment) => {
+            const cleanedText = cleanWhisperTranscriptText(segment.text || '');
+            return shouldDropWhisperSegment(segment, cleanedText, totalDuration) ? '' : cleanedText;
+        })
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
 
 // Default whisper.cpp threads for speed + accuracy balance
 const CPU_COUNT = os.cpus().length;
@@ -161,7 +318,8 @@ export class LocalWhisperSTT extends EventEmitter {
 
         // If diarization is enabled, we require timestamps, otherwise we suppress them
         if (this.modelPath.includes('tdrz')) {
-            args.push('-tdrz');
+            args.push('--tinydiarize');
+            args.push('--print-special');
         } else {
             args.push('--no-timestamps');
         }
@@ -293,6 +451,7 @@ export class LocalWhisperSTT extends EventEmitter {
             }
 
             console.log(`[LocalWhisperSTT] Starting whisper-server from: ${this.serverBinaryPath}`);
+            console.log(`[LocalWhisperSTT] Args: ${args.join(' ')}`);
             console.log(`[LocalWhisperSTT] Working directory: ${binDir}`);
 
             try {
@@ -592,12 +751,38 @@ export class LocalWhisperSTT extends EventEmitter {
                         }
 
                         if (transcript && transcript.trim().length > 0) {
-                            console.log(`[LocalWhisperSTT] Transcript: "${transcript.substring(0, 50)}${transcript.length > 50 ? '...' : ''}"`);
-                            this.emit('transcript', {
-                                text: transcript.trim(),
-                                isFinal: true,
-                                confidence: 0.85,
-                            });
+                            // Split by speaker tags: [SPEAKER_XX], (SPEAKER_XX), or (speaker ?)
+                            const segments = transcript.split(/(\[SPEAKER_\d{2}\]|\(SPEAKER_\d{2}\)|\(speaker\s*\?\))/i);
+                            console.log(`[LocalWhisperSTT] Segments found: ${segments.length}`);
+                            let currentSpeakerId: number | undefined = undefined;
+
+                            for (const segment of segments) {
+                                if (!segment.trim()) continue;
+
+                                // Handle [SPEAKER_XX] or (SPEAKER_XX)
+                                const tagMatch = segment.match(/[\[\(]SPEAKER_(\d{2})[\]\)]/i);
+                                if (tagMatch) {
+                                    currentSpeakerId = parseInt(tagMatch[1], 10);
+                                    continue;
+                                }
+
+                                // Handle (speaker ?) - just skip it but use it as a turn marker if needed
+                                if (segment.match(/\(speaker\s*\?\)/i)) {
+                                    continue;
+                                }
+
+                                // Clean the segment text now that we've used the tags
+                                const cleanedSegment = this.cleanTranscript(segment);
+                                if (!cleanedSegment) continue;
+
+                                // This is the text following a speaker tag (or text before any tag)
+                                this.emit('transcript', {
+                                    text: cleanedSegment,
+                                    isFinal: true,
+                                    confidence: 0.85,
+                                    speakerId: currentSpeakerId
+                                });
+                            }
                         }
                     } finally {
                         try { fs.unlinkSync(tempFile); } catch { }
@@ -629,9 +814,14 @@ export class LocalWhisperSTT extends EventEmitter {
 
                 parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${path.basename(wavFilePath)}"\r\nContent-Type: audio/wav\r\n\r\n`));
                 parts.push(fileData);
-                parts.push(Buffer.from('\r\n'));
-                parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="response_format"\r\n\r\njson\r\n`));
+                parts.push(Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="response_format"\r\n\r\nverbose_json\r\n`));
                 parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="temperature"\r\n\r\n0.0\r\n`));
+
+                if (this.modelPath.includes('tdrz')) {
+                    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="tinydiarize"\r\n\r\ntrue\r\n`));
+                    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="diarize"\r\n\r\ntrue\r\n`));
+                }
+
                 parts.push(Buffer.from(`--${boundary}--\r\n`));
 
                 const body = Buffer.concat(parts);
@@ -662,8 +852,10 @@ export class LocalWhisperSTT extends EventEmitter {
 
                         try {
                             const json = JSON.parse(responseBody);
-                            let text = (json.text || '').trim();
-                            text = this.cleanTranscript(text);
+                            if (this.modelPath.includes('tdrz')) {
+                                console.log(`[LocalWhisperSTT] Server Response (TDRZ):`, JSON.stringify(json).substring(0, 500));
+                            }
+                            let text = cleanLocalWhisperServerResponse(json);
                             if (elapsed > 5000) console.warn(`[LocalWhisperSTT] Slow server transcription: ${elapsed}ms`);
                             resolve(text);
                         } catch (parseErr) {
@@ -744,7 +936,6 @@ export class LocalWhisperSTT extends EventEmitter {
                         .join(' ')
                         .trim();
 
-                    text = this.cleanTranscript(text);
                     resolve(text);
                 });
             };
@@ -757,39 +948,7 @@ export class LocalWhisperSTT extends EventEmitter {
      * Clean up whisper transcript text
      */
     private cleanTranscript(text: string): string {
-        if (!text) return '';
-        
-        // Comprehensive regex to strip out common Whisper non-speech markers and hallucinations
-        // This handles cases like "(gentle music) Actual Speech" by removing the marker
-        let cleaned = text
-            .replace(/\[(?:MUSIC(?: PLAYING)?|PHONE RINGING|NOISE|END PLAYBACK|APPLAUSE|LAUGHTER|INAUDIBLE|SILENCE|BLANK_AUDIO|SPEAKER_\d{2})\]/gi, (match) => {
-                if (match.toLowerCase().includes('speaker')) {
-                    const id = parseInt(match.match(/\d+/)?.[0] || '0', 10);
-                    return `(Speaker ${id + 1}) `;
-                }
-                return '';
-            })
-            .replace(/\((?:music|upbeat music|gentle music|ambient noise|noise|mouse clicking|keyboard clicking|clicking|tapping|phone ringing|computer chimes|air whooshing|speaking in foreign language|foreign speech|low chatter|silence)\)/gi, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        if (this.isNonSpeechTranscript(cleaned)) {
-            return '';
-        }
-
-        const words = cleaned.split(' ');
-        if (words.length > 5) {
-            const firstWord = words[0].toLowerCase();
-            const allSame = words.every(w => w.toLowerCase() === firstWord);
-            if (allSame) return '';
-        }
-        return cleaned;
-    }
-
-    private isNonSpeechTranscript(text: string): boolean {
-        if (!text) return true;
-
-        return NON_SPEECH_TRANSCRIPT_PATTERNS.some((pattern) => pattern.test(text));
+        return cleanWhisperTranscriptText(text);
     }
 
     /**

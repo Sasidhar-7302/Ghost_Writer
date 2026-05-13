@@ -108,6 +108,24 @@ const extractResponseSources = (text: string): { text: string; sources: string[]
     return { text: cleanedText, sources };
 };
 
+const REMOTE_SPEAKER_LABEL_RE = /^(person|interviewer)[\s_-]*(\d+)$/i;
+
+function formatRemoteSpeakerLabel(speaker: string | undefined, speakerId: number | undefined, isMeetingMode: boolean): string {
+    const raw = (speaker || '').trim();
+    const match = raw.match(REMOTE_SPEAKER_LABEL_RE);
+    if (match) {
+        const base = match[1].toLowerCase() === 'person' ? 'Person' : 'Interviewer';
+        return `${base} ${match[2]}`;
+    }
+
+    const base = isMeetingMode ? 'Person' : 'Interviewer';
+    if (typeof speakerId === 'number' && Number.isFinite(speakerId)) {
+        return `${base} ${speakerId + 1}`;
+    }
+
+    return `${base} 1`;
+}
+
 interface Message {
     id: string;
     role: 'user' | 'system' | 'interviewer';
@@ -120,6 +138,7 @@ interface Message {
     isCode?: boolean;
     intent?: string;
     model?: string;
+    speaker?: string;
 }
 
 interface GhostWriterInterfaceProps {
@@ -179,11 +198,13 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
     const textInputRef = useRef<HTMLInputElement>(null); // Ref for input focus
 
     // Split-screen transcript history (left panel)
-    const [transcriptHistory, setTranscriptHistory] = useState<Array<{ id: string; speaker: 'interviewer' | 'user'; text: string; timestamp: number }>>([]);
+    const [transcriptHistory, setTranscriptHistory] = useState<Array<{ id: string; speaker: string; text: string; timestamp: number }>>([]);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const isExpandedRef = useRef(isExpanded);
+    const lastExpandedWindowSizeRef = useRef({ width: 1120, height: 700 });
     // const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
     // Latent Context State (Screenshot attached but not sent)
@@ -199,6 +220,10 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
     // Model Selection State
     const [currentModel, setCurrentModel] = useState<string>('gemini-3-flash-preview');
 
+    // STT provider indicator + listening-paused badge
+    const [sttProvider, setSttProvider] = useState<string | undefined>(undefined);
+    const [isListeningPaused, setIsListeningPaused] = useState(false);
+
     useEffect(() => {
         // Fetch initial model
         if (window.electronAPI?.invoke) {
@@ -212,15 +237,19 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                 .catch((err: any) => console.error("Failed to fetch model config:", err));
         }
 
-        if (!window.electronAPI?.on) {
-            return;
-        }
+        const cleanups: Array<() => void> = [];
+        if (!window.electronAPI?.on) return;
 
-        return window.electronAPI.on('model-selected', (payload: { modelId?: string }) => {
+        cleanups.push(window.electronAPI.on('model-selected', (payload: { modelId?: string }) => {
             if (payload?.modelId) {
                 setCurrentModel(payload.modelId);
             }
-        });
+        }));
+
+
+        return () => {
+            cleanups.forEach(c => c());
+        };
     }, []);
 
     const handleModelSelect = (modelId: string) => {
@@ -228,6 +257,23 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
         window.electronAPI.invoke('set-model', modelId)
             .catch((err: any) => console.error("Failed to set model:", err));
     };
+
+    // Fetch initial STT provider and subscribe to pause/resume events
+    useEffect(() => {
+        if (!window.electronAPI) return;
+        window.electronAPI.invoke?.('get-stt-provider')
+            .then((provider: string) => { if (provider) setSttProvider(provider); })
+            .catch(() => {});
+        window.electronAPI.getListeningPaused?.()
+            .then(({ paused }: { paused: boolean }) => setIsListeningPaused(paused))
+            .catch(() => {});
+
+        const cleanups: Array<() => void> = [];
+        if (window.electronAPI.onListeningPausedStateChanged) {
+            cleanups.push(window.electronAPI.onListeningPausedStateChanged(setIsListeningPaused));
+        }
+        return () => { cleanups.forEach(c => c()); };
+    }, []);
 
     // Global State Sync
     useEffect(() => {
@@ -265,25 +311,67 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
         localStorage.setItem('ghost_writer_hideChatHidesWidget', String(hideChatHidesWidget));
     }, [isUndetectable, hideChatHidesWidget]);
 
-    // Auto-resize Window
+    useEffect(() => {
+        isExpandedRef.current = isExpanded;
+    }, [isExpanded]);
+
+    const rememberExpandedWindowSize = () => {
+        if (typeof window === 'undefined') return;
+        if (window.innerWidth > 520 && window.innerHeight > 320) {
+            lastExpandedWindowSizeRef.current = {
+                width: window.innerWidth,
+                height: window.innerHeight,
+            };
+        }
+    };
+
+    const updateOverlayContentDimensions = (width: number, height: number, expanded = isExpandedRef.current) => {
+        window.electronAPI?.updateContentDimensions({ width, height, isExpanded: expanded });
+    };
+
+    const handleToggleExpanded = () => {
+        if (isExpandedRef.current) {
+            rememberExpandedWindowSize();
+            setIsExpanded(false);
+            return;
+        }
+
+        const { width, height } = lastExpandedWindowSizeRef.current;
+        const restore = window.electronAPI?.updateContentDimensions({
+            width,
+            height,
+            isExpanded: true,
+        });
+
+        if (restore && typeof restore.finally === 'function') {
+            restore.finally(() => setIsExpanded(true));
+        } else {
+            setIsExpanded(true);
+        }
+    };
+
+    // Auto-resize Window (shrink-wrap when collapsed; when expanded + filling viewport, do not fight native edge resize)
     useLayoutEffect(() => {
         if (!contentRef.current) return;
 
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                // Use getBoundingClientRect to get the exact rendered size including padding
-                const rect = entry.target.getBoundingClientRect();
-
-                // Send exact dimensions to Electron
-                // Removed buffer to ensure tight fit
-                console.log('[GhostWriterInterface] ResizeObserver:', Math.ceil(rect.width), Math.ceil(rect.height));
-                window.electronAPI?.updateContentDimensions({
-                    width: Math.ceil(rect.width),
-                    height: Math.ceil(rect.height)
-                });
+        const pushDimensions = () => {
+            const el = contentRef.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const w = Math.ceil(rect.width);
+            const h = Math.ceil(rect.height);
+            const iw = window.innerWidth;
+            const ih = window.innerHeight;
+            if (isExpandedRef.current) {
+                rememberExpandedWindowSize();
             }
-        });
+            if (isExpandedRef.current && Math.abs(w - iw) <= 4 && Math.abs(h - ih) <= 4) {
+                return;
+            }
+            updateOverlayContentDimensions(w, h);
+        };
 
+        const observer = new ResizeObserver(() => pushDimensions());
         observer.observe(contentRef.current);
         return () => observer.disconnect();
     }, []);
@@ -293,10 +381,13 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
         const timer = setTimeout(() => {
             if (contentRef.current) {
                 const rect = contentRef.current.getBoundingClientRect();
-                window.electronAPI?.updateContentDimensions({
-                    width: Math.ceil(rect.width),
-                    height: Math.ceil(rect.height)
-                });
+                const w = Math.ceil(rect.width);
+                const h = Math.ceil(rect.height);
+                const iw = window.innerWidth;
+                const ih = window.innerHeight;
+                if (!(isExpandedRef.current && Math.abs(w - iw) <= 4 && Math.abs(h - ih) <= 4)) {
+                    updateOverlayContentDimensions(w, h);
+                }
             }
         }, 600);
         return () => clearTimeout(timer);
@@ -351,7 +442,7 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
     useEffect(() => {
         if (!window.electronAPI?.onToggleExpand) return;
         const unsubscribe = window.electronAPI.onToggleExpand(() => {
-            setIsExpanded(prev => !prev);
+            handleToggleExpanded();
         });
         return () => unsubscribe();
     }, []);
@@ -433,10 +524,69 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
 
             // Add FINAL transcripts to split-screen transcript history (left panel)
             if (transcript.final && transcript.text.trim()) {
-                const speaker = transcript.speaker === 'user' ? 'user' as const : 'interviewer' as const;
+                const rawSpeaker = transcript.speaker;
+                let speakerLabel = rawSpeaker;
+
+                if (rawSpeaker === 'user') {
+                    // Normalize text for comparison
+                    const normalizedText = transcript.text.toLowerCase().replace(/[^\w\s]/g, '').trim();
+                    if (!normalizedText) return;
+
+                    // DELAY "YOU" TRANSCRIPT BY 2s TO CHECK FOR MEETING OVERLAP
+                    // This prevents double-bubbles if the mic is faster than the system audio.
+                    setTimeout(() => {
+                        setTranscriptHistory(currentHistory => {
+                            // Check if any meeting participant (Person N) has spoken this text recently
+                            const recentMeetingTexts = currentHistory
+                                .filter(t => t.speaker !== 'user')
+                                .slice(-30)
+                                .map(t => ({
+                                    text: t.text.toLowerCase().replace(/[^\w\s]/g, '').trim(),
+                                    timestamp: t.timestamp,
+                                }));
+
+                            const isEcho = recentMeetingTexts.some(({ text: meetingText, timestamp }) => {
+                                if (!meetingText) return false;
+                                // Short text: exact match
+                                if (normalizedText.length < 8) return meetingText === normalizedText;
+
+                                // Substring containment
+                                const isContained = meetingText.includes(normalizedText) || normalizedText.includes(meetingText);
+                                if (isContained) return true;
+
+                                // Fuzzy word overlap - catch degraded mic audio
+                                const userWords = normalizedText.split(/\s+/).filter(w => w.length >= 2);
+                                const meetingWords = meetingText.split(/\s+/).filter(w => w.length >= 2);
+                                if (Math.min(userWords.length, meetingWords.length) < 2) return false;
+                                const matchingWords = userWords.filter(w => meetingWords.includes(w));
+                                const overlap = matchingWords.length / Math.min(userWords.length, meetingWords.length);
+                                const nearTime = Date.now() - timestamp <= 3500;
+                                return overlap >= 0.6 || (nearTime && overlap >= 0.4 && Math.min(userWords.length, meetingWords.length) >= 3);
+                            });
+
+                            if (isEcho) {
+                                console.log('[Interface] Late Echo Suppression (claimed by Person N):', transcript.text);
+                                return currentHistory;
+                            }
+
+                            return [...currentHistory, {
+                                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                                speaker: 'user',
+                                text: transcript.text,
+                                timestamp: Date.now()
+                            }];
+                        });
+                    }, 2000);
+
+                    return; // Exit early, the setTimeout handles the state update
+                } else {
+                    // Meeting participant (System Audio)
+                    speakerLabel = formatRemoteSpeakerLabel(rawSpeaker, transcript.speakerId, isMeetingMode);
+                }
+
                 setTranscriptHistory(prev => [...prev, {
                     id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                    speaker,
+                    speaker: speakerLabel,
                     text: transcript.text,
                     timestamp: Date.now()
                 }]);
@@ -448,10 +598,8 @@ const GhostWriterInterface: React.FC<GhostWriterInterfaceProps> = ({ onEndMeetin
                 return;  // Skip user mic input - only relevant when Answer button is active
             }
 
-            // Only show interviewer (system audio) transcripts in rolling bar
-            if (transcript.speaker !== 'interviewer') {
-                return;  // Safety check for any other speaker types
-            }
+            // Only show system-audio participants in the rolling bar.
+            // The backend sends resolved labels such as "Person 2" / "Interviewer 1".
 
             // Route to rolling transcript bar - accumulate text continuously
             setIsInterviewerSpeaking(!transcript.final);
@@ -1170,6 +1318,17 @@ Provide only the answer, nothing else.`;
         }
     };
 
+    const handleEnhanceNote = async (note: string): Promise<string> => {
+        try {
+            const prompt = `Please enhance and polish these quick notes from our meeting. Make them professional, concise, and well-structured, but keep the original intent and key information: "${note}"`;
+            const result = await window.electronAPI.invoke('gemini-chat', prompt, undefined, conversationContext, { skipSystemPrompt: false });
+            return result || note;
+        } catch (err) {
+            console.error('[GhostWriter] Enhance note failed:', err);
+            return note;
+        }
+    };
+
     const clearChat = () => {
         setMessages([]);
     };
@@ -1476,83 +1635,120 @@ Provide only the answer, nothing else.`;
         );
     };
 
-    return (
-        <div ref={contentRef} className="flex flex-col items-center w-fit mx-auto h-fit min-h-0 bg-transparent p-0 rounded-[24px] font-sans text-slate-200 gap-2">
+    // Derived participants for MeetingSidecar
+    const participants = Array.from(new Set(transcriptHistory.map(t => t.speaker)))
+        .map(speaker => ({
+            id: speaker,
+            name: speaker === 'user' ? 'You' : formatRemoteSpeakerLabel(speaker, undefined, isMeetingMode),
+            isSpeaking: isInterviewerSpeaking && speaker !== 'user',
+            lastSpoke: transcriptHistory.filter(t => t.speaker === speaker).slice(-1)[0]?.timestamp || Date.now(),
+            color: speaker === 'user' ? '#3B82F6' : '#8B5CF6'
+        }));
 
-            <TopPill
-                expanded={isExpanded}
-                onToggle={() => setIsExpanded(!isExpanded)}
-                onMinimize={() => window.electronAPI.minimizeCurrentWindow()}
-                onQuit={() => onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp()}
-            />
+    return (
+        <div
+            className={
+                isExpanded
+                    ? 'h-full w-full min-h-0 flex flex-col font-sans text-slate-100'
+                    : 'w-full min-h-0 flex flex-col font-sans text-slate-100'
+            }
+        >
+            <div
+                ref={contentRef}
+                className={
+                    isExpanded
+                        ? 'flex flex-col flex-1 min-h-0 w-full min-w-0 box-border px-2.5 pt-1.5 pb-2.5 bg-transparent gap-2'
+                        : 'flex flex-col w-full min-w-0 h-fit box-border px-2.5 pt-1.5 pb-2.5 bg-transparent gap-2'
+                }
+            >
+
+            <div className="flex justify-center flex-shrink-0 w-full">
+                <TopPill
+                    expanded={isExpanded}
+                    onToggle={handleToggleExpanded}
+                    onMinimize={() => window.electronAPI.minimizeCurrentWindow()}
+                    onQuit={() => onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp()}
+                    sttProvider={sttProvider}
+                    isListeningPaused={isListeningPaused}
+                />
+            </div>
 
             <AnimatePresence>
                 {isExpanded && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                        exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3, ease: "easeInOut" }}
-                        className="flex flex-col items-center gap-2 w-full overflow-hidden"
+                        className="flex flex-col flex-1 min-h-0 w-full min-w-0 overflow-hidden"
                     >
-                        <div className="
-                    relative w-[1000px] max-w-full
-                    bg-[#121212]/75
-                    backdrop-blur-[40px]
-                    border border-white/20
-                    border-t-white/30
-                    shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset]
-                    rounded-[32px] 
-                    overflow-hidden 
-                    flex flex-col
-                ">
+                        <div
+                            className="
+                    relative w-full min-w-0 flex flex-col flex-1 min-h-0 overflow-hidden
+                    rounded-[28px]
+                    border border-white/[0.14]
+                    bg-[rgba(14,14,18,0.82)] backdrop-blur-[52px] backdrop-saturate-150
+                    shadow-[0_28px_90px_rgba(0,0,0,0.72),inset_0_1px_0_rgba(255,255,255,0.08)]
+                    ring-1 ring-white/[0.06]
+                "
+                        >
 
                             {/* === SPLIT-SCREEN LAYOUT === */}
-                            <div className="flex flex-row flex-1 min-h-0">
+                            <div className="flex flex-row flex-1 min-h-0 min-w-0 overflow-hidden">
                                 {/* LEFT PANEL: Live Transcript (Interviewer + User) */}
-                                <div className="w-[40%] border-r border-white/10 flex flex-col">
+                                <div className="w-[40%] min-w-0 shrink border-r border-white/10 flex flex-col">
                                     <div className="px-3 py-2 border-b border-white/5 flex items-center gap-2">
                                         <div className={`w-2 h-2 rounded-full ${isInterviewerSpeaking ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`} />
-                                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Live Transcript</span>
+                                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Live Transcript</span>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[clamp(300px,35vh,450px)]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
+                                    <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
                                         {transcriptHistory.length === 0 && (
                                             <div className="text-center text-slate-500 text-[12px] py-8">
                                                 <Mic className="w-5 h-5 mx-auto mb-2 opacity-40" />
                                                 Waiting for audio...
                                             </div>
                                         )}
-                                        {transcriptHistory.map((entry) => (
-                                            <div key={entry.id} className={`text-[12px] leading-relaxed px-2 py-1.5 rounded-lg ${entry.speaker === 'interviewer'
-                                                ? 'bg-purple-500/8 border-l-2 border-purple-400/40 text-slate-300'
-                                                : 'bg-blue-500/8 border-l-2 border-blue-400/40 text-blue-200'
-                                                }`}>
-                                                <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${entry.speaker === 'interviewer' ? 'text-purple-400/70' : 'text-blue-400/70'
+                                        {transcriptHistory.map((entry) => {
+                                            const isUser = entry.speaker === 'user';
+                                            const isMeeting = isMeetingMode;
+
+                                            let displayName = isUser ? 'You' : entry.speaker;
+                                            if (!isUser) {
+                                                displayName = formatRemoteSpeakerLabel(entry.speaker, undefined, isMeeting);
+                                            }
+
+                                            return (
+                                                <div key={entry.id} className={`text-[13px] leading-relaxed px-2.5 py-2 rounded-lg ${!isUser
+                                                    ? 'bg-purple-500/12 border-l-2 border-purple-400/55 text-slate-100'
+                                                    : 'bg-blue-500/12 border-l-2 border-blue-400/55 text-blue-100'
                                                     }`}>
-                                                    {entry.speaker === 'interviewer' ? (isMeetingMode ? '🎙️ Person 1' : '🎙️ Interviewer') : '👤 You'}
-                                                </span>
-                                                {entry.text}
-                                            </div>
-                                        ))}
+                                                    <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${!isUser ? 'text-purple-400/70' : 'text-blue-400/70'
+                                                        }`}>
+                                                        {isUser ? '👤 You' : `🎙️ ${displayName}`}
+                                                    </span>
+                                                    {entry.text}
+                                                </div>
+                                            );
+                                        })}
                                         <div ref={transcriptEndRef} />
                                     </div>
                                 </div>
 
                                 {/* RIGHT PANEL: AI Answers + Chat */}
-                                <div className="w-[60%] flex flex-col">
+                                <div className="w-[60%] min-w-0 shrink flex flex-col">
                                     {/* Chat History */}
                                     {(messages.length > 0 || isManualRecording || isProcessing) && (
-                                        <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[clamp(300px,35vh,450px)]" style={{ scrollbarWidth: 'none' }}>
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarWidth: 'none' }}>
                                             {messages.map((msg) => (
                                                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up`}>
                                                     <div className={`
-                          ${msg.role === 'user' ? 'max-w-[72.25%] px-[13.6px] py-[10.2px]' : 'max-w-[85%] px-4 py-3'} text-[14px] leading-relaxed relative group whitespace-pre-wrap
+                          ${msg.role === 'user' ? 'max-w-[72.25%] px-[13.6px] py-[10.2px]' : 'max-w-[88%] px-4 py-3.5'} text-[15px] leading-relaxed relative group whitespace-pre-wrap
                           ${msg.role === 'user'
-                                                            ? 'bg-blue-600/20 backdrop-blur-md border border-blue-500/30 text-blue-100 rounded-[20px] rounded-tr-[4px] shadow-sm font-medium'
+                                                            ? 'bg-blue-600/25 backdrop-blur-md border border-blue-400/35 text-blue-50 rounded-[20px] rounded-tr-[4px] shadow-sm font-medium'
                                                             : ''
                                                         }
                           ${msg.role === 'system'
-                                                            ? 'text-slate-200 font-normal'
+                                                            ? 'text-slate-100 font-normal'
                                                             : ''
                                                         }
                           ${msg.role === 'interviewer'
@@ -1562,7 +1758,7 @@ Provide only the answer, nothing else.`;
                         `}>
                                                         {msg.role === 'interviewer' && (
                                                             <div className="flex items-center gap-1.5 mb-1 text-[10px] text-slate-600 font-medium uppercase tracking-wider">
-                                                                {isMeetingMode ? 'Person 1' : 'Interviewer'}
+                                                                {formatRemoteSpeakerLabel(msg.speaker, undefined, isMeetingMode)}
                                                                 {msg.isStreaming && <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />}
                                                             </div>
                                                         )}
@@ -1692,7 +1888,7 @@ Provide only the answer, nothing else.`;
                             </div>
 
                             {/* Input Area */}
-                            <div className="p-3 pt-0">
+                            <div className="p-3 pt-0 shrink-0 border-t border-white/[0.06] bg-black/10">
                                 <div className="relative group">
                                     {/* Latent Context Preview (Attached Screenshot) - Compact Version */}
                                     <AnimatePresence>
@@ -1745,19 +1941,19 @@ Provide only the answer, nothing else.`;
                                         onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
 
                                         className="
-                                    w-full 
-                                    bg-[#1E1E1E] 
-                                    hover:bg-[#252525] 
-                                    focus:bg-[#1E1E1E]
-                                    border border-white/5 
-                                    focus:border-white/10
-                                    focus:ring-1 focus:ring-white/10
-                                    rounded-xl 
-                                    pl-3 pr-[4.5rem] py-2.5 
-                                    text-slate-200 
-                                    focus:outline-none 
+                                    w-full
+                                    bg-[#1a1a1f]
+                                    hover:bg-[#222228]
+                                    focus:bg-[#1a1a1f]
+                                    border border-white/12
+                                    focus:border-white/20
+                                    focus:ring-1 focus:ring-white/15
+                                    rounded-xl
+                                    pl-3 pr-[4.5rem] py-2.5
+                                    text-slate-100
+                                    focus:outline-none
                                     transition-all duration-200 ease-sculpted
-                                    text-[13px] leading-relaxed
+                                    text-[14px] leading-relaxed
                                     placeholder:text-slate-500
                                 "
                                     />
@@ -1873,6 +2069,7 @@ Provide only the answer, nothing else.`;
                     </motion.div>
                 )}
             </AnimatePresence>
+            </div>
         </div>
     );
 };

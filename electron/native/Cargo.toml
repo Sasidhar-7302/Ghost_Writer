@@ -16,6 +16,10 @@ anyhow = "1.0"
 once_cell = "1.18.0"
 rubato = "0.16"
 rand = "0.8"
+log = "0.4"
+
+# Acoustic Echo Cancellation (pure Rust port of WebRTC AEC3)
+aec3 = "0.2"
 
 # Windows-only audio dependencies
 [target.'cfg(target_os = "windows")'.dependencies]

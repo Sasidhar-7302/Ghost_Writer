@@ -7,6 +7,7 @@ import { app, safeStorage } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { launchConfig } from '../config/launchConfig';
+import { AudioCaptureMode, normalizeAudioCaptureMode } from '../audio/audioCaptureMode';
 import { normalizePromptSettings } from '../llm/promptRegistry';
 import type { LicenseVerificationRecord, PromptMode, PromptSettings, PromptSettingsMap } from '../llm/promptTypes';
 import { logger } from '../utils/logger';
@@ -43,6 +44,7 @@ export interface StoredCredentials {
     azureRegion?: string;
     ibmWatsonApiKey?: string;
     ibmWatsonRegion?: string;
+    audioCaptureMode?: AudioCaptureMode;
     // Context documents
     resumePath?: string;
     jobDescriptionText?: string;
@@ -177,6 +179,10 @@ export class CredentialsManager {
 
     public getSttProvider(): 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper' {
         return this.credentials.sttProvider || 'google';
+    }
+
+    public getAudioCaptureMode(): AudioCaptureMode {
+        return normalizeAudioCaptureMode(this.credentials.audioCaptureMode);
     }
 
     public getDeepgramApiKey(): string | undefined {
@@ -406,6 +412,13 @@ export class CredentialsManager {
         this.credentials.sttProvider = provider;
         this.saveCredentials();
         console.log(`[CredentialsManager] STT Provider set to: ${provider}`);
+    }
+
+    public setAudioCaptureMode(mode: AudioCaptureMode): void {
+        const normalized = normalizeAudioCaptureMode(mode);
+        this.credentials.audioCaptureMode = normalized;
+        this.saveCredentials();
+        console.log(`[CredentialsManager] Audio Capture Mode set to: ${normalized}`);
     }
 
     public setDeepgramApiKey(key: string): void {

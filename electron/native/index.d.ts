@@ -4,8 +4,17 @@ export interface AudioDeviceInfo {
   id: string
   name: string
 }
+export interface AecStatsInfo {
+  enabled: boolean
+  framesProcessed: number
+  framesWithEcho: number
+  framesPassthrough: number
+  referenceUnderruns: number
+}
 export declare function getInputDevices(): Array<AudioDeviceInfo>
 export declare function getOutputDevices(): Array<AudioDeviceInfo>
+export declare function setAecEnabled(enabled: boolean): void
+export declare function getAecStats(): AecStatsInfo
 export declare class SystemAudioCapture {
   constructor(deviceId?: string | undefined | null)
   getSampleRate(): number

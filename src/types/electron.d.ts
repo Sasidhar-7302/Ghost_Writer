@@ -2,6 +2,7 @@ export interface ElectronAPI {
   updateContentDimensions: (dimensions: {
     width: number
     height: number
+    isExpanded?: boolean
   }) => Promise<void>
   onToggleExpand: (callback: () => void) => () => void
   onQuickAnswer: (callback: () => void) => () => void
@@ -64,10 +65,10 @@ export interface ElectronAPI {
   setClaudeApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setNvidiaApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
   setDeepseekApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
-  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; hasOpenrouterKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean; telemetryEnabled: boolean }>
+  getStoredCredentials: () => Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean; hasOpenaiKey: boolean; hasClaudeKey: boolean; hasNvidiaKey: boolean; hasDeepseekKey: boolean; hasOpenrouterKey: boolean; googleServiceAccountPath: string | null; sttProvider: string; audioCaptureMode: 'dual-stream' | 'system-only' | 'mic-only'; hasSttGroqKey: boolean; hasSttOpenaiKey: boolean; hasDeepgramKey: boolean; hasElevenLabsKey: boolean; hasAzureKey: boolean; azureRegion: string; hasIbmWatsonKey: boolean; ibmWatsonRegion: string; hasResume: boolean; hasJobDescription: boolean; airGapMode: boolean; telemetryEnabled: boolean }>
 
   // Native Audio Service Events
-  onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean }) => void) => () => void
+  onNativeAudioTranscript: (callback: (transcript: { speaker: string; text: string; final: boolean; speakerId?: number }) => void) => () => void
   onNativeAudioSuggestion: (callback: (suggestion: { context: string; lastQuestion: string; confidence: number }) => void) => () => void
   onNativeAudioConnected: (callback: () => void) => () => void
   onNativeAudioDisconnected: (callback: () => void) => () => void
@@ -103,8 +104,11 @@ export interface ElectronAPI {
   submitManualQuestion: (question: string) => Promise<{ answer: string | null; question: string }>
   getIntelligenceContext: () => Promise<{ context: string; lastAssistantMessage: string | null; activeMode: string }>
   resetIntelligence: () => Promise<{ success: boolean; error?: string }>
+  toggleListeningPause: () => Promise<{ success: boolean; paused: boolean; error?: string }>
+  getListeningPaused: () => Promise<{ paused: boolean }>
+  onListeningPausedStateChanged: (callback: (paused: boolean) => void) => () => void
   onAudioCaptureFallback: (callback: (data: { reason: string }) => void) => () => void
-  sendRawAudio: (data: Buffer) => void
+  sendRawAudio: (data: Buffer, source?: 'system' | 'microphone') => void
 
   // Meeting Lifecycle
   startMeeting: (metadata?: any) => Promise<{ success: boolean; error?: string }>
@@ -136,6 +140,7 @@ export interface ElectronAPI {
 
   // Streaming listeners
   streamGeminiChat: (message: string, imagePath?: string, context?: string, options?: { skipSystemPrompt?: boolean }) => Promise<void>
+  cancelGeminiChatStream: () => Promise<{ cancelled: boolean }>
   onGeminiStreamToken: (callback: (token: string) => void) => () => void
   onGeminiStreamDone: (callback: () => void) => () => void
   onGeminiStreamError: (callback: (error: string) => void) => () => void;
@@ -218,6 +223,8 @@ export interface ElectronAPI {
   // STT Provider Management
   setSttProvider: (provider: 'google' | 'groq' | 'openai' | 'deepgram' | 'elevenlabs' | 'azure' | 'ibmwatson' | 'local-whisper') => Promise<{ success: boolean; error?: string }>
   getSttProvider: () => Promise<string>
+  setAudioCaptureMode: (mode: 'dual-stream' | 'system-only' | 'mic-only') => Promise<{ success: boolean; mode?: string; error?: string }>
+  getAudioCaptureMode: () => Promise<'dual-stream' | 'system-only' | 'mic-only'>
   getAirGapMode: () => Promise<boolean>
   setAirGapMode: (enabled: boolean) => Promise<{ success: boolean; error?: string; status?: { enabled: boolean; localWhisperReady: boolean; localWhisperModelReady: boolean; ollamaReachable: boolean; localTextModelReady: boolean; localVisionModelReady: boolean; activeOllamaModel: string; errors: string[] } }>
   getFullPrivacyStatus: () => Promise<{ enabled: boolean; localWhisperReady: boolean; localWhisperModelReady: boolean; ollamaReachable: boolean; localTextModelReady: boolean; localVisionModelReady: boolean; activeOllamaModel: string; errors: string[] }>

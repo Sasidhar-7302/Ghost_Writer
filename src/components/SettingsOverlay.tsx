@@ -26,6 +26,8 @@ interface CustomSelectProps {
     placeholder?: string;
 }
 
+type AudioCaptureMode = 'dual-stream' | 'system-only' | 'mic-only';
+
 const CustomSelect: React.FC<CustomSelectProps> = ({ label, icon, value, options, onChange, placeholder = "Select device" }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
@@ -401,6 +403,8 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
     const [outputDevices, setOutputDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedInput, setSelectedInput] = useState('');
     const [selectedOutput, setSelectedOutput] = useState('');
+    const [audioCaptureMode, setAudioCaptureMode] = useState<AudioCaptureMode>('dual-stream');
+    const [audioCaptureSaving, setAudioCaptureSaving] = useState(false);
     const [micLevel, setMicLevel] = useState(0);
     const [useLegacyAudio, setUseLegacyAudio] = useState(false);
 
@@ -496,6 +500,10 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                 const creds = await window.electronAPI?.getStoredCredentials?.();
                 if (creds) {
                     setSttProvider((creds.sttProvider || 'google') as typeof sttProvider);
+                    if (creds.audioCaptureMode) {
+                        setAudioCaptureMode(creds.audioCaptureMode as AudioCaptureMode);
+                        localStorage.setItem('preferredAudioCaptureMode', creds.audioCaptureMode);
+                    }
                     if ((creds as any).groqSttModel) setGroqSttModel((creds as any).groqSttModel);
                     setGoogleServiceAccountPath(creds.googleServiceAccountPath);
                     setHasStoredSttGroqKey(creds.hasSttGroqKey);
@@ -523,6 +531,30 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
             await window.electronAPI?.setSttProvider?.(provider);
         } catch (e) {
             console.error('Failed to set STT provider:', e);
+        }
+    };
+
+    const handleAudioCaptureModeChange = async (mode: AudioCaptureMode) => {
+        if (audioCaptureSaving || mode === audioCaptureMode) return;
+
+        const previousMode = audioCaptureMode;
+        setAudioCaptureMode(mode);
+        localStorage.setItem('preferredAudioCaptureMode', mode);
+        setAudioCaptureSaving(true);
+
+        try {
+            const result = await window.electronAPI?.setAudioCaptureMode?.(mode);
+            if (result?.success === false) {
+                throw new Error(result.error || 'Failed to update audio capture mode');
+            }
+            if (result?.mode) {
+                setAudioCaptureMode(result.mode as AudioCaptureMode);
+            }
+        } catch (e) {
+            console.error('Failed to set audio capture mode:', e);
+            setAudioCaptureMode(previousMode);
+        } finally {
+            setAudioCaptureSaving(false);
         }
     };
 
@@ -1256,9 +1288,13 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                     <button
                                                         onClick={async () => {
                                                             try {
-                                                                await WebAudioFallback.getInstance().startSystemCapture();
-                                                                // Also start mic just in case
-                                                                await WebAudioFallback.getInstance().startMicCapture();
+                                                                const fallback = WebAudioFallback.getInstance();
+                                                                if (audioCaptureMode !== 'mic-only') {
+                                                                    await fallback.startSystemCapture();
+                                                                }
+                                                                if (audioCaptureMode !== 'system-only') {
+                                                                    await fallback.startMicCapture();
+                                                                }
                                                             } catch (e) {
                                                                 console.error('[Settings] Fallback activation failed:', e);
                                                             }
@@ -1445,13 +1481,19 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
 
                                                         {/* Model Selection */}
                                                         <div className="mb-4">
-                                                            <label className="text-xs font-medium text-text-secondary mb-2 block">Whisper Model</label>
-                                                            <div className="grid grid-cols-2 gap-2">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <label className="text-xs font-medium text-text-secondary">Whisper Model</label>
+                                                                <span className="text-[10px] text-text-tertiary font-medium">Higher accuracy requires more VRAM</span>
+                                                            </div>
+                                                            <div className="space-y-1.5">
                                                                 {[
-                                                                    { id: 'tiny', label: 'Tiny', size: '~75MB', desc: 'Fastest' },
-                                                                    { id: 'base', label: 'Base', size: '~142MB', desc: 'Fast' },
-                                                                    { id: 'small', label: 'Small', size: '~466MB', desc: 'Balanced' },
-                                                                    { id: 'medium', label: 'Medium', size: '~1.5GB', desc: 'Accurate' },
+                                                                    { id: 'tiny', label: 'Tiny', size: '75MB', desc: 'Fastest transcription, lower accuracy.', vram: '< 1GB' },
+                                                                    { id: 'base', label: 'Base', size: '142MB', desc: 'Good balance for simple English.', vram: '1GB' },
+                                                                    { id: 'small', label: 'Small', size: '466MB', desc: 'Reliable for standard conversations.', vram: '2GB' },
+                                                                    { id: 'small-tdrz', label: 'Small (TDRZ)', size: '466MB', desc: 'Diarization Support + Professional Speaker Detection.', vram: '2GB', premium: true },
+                                                                    { id: 'medium-tdrz', label: 'Medium (TDRZ)', size: '1.5GB', desc: 'Advanced Diarization (Community Release Pending).', vram: '4GB+', premium: true, comingSoon: true },
+                                                                    { id: 'medium', label: 'Medium', size: '1.5GB', desc: 'High accuracy for complex vocabulary.', vram: '4GB+' },
+                                                                    { id: 'large', label: 'Large (Turbo)', size: '1.5GB', desc: 'Best Accuracy, very fast on GPU.', vram: '6GB+' },
                                                                 ].map((m) => {
                                                                     const isSelected = (pendingWhisperModel || whisperStatus?.selectedModel) === m.id;
                                                                     const isInstalled = whisperStatus?.installedModels?.[m.id] ?? false;
@@ -1459,7 +1501,7 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                     const downloadProgress = isDownloading ? (whisperStatus?.progress || 0) : 0;
 
                                                                     return (
-                                                                        <button
+                                                                        <div
                                                                             key={m.id}
                                                                             onClick={() => {
                                                                                 if (isDownloading) return;
@@ -1467,55 +1509,90 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                                                                     setPendingWhisperModel(m.id);
                                                                                 }
                                                                             }}
-                                                                            className={`relative rounded-lg p-2 text-left border transition-all overflow-hidden ${isSelected
-                                                                                ? 'bg-emerald-500/10 border-emerald-500/50'
+                                                                            className={`group relative rounded-xl p-3 border transition-all cursor-pointer overflow-hidden ${isSelected
+                                                                                ? 'bg-emerald-500/15 border-emerald-500/50 shadow-lg shadow-emerald-500/5'
                                                                                 : isInstalled
-                                                                                    ? 'bg-bg-input border-transparent hover:bg-bg-elevated'
-                                                                                    : 'bg-bg-input border-transparent opacity-80 hover:opacity-100'
+                                                                                    ? 'bg-bg-input border-border-subtle hover:bg-bg-elevated hover:border-border-medium'
+                                                                                    : 'bg-bg-input border-border-subtle hover:bg-bg-elevated hover:border-border-medium'
                                                                                 }`}
                                                                         >
                                                                             {/* Download progress bar overlay */}
                                                                             {isDownloading && (
                                                                                 <div
-                                                                                    className="absolute bottom-0 left-0 h-1 bg-accent-primary transition-all duration-300 ease-out"
+                                                                                    className="absolute bottom-0 left-0 h-1 bg-accent-primary transition-all duration-300 ease-out z-10"
                                                                                     style={{ width: `${downloadProgress}%` }}
                                                                                 />
                                                                             )}
-                                                                            <div className="flex items-center justify-between mb-0.5">
-                                                                                <span className={`text-xs font-semibold ${isSelected ? 'text-emerald-400' : 'text-text-primary'}`}>{m.label}</span>
-                                                                                <div className="flex items-center gap-1">
-                                                                                    {isDownloading && (
-                                                                                        <span className="text-[9px] font-bold text-accent-primary animate-pulse">{downloadProgress}%</span>
-                                                                                    )}
-                                                                                    {isInstalled ? (
-                                                                                        isSelected ? <Check size={12} className="text-emerald-400" /> : <Check size={10} className="text-green-500/60" />
-                                                                                    ) : isDownloading ? (
-                                                                                        <Loader2 size={12} className="animate-spin text-accent-primary" />
+
+                                                                            <div className="flex items-center gap-3 relative z-20">
+                                                                                {/* Status Icon */}
+                                                                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-bg-elevated text-text-secondary group-hover:text-text-primary'}`}>
+                                                                                    {isDownloading ? (
+                                                                                        <Loader2 size={18} className="animate-spin text-accent-primary" />
+                                                                                    ) : isInstalled ? (
+                                                                                        isSelected ? <Check size={20} strokeWidth={3} /> : <BadgeCheck size={20} className="text-emerald-500/80" />
                                                                                     ) : (
-                                                                                        <Download
-                                                                                            size={12}
-                                                                                            className="text-text-tertiary hover:text-accent-primary cursor-pointer transition-colors"
+                                                                                        <Download size={18} className="group-hover:text-accent-primary transition-colors" />
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {/* Label & Description */}
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className={`text-sm font-bold ${isSelected ? 'text-emerald-400' : 'text-text-primary'}`}>
+                                                                                            {m.label}
+                                                                                        </span>
+                                                                                        {m.premium && !m.comingSoon && (
+                                                                                            <span className="px-2 py-0.5 bg-emerald-500 text-bg-primary text-[9px] font-black uppercase tracking-wider rounded-full shadow-sm">
+                                                                                                Recommended
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {m.comingSoon && (
+                                                                                            <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[9px] font-black uppercase tracking-wider rounded-full shadow-sm">
+                                                                                                Coming Soon
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {isDownloading && (
+                                                                                            <span className="text-[10px] font-bold text-accent-primary animate-pulse ml-auto">
+                                                                                                {downloadProgress}%
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <p className={`text-[11px] truncate mt-0.5 ${isSelected ? 'text-emerald-400/80' : 'text-text-secondary font-medium'}`}>
+                                                                                        {m.desc}
+                                                                                    </p>
+                                                                                </div>
+
+                                                                                {/* Metadata / Action */}
+                                                                                <div className="text-right shrink-0">
+                                                                                    {!isInstalled && !isDownloading ? (
+                                                                                        <button
                                                                                             onClick={(e) => {
+                                                                                                if (m.comingSoon) return;
                                                                                                 e.stopPropagation();
                                                                                                 // @ts-ignore
                                                                                                 window.electronAPI?.downloadWhisperModel?.(m.id).then((res: any) => {
                                                                                                     if (res?.status) setWhisperStatus(res.status);
                                                                                                 });
                                                                                             }}
-                                                                                        />
+                                                                                            disabled={m.comingSoon}
+                                                                                            className={`px-4 py-1.5 text-bg-primary text-[11px] font-bold rounded-lg transition-all shadow-md active:scale-95 ${m.comingSoon ? 'bg-bg-input text-text-tertiary cursor-not-allowed border border-border-subtle shadow-none' : 'bg-accent-primary hover:bg-accent-secondary'}`}
+                                                                                        >
+                                                                                            {m.comingSoon ? 'Locked' : 'Download'}
+                                                                                        </button>
+                                                                                    ) : (
+                                                                                        <div className="flex flex-col items-end">
+                                                                                            <span className={`text-[10px] font-bold ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>{m.size}</span>
+                                                                                            <span className="text-[9px] text-text-tertiary uppercase tracking-tighter font-bold opacity-80">{m.vram} VRAM</span>
+                                                                                        </div>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
-                                                                            <div className="flex items-center justify-between text-[10px]">
-                                                                                <span className="text-text-tertiary">
-                                                                                    {isDownloading ? 'Downloading...' : isInstalled ? m.desc : 'Not installed'}
-                                                                                </span>
-                                                                                <span className="text-text-tertiary opacity-70">{m.size}</span>
-                                                                            </div>
-                                                                        </button>
+                                                                        </div>
                                                                     );
                                                                 })}
                                                             </div>
+                                                        
 
                                                             {/* Pending changes / Apply button */}
                                                             {pendingWhisperModel && pendingWhisperModel !== whisperStatus?.selectedModel && (
@@ -1878,6 +1955,60 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose }) =>
                                             <p className="text-xs text-text-secondary mb-5">Manage input and output devices.</p>
 
                                             <div className="space-y-4">
+                                                <div className="bg-bg-card rounded-xl border border-border-subtle p-4">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Monitor size={16} className="text-text-secondary" />
+                                                        <label className="text-xs font-medium text-text-primary uppercase tracking-wide">Capture Profile</label>
+                                                        {audioCaptureSaving && <Loader2 size={13} className="animate-spin text-text-secondary" />}
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                        {[
+                                                            {
+                                                                id: 'dual-stream' as AudioCaptureMode,
+                                                                title: 'Dual Stream',
+                                                                desc: 'Meeting audio and your mic',
+                                                                icon: <Speaker size={14} />,
+                                                            },
+                                                            {
+                                                                id: 'system-only' as AudioCaptureMode,
+                                                                title: 'Listen Only',
+                                                                desc: 'Meeting audio only',
+                                                                icon: <Monitor size={14} />,
+                                                            },
+                                                            {
+                                                                id: 'mic-only' as AudioCaptureMode,
+                                                                title: 'Mic Only',
+                                                                desc: 'Local mic only',
+                                                                icon: <Mic size={14} />,
+                                                            },
+                                                        ].map((mode) => {
+                                                            const active = audioCaptureMode === mode.id;
+                                                            return (
+                                                                <button
+                                                                    key={mode.id}
+                                                                    type="button"
+                                                                    onClick={() => handleAudioCaptureModeChange(mode.id)}
+                                                                    disabled={audioCaptureSaving}
+                                                                    className={`min-h-[86px] rounded-lg border px-3 py-3 text-left transition-colors ${
+                                                                        active
+                                                                            ? 'border-accent-primary bg-accent-primary/10 text-text-primary'
+                                                                            : 'border-border-subtle bg-bg-input text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                                                        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+                                                                            {mode.icon}
+                                                                            {mode.title}
+                                                                        </span>
+                                                                        {active && <Check size={14} className="text-accent-primary" />}
+                                                                    </div>
+                                                                    <p className="text-[11px] leading-4">{mode.desc}</p>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
                                                 <CustomSelect
                                                     label="Input Device"
                                                     icon={<Mic size={16} />}

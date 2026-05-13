@@ -37,6 +37,7 @@ export class STTFactory {
                 const whisper = new LocalWhisperSTT(paths.binaryPath, paths.modelPath);
                 const health = await whisper.checkHealth();
                 if (health.success) {
+                    console.log(`[STTFactory] Successfully created LocalWhisperSTT for ${speakerType}`);
                     return whisper as ISTT;
                 }
                 if (fullPrivacyMode) {
@@ -49,7 +50,11 @@ export class STTFactory {
                 }
                 console.warn(`[STTFactory] Local Whisper is not operational after setup/repair. Falling back to Google...`);
             }
-            return new GoogleSTT() as ISTT;
+            const googleStt = new GoogleSTT();
+            if (speakerType === 'interviewer') {
+                googleStt.setEnableDiarization(true);
+            }
+            return googleStt as ISTT;
         }
 
         // 2. Deepgram (High Priority for cloud)
@@ -95,7 +100,11 @@ export class STTFactory {
         if (fullPrivacyMode) {
             throw new Error("Full Privacy Mode is enabled, so cloud STT providers are blocked. Configure Local Whisper before continuing.");
         }
-        return new GoogleSTT() as ISTT;
+        const googleStt = new GoogleSTT();
+        if (speakerType === 'interviewer') {
+            googleStt.setEnableDiarization(true);
+        }
+        return googleStt as ISTT;
     }
 
     /**

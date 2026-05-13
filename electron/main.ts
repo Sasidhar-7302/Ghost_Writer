@@ -140,9 +140,17 @@ import {
   pruneTranscriptEchoCandidates,
   TranscriptEchoCandidate
 } from "./audio/echoSuppression";
+import {
+  AudioCaptureMode,
+  normalizeAudioCaptureMode,
+  shouldCaptureMicrophoneAudio,
+  shouldCaptureSystemAudio
+} from "./audio/audioCaptureMode";
 
 import { ContextDocumentManager } from "./services/ContextDocumentManager"
 import { AnalyticsManager } from "./services/AnalyticsManager"
+
+const USER_ECHO_GRACE_MS = 900;
 
 export class AppState {
   private static instance: AppState | null = null
@@ -178,7 +186,11 @@ export class AppState {
 
   private hasDebugged: boolean = false
   private isMeetingActive: boolean = false; // Guard for session state leaks
+  private isListeningPaused: boolean = false; // Toggled by Ctrl+Shift+M shortcut
   private recentInterviewerTranscripts: TranscriptEchoCandidate[] = [];
+  private lastInterviewerTurnTime: number = 0;
+  private activeInterviewerSpeakerId: number = 0;
+  private pendingUserEchoTimers: NodeJS.Timeout[] = [];
 
   // Processing events
   public readonly PROCESSING_EVENTS = {
@@ -397,6 +409,97 @@ export class AppState {
     return isLikelyEchoTranscript(text, this.recentInterviewerTranscripts, timestamp);
   }
 
+  private emitUserTranscript(segment: { text: string, isFinal: boolean, confidence: number }, timestamp: number): void {
+    this.intelligenceManager.handleTranscript({
+      speaker: 'user',
+      text: segment.text,
+      timestamp,
+      final: segment.isFinal,
+      confidence: segment.confidence
+    });
+
+    const helper = this.getWindowHelper();
+    const payload = {
+      speaker: 'user',
+      text: segment.text,
+      timestamp,
+      final: segment.isFinal,
+      confidence: segment.confidence
+    };
+    helper.getLauncherWindow()?.webContents.send('native-audio-transcript', payload);
+    helper.getOverlayWindow()?.webContents.send('native-audio-transcript', payload);
+  }
+
+  private queueUserTranscriptForEchoCheck(segment: { text: string, isFinal: boolean, confidence: number }, timestamp: number): void {
+    const timer = setTimeout(() => {
+      this.pendingUserEchoTimers = this.pendingUserEchoTimers.filter((pending) => pending !== timer);
+      if (!this.isMeetingActive) {
+        return;
+      }
+
+      const checkTime = Date.now();
+      if (this.shouldSuppressUserEcho(segment.text, checkTime)) {
+        console.log('[Main] Delayed echo suppression triggered for loopback:', segment.text);
+        return;
+      }
+
+      this.emitUserTranscript(segment, timestamp);
+    }, USER_ECHO_GRACE_MS);
+
+    this.pendingUserEchoTimers.push(timer);
+  }
+
+  private clearPendingUserEchoTimers(): void {
+    for (const timer of this.pendingUserEchoTimers) {
+      clearTimeout(timer);
+    }
+    this.pendingUserEchoTimers = [];
+  }
+
+  private getAudioCaptureMode(): AudioCaptureMode {
+    return this.credentialsManager.getAudioCaptureMode();
+  }
+
+  private shouldWriteSystemAudio(): boolean {
+    return this.isMeetingActive && !this.isListeningPaused && shouldCaptureSystemAudio(this.getAudioCaptureMode());
+  }
+
+  private shouldWriteMicrophoneAudio(): boolean {
+    return this.isMeetingActive && !this.isListeningPaused && shouldCaptureMicrophoneAudio(this.getAudioCaptureMode());
+  }
+
+  public async setAudioCaptureMode(mode: AudioCaptureMode): Promise<void> {
+    this.credentialsManager.setAudioCaptureMode(normalizeAudioCaptureMode(mode));
+    this.clearPendingUserEchoTimers();
+    await this.applyAudioCaptureMode();
+  }
+
+  public async applyAudioCaptureMode(): Promise<void> {
+    if (!this.isMeetingActive || this.isListeningPaused) {
+      return;
+    }
+
+    const mode = this.getAudioCaptureMode();
+    console.log(`[Main] Applying Audio Capture Mode: ${mode}`);
+
+    if (shouldCaptureSystemAudio(mode)) {
+      this.googleSTT?.start();
+      this.systemAudioCapture?.start();
+    } else {
+      this.systemAudioCapture?.stop();
+      await this.googleSTT?.stop();
+    }
+
+    if (shouldCaptureMicrophoneAudio(mode)) {
+      this.googleSTT_User?.start();
+      this.microphoneCapture?.start();
+    } else {
+      this.clearPendingUserEchoTimers();
+      this.microphoneCapture?.stop();
+      await this.googleSTT_User?.stop();
+    }
+  }
+
   private async setupSystemAudioPipeline(): Promise<void> {
 
     if (!this.isNativeAudioAvailable) {
@@ -414,7 +517,9 @@ export class AppState {
         this.systemAudioCapture = new SystemAudioCapture();
         // Wire Capture -> STT
         this.systemAudioCapture.on('data', (chunk: Buffer) => {
-          this.googleSTT?.write(chunk);
+          if (this.shouldWriteSystemAudio()) {
+            this.googleSTT?.write(chunk);
+          }
         });
         this.systemAudioCapture.on('error', (err: Error) => {
           console.error('[Main] SystemAudioCapture Error:', err);
@@ -431,7 +536,9 @@ export class AppState {
         this.microphoneCapture = new MicrophoneCapture();
         // Wire Capture -> STT
         this.microphoneCapture.on('data', (chunk: Buffer) => {
-          this.googleSTT_User?.write(chunk);
+          if (this.shouldWriteMicrophoneAudio()) {
+            this.googleSTT_User?.write(chunk);
+          }
         });
         this.microphoneCapture.on('error', (err: Error) => {
           console.error('[Main] MicrophoneCapture Error:', err);
@@ -443,16 +550,39 @@ export class AppState {
         this.googleSTT = await STTFactory.createSTT('interviewer');
 
         // Wire Transcript Events
-        this.googleSTT.on('transcript', (segment: { text: string, isFinal: boolean, confidence: number }) => {
+        this.googleSTT.on('transcript', (segment: { text: string, isFinal: boolean, confidence: number, speakerId?: number }) => {
           if (!this.isMeetingActive) {
             return;
           }
 
           const timestamp = Date.now();
+
           this.rememberInterviewerTranscript(segment.text, timestamp, segment.isFinal);
 
+          // Determine the display label based on Meeting vs Interview mode
+          const isMeetingMode = this.credentialsManager.getIsMeetingMode();
+          const speakerBase = isMeetingMode ? 'Person' : 'Interviewer';
+
+          // Trust explicit provider diarization only. Local tiny-diarize marks turn boundaries
+          // with "(speaker ?)" but does not provide stable global speaker identities.
+          const providerSpeakerId = typeof segment.speakerId === 'number' && Number.isFinite(segment.speakerId)
+              ? segment.speakerId
+              : undefined;
+          let speakerId = providerSpeakerId ?? this.activeInterviewerSpeakerId;
+
+          if (providerSpeakerId !== undefined) {
+              this.activeInterviewerSpeakerId = providerSpeakerId;
+          }
+
+          if (segment.isFinal) {
+              this.lastInterviewerTurnTime = timestamp;
+          }
+
+          const speakerNum = (speakerId !== undefined ? speakerId : 0) + 1;
+          const mappedSpeaker = `${speakerBase} ${speakerNum}`;
+
           this.intelligenceManager.handleTranscript({
-            speaker: 'interviewer',
+            speaker: mappedSpeaker,
             text: segment.text,
             timestamp,
             final: segment.isFinal,
@@ -461,7 +591,8 @@ export class AppState {
 
           const helper = this.getWindowHelper();
           const payload = {
-            speaker: 'interviewer',
+            speaker: mappedSpeaker,
+            speakerId,
             text: segment.text,
             timestamp,
             final: segment.isFinal,
@@ -486,29 +617,20 @@ export class AppState {
           }
 
           const timestamp = Date.now();
-          if (this.shouldSuppressUserEcho(segment.text, timestamp)) {
-            console.log('[Main] Suppressing likely interviewer echo from microphone channel:', segment.text);
-            return;
+
+          // --- AGGRESSIVE BACKEND SILENCER ---
+          // Use the proper echo suppression with fuzzy word-overlap matching
+          if (segment.text?.trim() && this.shouldSuppressUserEcho(segment.text, timestamp)) {
+              console.log('[Main] Echo Suppression triggered for loopback:', segment.text);
+              return;
           }
 
-          this.intelligenceManager.handleTranscript({
-            speaker: 'user',
-            text: segment.text,
-            timestamp,
-            final: segment.isFinal,
-            confidence: segment.confidence
-          });
+          if (segment.text?.trim()) {
+              this.queueUserTranscriptForEchoCheck(segment, timestamp);
+              return;
+          }
 
-          const helper = this.getWindowHelper();
-          const payload = {
-            speaker: 'user',
-            text: segment.text,
-            timestamp,
-            final: segment.isFinal,
-            confidence: segment.confidence
-          };
-          helper.getLauncherWindow()?.webContents.send('native-audio-transcript', payload);
-          helper.getOverlayWindow()?.webContents.send('native-audio-transcript', payload);
+          this.emitUserTranscript(segment, timestamp);
         });
 
         this.googleSTT_User.on('error', (err: Error) => {
@@ -558,7 +680,9 @@ export class AppState {
       this.googleSTT?.setSampleRate(rate);
 
       this.systemAudioCapture.on('data', (chunk: Buffer) => {
-        this.googleSTT?.write(chunk);
+        if (this.shouldWriteSystemAudio()) {
+          this.googleSTT?.write(chunk);
+        }
       });
       this.systemAudioCapture.on('error', (err: Error) => {
         console.error('[Main] SystemAudioCapture Error:', err);
@@ -569,13 +693,17 @@ export class AppState {
             this.systemAudioCapture?.stop();
             this.systemAudioCapture = new SystemAudioCapture();
             this.systemAudioCapture.on('data', (chunk: Buffer) => {
-              this.googleSTT?.write(chunk);
+              if (this.shouldWriteSystemAudio()) {
+                this.googleSTT?.write(chunk);
+              }
             });
             this.systemAudioCapture.on('error', (err2: Error) => {
               console.error('[Main] SystemAudioCapture (Default) Error:', err2);
             });
-            this.systemAudioCapture.start();
-            console.log('[Main] SystemAudioCapture restarted with default device');
+            if (this.shouldWriteSystemAudio()) {
+              this.systemAudioCapture.start();
+              console.log('[Main] SystemAudioCapture restarted with default device');
+            }
           } catch (retryErr) {
             console.error('[Main] SystemAudioCapture default device retry also failed:', retryErr);
           }
@@ -591,7 +719,9 @@ export class AppState {
         this.googleSTT?.setSampleRate(rate);
 
         this.systemAudioCapture.on('data', (chunk: Buffer) => {
-          this.googleSTT?.write(chunk);
+          if (this.shouldWriteSystemAudio()) {
+            this.googleSTT?.write(chunk);
+          }
         });
         this.systemAudioCapture.on('error', (err: Error) => {
           console.error('[Main] SystemAudioCapture (Default) Error:', err);
@@ -615,7 +745,9 @@ export class AppState {
       this.googleSTT_User?.setSampleRate(rate);
 
       this.microphoneCapture.on('data', (chunk: Buffer) => {
-        this.googleSTT_User?.write(chunk);
+        if (this.shouldWriteMicrophoneAudio()) {
+          this.googleSTT_User?.write(chunk);
+        }
       });
       this.microphoneCapture.on('error', (err: Error) => {
         console.error('[Main] MicrophoneCapture Error:', err);
@@ -636,7 +768,9 @@ export class AppState {
         this.googleSTT_User?.setSampleRate(rate);
 
         this.microphoneCapture.on('data', (chunk: Buffer) => {
-          this.googleSTT_User?.write(chunk);
+          if (this.shouldWriteMicrophoneAudio()) {
+            this.googleSTT_User?.write(chunk);
+          }
         });
         this.microphoneCapture.on('error', (err: Error) => {
           console.error('[Main] MicrophoneCapture (Default) Error:', err);
@@ -691,12 +825,11 @@ export class AppState {
     }
 
     // Reinitialize the pipeline (will pick up the new provider from CredentialsManager)
-    this.setupSystemAudioPipeline();
+    await this.setupSystemAudioPipeline();
 
     // Start the new STT instances if a meeting is active
     if (this.isMeetingActive) {
-      this.googleSTT?.start();
-      this.googleSTT_User?.start();
+      await this.applyAudioCaptureMode();
     }
 
     console.log('[Main] STT Provider reconfigured');
@@ -761,11 +894,17 @@ export class AppState {
     console.log('[Main] Starting Meeting...', metadata);
 
     this.isMeetingActive = true;
+    this.clearPendingUserEchoTimers();
     this.recentInterviewerTranscripts = [];
+    this.activeInterviewerSpeakerId = 0;
+    this.lastInterviewerTurnTime = 0;
     this.intelligenceManager.setMeetingMetadata(metadata || null);
     if (metadata) {
       // Check for audio configuration preference
       if (metadata.audio) {
+        if (metadata.audio.captureMode) {
+          this.credentialsManager.setAudioCaptureMode(normalizeAudioCaptureMode(metadata.audio.captureMode));
+        }
         await this.reconfigureAudio(metadata.audio.inputDeviceId, metadata.audio.outputDeviceId);
       }
     }
@@ -781,13 +920,7 @@ export class AppState {
     // LAZY INIT: Ensure pipeline is ready (if not reconfigured above)
     await this.setupSystemAudioPipeline();
 
-    // 3. Start System Audio
-    this.systemAudioCapture?.start();
-    this.googleSTT?.start();
-
-    // 4. Start Microphone
-    this.microphoneCapture?.start();
-    this.googleSTT_User?.start();
+    await this.applyAudioCaptureMode();
   }
 
   public async endMeeting(): Promise<void> {
@@ -797,6 +930,7 @@ export class AppState {
     }
     console.log('[Main] Ending Meeting...');
     this.isMeetingActive = false; // Block new data immediately
+    this.clearPendingUserEchoTimers();
     this.recentInterviewerTranscripts = [];
 
     // Track meeting end
@@ -815,6 +949,37 @@ export class AppState {
 
     // 5. Process meeting for RAG (embeddings)
     await this.processCompletedMeetingForRAG();
+  }
+
+  /**
+   * Toggle STT listening on/off without ending the meeting.
+   * Useful for muting the assistant during private conversations.
+   * Returns the new paused state (true = paused).
+   */
+  public toggleListeningPause(): boolean {
+    if (!this.isMeetingActive) return false;
+
+    this.isListeningPaused = !this.isListeningPaused;
+
+    if (this.isListeningPaused) {
+      console.log('[AppState] Listening PAUSED by user shortcut');
+      this.clearPendingUserEchoTimers();
+      this.googleSTT?.stop();
+      this.googleSTT_User?.stop();
+    } else {
+      console.log('[AppState] Listening RESUMED by user shortcut');
+      void this.applyAudioCaptureMode();
+    }
+
+    // Notify overlay window so the UI can show the paused badge
+    const overlay = this.getWindowHelper().getOverlayWindow();
+    overlay?.webContents.send('listening-paused-state-changed', this.isListeningPaused);
+
+    return this.isListeningPaused;
+  }
+
+  public getIsListeningPaused(): boolean {
+    return this.isListeningPaused;
   }
 
   private async processCompletedMeetingForRAG(): Promise<void> {
@@ -1373,6 +1538,8 @@ export class AppState {
       this.showTray();
       this._applyDisguise('none');
     }
+
+    this.windowHelper.syncOverlayTaskbarForUndetectableMode()
   }
 
   public getUndetectable(): boolean {

@@ -5,12 +5,14 @@ extern crate napi_derive;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
 use napi::bindgen_prelude::*;
 use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode, ErrorStrategy};
-use ringbuf::traits::Consumer;
+use ringbuf::traits::{Consumer, Producer};
+use once_cell::sync::Lazy;
 
 pub mod vad; 
 pub mod microphone;
@@ -18,6 +20,7 @@ pub mod speaker;
 pub mod streaming_resampler;
 pub mod audio_config;
 pub mod silence_suppression;
+pub mod echo_canceller;
 
 // Keep old resampler module for compatibility
 pub mod resampler;
@@ -27,6 +30,74 @@ use crate::audio_config::{FRAME_SAMPLES, DSP_POLL_MS};
 use crate::silence_suppression::{
     SilenceSuppressor, SilenceSuppressionConfig, FrameAction, generate_silence_frame
 };
+use crate::echo_canceller::{EchoCanceller, AecStats};
+
+// =============================================================================
+// GLOBAL AEC STATE
+// =============================================================================
+//
+// DESIGN: The Mutex is held ONLY during:
+//   1. Initialization (ensure_aec_initialized) — once per session
+//   2. take_reference_producer() — once when SystemAudioCapture.start() is called
+//   3. take_canceller()          — once when MicrophoneCapture.start() is called
+//   4. setAecEnabled / getAecStats NAPI calls — infrequent control-plane calls
+//
+// The Mutex is NEVER held inside DSP frame-processing loops.
+// The HeapProd and EchoCanceller are moved out of the mutex into their
+// respective threads, communicating through the lock-free ring buffer.
+// =============================================================================
+
+struct GlobalAecState {
+    /// Reference producer — taken once by SystemAudioCapture.start()
+    reference_producer: Option<ringbuf::HeapProd<i16>>,
+    /// Echo canceller — taken once by MicrophoneCapture.start()
+    canceller: Option<EchoCanceller>,
+    /// Shared enabled flag (survives after canceller is taken)
+    enabled_flag: Option<Arc<AtomicBool>>,
+    /// Shared stats (survives after canceller is taken)
+    stats: Option<Arc<AecStats>>,
+    /// Track whether AEC was initialized
+    initialized: bool,
+}
+
+static GLOBAL_AEC: Lazy<Mutex<GlobalAecState>> = Lazy::new(|| {
+    Mutex::new(GlobalAecState {
+        reference_producer: None,
+        canceller: None,
+        enabled_flag: None,
+        stats: None,
+        initialized: false,
+    })
+});
+
+/// Initialize global AEC state. Called once when either capture stream starts.
+fn ensure_aec_initialized() {
+    let mut state = GLOBAL_AEC.lock().unwrap();
+    if state.initialized {
+        return;
+    }
+
+    println!("[AEC] Initializing global echo canceller...");
+    let (canceller, producer) = EchoCanceller::new();
+    state.enabled_flag = Some(canceller.get_enabled_flag());
+    state.stats = Some(canceller.get_stats());
+    state.reference_producer = Some(producer);
+    state.canceller = Some(canceller);
+    state.initialized = true;
+    println!("[AEC] Global echo canceller ready.");
+}
+
+/// Take the reference producer out of global state (called once by SystemAudioCapture).
+/// Returns None if already taken or not initialized.
+fn take_reference_producer() -> Option<ringbuf::HeapProd<i16>> {
+    GLOBAL_AEC.lock().ok()?.reference_producer.take()
+}
+
+/// Take the echo canceller out of global state (called once by MicrophoneCapture).
+/// Returns None if already taken or not initialized.
+fn take_canceller() -> Option<EchoCanceller> {
+    GLOBAL_AEC.lock().ok()?.canceller.take()
+}
 
 // ============================================================================
 // SYSTEM AUDIO CAPTURE
@@ -102,7 +173,12 @@ impl SystemAudioCapture {
         
         self.stream = Some(stream);
 
-        // DSP thread with silence suppression
+        // Ensure AEC is initialized so we can push reference frames
+        ensure_aec_initialized();
+        // Take the reference producer ONCE — moved into the DSP thread (no mutex on hot path)
+        let aec_producer = take_reference_producer();
+
+        // DSP thread with silence suppression + AEC reference feed
         self.capture_thread = Some(thread::spawn(move || {
             let mut resampler = StreamingResampler::new(input_sample_rate, 16000.0);
             let mut frame_buffer: Vec<i16> = Vec::with_capacity(FRAME_SAMPLES * 4);
@@ -113,7 +189,12 @@ impl SystemAudioCapture {
                 SilenceSuppressionConfig::for_system_audio()
             );
 
-            println!("[SystemAudioCapture] DSP thread started (suppression active)");
+            // AEC reference producer (lock-free, owned by this thread)
+            let mut ref_producer = aec_producer;
+            let has_aec = ref_producer.is_some();
+
+            println!("[SystemAudioCapture] DSP thread started (suppression={}, AEC_ref={})",
+                true, has_aec);
 
             loop {
                 if stop_signal.load(Ordering::Relaxed) {
@@ -137,9 +218,17 @@ impl SystemAudioCapture {
                     raw_batch.clear();
                 }
 
-                // 3. Process frames with Silence Suppression
+                // 3. Process frames with Silence Suppression + AEC reference push
                 while frame_buffer.len() >= FRAME_SAMPLES {
                     let frame: Vec<i16> = frame_buffer.drain(0..FRAME_SAMPLES).collect();
+                    
+                    // === AEC REFERENCE FEED (lock-free, no mutex) ===
+                    if let Some(ref mut producer) = ref_producer {
+                        for &sample in &frame {
+                            let _ = producer.try_push(sample);
+                        }
+                    }
+                    
                     match suppressor.process(&frame) {
                         FrameAction::Send(audio) => {
                              tsfn.call(audio, ThreadsafeFunctionCallMode::NonBlocking);
@@ -235,7 +324,12 @@ impl MicrophoneCapture {
         let mut consumer = input_ref.take_consumer()
             .ok_or_else(|| napi::Error::from_reason("Failed to get consumer"))?;
 
-        // DSP thread with silence suppression
+        // Ensure AEC is initialized so we can process capture frames
+        ensure_aec_initialized();
+        // Take the canceller ONCE — moved into the DSP thread (no mutex on hot path)
+        let aec_canceller = take_canceller();
+
+        // DSP thread with AEC + silence suppression
         self.capture_thread = Some(thread::spawn(move || {
             let mut resampler = StreamingResampler::new(input_sample_rate, 16000.0);
             let mut frame_buffer: Vec<i16> = Vec::with_capacity(FRAME_SAMPLES * 4);
@@ -246,7 +340,12 @@ impl MicrophoneCapture {
                 SilenceSuppressionConfig::for_microphone()
             );
 
-            println!("[MicrophoneCapture] DSP thread started (suppression active)");
+            // AEC canceller (lock-free, owned by this thread)
+            let mut canceller = aec_canceller;
+            let has_aec = canceller.is_some();
+
+            println!("[MicrophoneCapture] DSP thread started (suppression={}, AEC={})",
+                true, has_aec);
 
             loop {
                 if stop_signal.load(Ordering::Relaxed) {
@@ -270,17 +369,25 @@ impl MicrophoneCapture {
                     raw_batch.clear();
                 }
 
-                // 3. Process frames with Silence Suppression
+                // 3. Process frames: AEC → Silence Suppression
                 while frame_buffer.len() >= FRAME_SAMPLES {
                     let frame: Vec<i16> = frame_buffer.drain(0..FRAME_SAMPLES).collect();
-                    match suppressor.process(&frame) {
+                    
+                    // === AEC CAPTURE PROCESSING (lock-free, no mutex) ===
+                    let cleaned_frame = if let Some(ref mut aec) = canceller {
+                        aec.process_capture(&frame)
+                    } else {
+                        frame // No AEC — pass through unchanged
+                    };
+                    
+                    match suppressor.process(&cleaned_frame) {
                         FrameAction::Send(audio) => {
                              tsfn.call(audio, ThreadsafeFunctionCallMode::NonBlocking);
                         },
                         FrameAction::SendSilence => {
                              tsfn.call(generate_silence_frame(FRAME_SAMPLES), ThreadsafeFunctionCallMode::NonBlocking);
                         },
-                         FrameAction::Suppress => {
+                        FrameAction::Suppress => {
                             // Do nothing
                         }
                     }
@@ -342,6 +449,58 @@ pub fn get_output_devices() -> Vec<AudioDeviceInfo> {
         Err(e) => {
             eprintln!("[get_output_devices] Error: {}", e);
             Vec::new()
+        }
+    }
+}
+
+// ============================================================================
+// AEC CONTROL (NAPI exports)
+// ============================================================================
+
+#[napi(object)]
+pub struct AecStatsInfo {
+    pub enabled: bool,
+    pub frames_processed: i64,
+    pub frames_with_echo: i64,
+    pub frames_passthrough: i64,
+    pub reference_underruns: i64,
+}
+
+/// Toggle AEC on/off at runtime
+#[napi]
+pub fn set_aec_enabled(enabled: bool) {
+    if let Ok(state) = GLOBAL_AEC.lock() {
+        if let Some(ref flag) = state.enabled_flag {
+            flag.store(enabled, Ordering::Relaxed);
+            println!("[AEC] Set enabled: {}", enabled);
+        } else {
+            println!("[AEC] Cannot set enabled: AEC not initialized");
+        }
+    }
+}
+
+/// Get current AEC statistics
+#[napi]
+pub fn get_aec_stats() -> AecStatsInfo {
+    if let Ok(state) = GLOBAL_AEC.lock() {
+        let enabled = state.enabled_flag.as_ref()
+            .map(|f| f.load(Ordering::Relaxed))
+            .unwrap_or(false);
+        let stats = state.stats.as_ref();
+        AecStatsInfo {
+            enabled,
+            frames_processed: stats.map(|s| s.frames_processed.load(Ordering::Relaxed) as i64).unwrap_or(0),
+            frames_with_echo: stats.map(|s| s.frames_with_echo.load(Ordering::Relaxed) as i64).unwrap_or(0),
+            frames_passthrough: stats.map(|s| s.frames_passthrough.load(Ordering::Relaxed) as i64).unwrap_or(0),
+            reference_underruns: stats.map(|s| s.reference_underruns.load(Ordering::Relaxed) as i64).unwrap_or(0),
+        }
+    } else {
+        AecStatsInfo {
+            enabled: false,
+            frames_processed: 0,
+            frames_with_echo: 0,
+            frames_passthrough: 0,
+            reference_underruns: 0,
         }
     }
 }

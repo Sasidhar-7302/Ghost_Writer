@@ -23,6 +23,7 @@ export class GoogleSTT extends EventEmitter {
     private audioChannelCount = 1; // Default to Mono
     private languageCode = 'en-US';
     private alternativeLanguageCodes: string[] = ['en-IN', 'en-GB']; // Default fallbacks
+    private enableDiarization = false; // Disabled by default, enabled for meetings
 
     constructor() {
         super();
@@ -67,6 +68,17 @@ export class GoogleSTT extends EventEmitter {
         this.audioChannelCount = count;
         if (this.isStreaming) {
             console.warn('[GoogleSTT] Config changed while streaming. Restarting stream...');
+            this.stop();
+            this.start();
+        }
+    }
+
+    public setEnableDiarization(enabled: boolean): void {
+        if (this.enableDiarization === enabled) return;
+        console.log(`[GoogleSTT] Updating Diarization to: ${enabled}`);
+        this.enableDiarization = enabled;
+        if (this.isStreaming) {
+            console.warn('[GoogleSTT] Diarization changed while streaming. Restarting stream...');
             this.stop();
             this.start();
         }
@@ -195,6 +207,11 @@ export class GoogleSTT extends EventEmitter {
                     model: 'latest_long',
                     useEnhanced: true,
                     alternativeLanguageCodes: this.alternativeLanguageCodes,
+                    diarizationConfig: this.enableDiarization ? {
+                        enableSpeakerDiarization: true,
+                        minSpeakerCount: 2,
+                        maxSpeakerCount: 6,
+                    } : undefined,
                 },
                 interimResults: true,
             })
@@ -204,7 +221,6 @@ export class GoogleSTT extends EventEmitter {
                 this.isConnecting = false;
             })
             .on('data', (data: any) => {
-                // ... (existing data handler)
                 if (data.results[0] && data.results[0].alternatives[0]) {
                     const result = data.results[0];
                     const alt = result.alternatives[0];
@@ -212,10 +228,25 @@ export class GoogleSTT extends EventEmitter {
                     const isFinal = result.isFinal;
 
                     if (transcript) {
+                        // Extract speakerTag if diarization is enabled
+                        // Note: Google usually sends speakerTags in final results with words
+                        let speakerId = undefined;
+                        if (alt.words && alt.words.length > 0) {
+                            // Use the tag of the last word in the segment
+                            speakerId = alt.words[alt.words.length - 1].speakerTag;
+                            // Google's tags are 1-indexed, we'll convert to 0-indexed for consistency if needed, 
+                            // but our backend logic (Person num + 1) expects 0-indexed or undefined.
+                            // Let's normalize it: if tag is 1, return 0.
+                            if (typeof speakerId === 'number') {
+                                speakerId = speakerId - 1;
+                            }
+                        }
+
                         this.emit('transcript', {
                             text: transcript,
                             isFinal,
-                            confidence: alt.confidence
+                            confidence: alt.confidence,
+                            speakerId: speakerId
                         });
                     }
                 }

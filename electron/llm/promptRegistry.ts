@@ -9,7 +9,7 @@ import {
     UNIVERSAL_SYSTEM_PROMPT,
     UNIVERSAL_WHAT_TO_ANSWER_PROMPT,
     injectUserContext
-} from "./prompts";
+} from "./prompts/index";
 import { PromptMode, PromptSettings, PromptSettingsMap, PROMPT_MODES } from "./promptTypes";
 
 export interface PromptTemplateDefinition {
